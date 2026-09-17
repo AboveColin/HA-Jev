@@ -1,0 +1,9 @@
+target-version = "py312"
+line-length = 90
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+# SIM102 would merge the last `elif <type>:` in _check_question_shape with the test
+# inside it. That branch would then read differently from the two identical ones
+# above it, and the shape of that function is the reason it is easy to extend.
+ignore = ["SIM102"]

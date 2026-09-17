@@ -1,0 +1,238 @@
+"""One coordinator per context, plus the usage accounting shared by an entry."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from typing import Any
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed, TemplateError
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from jevclient import (
+    USD_PER_MILLION_INPUT_TOKENS,
+    Answer,
+    JevAuthError,
+    JevClient,
+    JevError,
+    JevRateLimitError,
+)
+
+from .const import (
+    DOMAIN,
+    ISSUE_BUDGET_EXCEEDED,
+    MIN_UPDATE_INTERVAL_SECONDS,
+    STORE_SAVE_DELAY_SECONDS,
+    TRIGGER_DEBOUNCE_SECONDS,
+)
+from .models import ContextConfig
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class UsageAccount:
+    """What this config entry has spent today.
+
+    The token counts are what the API reported, not an estimate. The money is an
+    estimate, because the price is a setting and TypeSafe can change theirs.
+
+    The totals are persisted. Home Assistant restarts, and so does a reload after
+    an options change, and a daily budget that either of those clears would not be
+    a daily budget at all.
+    """
+
+    day: date
+    calls: int = 0
+    input_tokens: int = 0
+    budget: int = 0
+    price_per_million: float = USD_PER_MILLION_INPUT_TOKENS
+    budget_exceeded: bool = False
+    listeners: list[Any] = field(default_factory=list)
+    store: Store[dict[str, Any]] | None = None
+
+    def as_stored(self) -> dict[str, Any]:
+        return {
+            "day": self.day.isoformat(),
+            "calls": self.calls,
+            "input_tokens": self.input_tokens,
+        }
+
+    def restore(self, stored: dict[str, Any] | None) -> None:
+        """Adopt yesterday's file only if it is actually today's."""
+        if not stored:
+            return
+        try:
+            stored_day = date.fromisoformat(stored["day"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if stored_day != self.day:
+            return
+        self.calls = int(stored.get("calls", 0))
+        self.input_tokens = int(stored.get("input_tokens", 0))
+
+    def _save(self) -> None:
+        if self.store is not None:
+            self.store.async_delay_save(self.as_stored, STORE_SAVE_DELAY_SECONDS)
+
+    def roll_over(self, today: date) -> None:
+        if today != self.day:
+            self.day = today
+            self.calls = 0
+            self.input_tokens = 0
+            self.budget_exceeded = False
+            self._save()
+
+    def record(self, input_tokens: int) -> None:
+        self.calls += 1
+        self.input_tokens += input_tokens
+        self._save()
+
+    @property
+    def estimated_cost(self) -> float:
+        return self.input_tokens / 1_000_000 * self.price_per_million
+
+    def would_exceed(self) -> bool:
+        return self.budget > 0 and self.input_tokens >= self.budget
+
+    @callback
+    def notify(self) -> None:
+        for listener in list(self.listeners):
+            listener()
+
+
+@dataclass
+class JevRuntimeData:
+    """Everything a config entry owns while it is loaded."""
+
+    client: JevClient
+    usage: UsageAccount
+    coordinators: dict[str, JevCoordinator] = field(default_factory=dict)
+    model_version: str | None = None
+
+
+class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
+    """Evaluates one context: render the template, ask every question, store answers."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        runtime: JevRuntimeData,
+        context: ContextConfig,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN} {context.name}",
+            update_interval=timedelta(
+                seconds=max(context.scan_interval, MIN_UPDATE_INTERVAL_SECONDS)
+            ),
+            config_entry=entry,
+        )
+        self.context_config = context
+        self.runtime = runtime
+        self.last_state_text: str | None = None
+        self.last_latency_ms: float | None = None
+        self._unsub_triggers: Any = None
+
+    async def async_setup_triggers(self) -> None:
+        """Re-evaluate when a tracked entity changes, debounced.
+
+        Without the debounce a power sensor updating every second would issue a
+        paid request every second.
+        """
+        if not self.context_config.trigger_entities:
+            return
+        debouncer = Debouncer(
+            self.hass,
+            _LOGGER,
+            cooldown=TRIGGER_DEBOUNCE_SECONDS,
+            immediate=False,
+            function=self.async_request_refresh,
+        )
+
+        @callback
+        def _changed(_event: Any) -> None:
+            self.hass.async_create_task(debouncer.async_call())
+
+        self._unsub_triggers = async_track_state_change_event(
+            self.hass, self.context_config.trigger_entities, _changed
+        )
+
+    @callback
+    def async_shutdown_triggers(self) -> None:
+        if self._unsub_triggers is not None:
+            self._unsub_triggers()
+            self._unsub_triggers = None
+
+    async def _async_update_data(self) -> dict[str, Answer]:
+        usage = self.runtime.usage
+        usage.roll_over(date.today())
+
+        if usage.would_exceed():
+            self._raise_budget_issue(usage)
+            # Keep the answers already held. Inventing a value here would be worse
+            # than staying still, and clearing them would hide the last real result.
+            raise UpdateFailed(
+                f"daily token budget reached: budget {usage.budget} input tokens, "
+                f"used {usage.input_tokens} today. Raise or clear the budget in the "
+                f"integration options to continue."
+            )
+
+        try:
+            state_text = self.context_config.template.async_render(parse_result=False)
+        except TemplateError as err:
+            raise UpdateFailed(
+                f"the state template for context "
+                f"{self.context_config.name!r} failed: {err}"
+            ) from err
+
+        questions = {q.key: q.question for q in self.context_config.questions}
+        try:
+            response = await self.runtime.client.ask(state_text, questions)
+        except JevAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except JevRateLimitError as err:
+            raise UpdateFailed(f"rate limited by TypeSafe: {err}") from err
+        except JevError as err:
+            raise UpdateFailed(str(err)) from err
+
+        usage.record(response.usage.input_tokens)
+        self.runtime.model_version = response.model or self.runtime.model_version
+        self.last_state_text = state_text
+        self.last_latency_ms = response.latency_ms
+        usage.notify()
+        return response.answers
+
+    def _raise_budget_issue(self, usage: UsageAccount) -> None:
+        if usage.budget_exceeded:
+            return
+        usage.budget_exceeded = True
+        _LOGGER.error(
+            "Jev stopped evaluating: daily budget is %s input tokens, %s used today, "
+            "and context %r needs another call. Raise the budget in the integration "
+            "options or reduce how often contexts evaluate.",
+            usage.budget,
+            usage.input_tokens,
+            self.context_config.name,
+        )
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            ISSUE_BUDGET_EXCEEDED,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_BUDGET_EXCEEDED,
+            translation_placeholders={
+                "budget": str(usage.budget),
+                "used": str(usage.input_tokens),
+            },
+        )
+        usage.notify()

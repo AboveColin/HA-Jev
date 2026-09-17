@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to TypeSafe",
+        "description": "Paste an API key from your TypeSafe account. Home Assistant asks one short question to check that the key works.",
+        "data": { "api_key": "API key" }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter your API key",
+        "description": "TypeSafe rejected the key currently stored. Paste a working one.",
+        "data": { "api_key": "API key" }
+      }
+    },
+    "error": {
+      "invalid_auth": "TypeSafe rejected this key.",
+      "cannot_connect": "Home Assistant could not reach the TypeSafe API."
+    },
+    "abort": {
+      "already_configured": "This API key is already set up.",
+      "reauth_successful": "The new key works."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Spending limits",
+        "description": "Input tokens are what you pay for, and question text counts as input. Set the budget past anything a working setup would use, so only a runaway reaches it. Zero means no limit.",
+        "data": {
+          "daily_token_budget": "Daily input token budget (0 = no limit)",
+          "price_per_million": "Price per million input tokens, in USD"
+        }
+      }
+    }
+  },
+  "issues": {
+    "daily_budget_exceeded": {
+      "title": "Jev stopped evaluating: daily budget reached",
+      "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. Answers keep their last value until tomorrow. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+    }
+  },
+  "services": {
+    "ask": {
+      "name": "Ask",
+      "description": "Ask Jev one or more typed questions about a piece of text, and use the answers in the same script.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The text to evaluate. Templates are rendered before it is sent."
+        },
+        "questions": {
+          "name": "Questions",
+          "description": "A mapping of your own key to a question. A question has a type of noul, choice or score, instructions, and criteria for choice and score."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
+    }
+  }
+}

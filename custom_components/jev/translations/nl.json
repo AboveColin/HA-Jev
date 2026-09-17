@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Verbinden met TypeSafe",
+        "description": "Plak een API-sleutel uit je TypeSafe-account. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
+        "data": { "api_key": "API-sleutel" }
+      },
+      "reauth_confirm": {
+        "title": "Voer je API-sleutel opnieuw in",
+        "description": "TypeSafe weigert de opgeslagen sleutel. Plak een werkende sleutel.",
+        "data": { "api_key": "API-sleutel" }
+      }
+    },
+    "error": {
+      "invalid_auth": "TypeSafe weigert deze sleutel.",
+      "cannot_connect": "Home Assistant kan de TypeSafe-API niet bereiken."
+    },
+    "abort": {
+      "already_configured": "Deze API-sleutel is al ingesteld.",
+      "reauth_successful": "De nieuwe sleutel werkt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Uitgavelimieten",
+        "description": "Je betaalt voor invoertokens, en de tekst van je vragen telt mee als invoer. Zet de limiet ruim boven wat een werkende opstelling gebruikt, zodat alleen een op hol geslagen configuratie hem raakt. Nul betekent geen limiet.",
+        "data": {
+          "daily_token_budget": "Daglimiet invoertokens (0 = geen limiet)",
+          "price_per_million": "Prijs per miljoen invoertokens, in USD"
+        }
+      }
+    }
+  },
+  "issues": {
+    "daily_budget_exceeded": {
+      "title": "Jev is gestopt: daglimiet bereikt",
+      "description": "De daglimiet is {budget} invoertokens en er zijn er vandaag {used} gebruikt, dus er worden geen vragen meer gesteld. Antwoorden houden hun laatste waarde tot morgen. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
+    }
+  },
+  "services": {
+    "ask": {
+      "name": "Vragen",
+      "description": "Stel Jev een of meer getypeerde vragen over een stuk tekst en gebruik de antwoorden in hetzelfde script.",
+      "fields": {
+        "state": {
+          "name": "Toestand",
+          "description": "De tekst die beoordeeld wordt. Templates worden eerst gerenderd."
+        },
+        "questions": {
+          "name": "Vragen",
+          "description": "Een mapping van je eigen sleutel naar een vraag. Een vraag heeft een type noul, choice of score, instructies, en criteria bij choice en score."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan één is."
+        }
+      }
+    }
+  }
+}

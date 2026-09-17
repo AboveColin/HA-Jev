@@ -1,0 +1,19 @@
+ask:
+  fields:
+    state:
+      required: true
+      example: "The front door has been unlocked for 40 minutes and nobody is home."
+      selector:
+        text:
+          multiline: true
+    questions:
+      required: true
+      example: >
+        {"leave_open": {"type": "noul", "instructions": "Should someone be warned?"}}
+      selector:
+        object:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
