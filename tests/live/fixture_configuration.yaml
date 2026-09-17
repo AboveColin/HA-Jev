@@ -1,0 +1,116 @@
+# The Home Assistant config the live automation test drives. Copy the pieces you
+# need into a throwaway instance; it is not meant for a real one.
+#
+# input_number.washer_watts stands in for a power sensor, and the two input_text
+# helpers exist so an automation can write its answer somewhere a test can read.
+
+input_number:
+  washer_watts:
+    min: 0
+    max: 3000
+    initial: 1.2
+    step: 0.1
+
+input_boolean:
+  laundry_door_closed:
+    initial: true
+
+input_text:
+  jev_template_result:
+    initial: unset
+    max: 100
+  jev_target_result:
+    initial: unset
+    max: 100
+
+jev: debug
+
+input_number:
+  washer_watts:
+    min: 0
+    max: 3000
+    initial: 1.2
+    step: 0.1
+
+input_boolean:
+  laundry_door_closed:
+    initial: true
+
+input_text:
+  jev_template_result:
+    initial: unset
+    max: 100
+  jev_target_result:
+    initial: unset
+    max: 100
+
+jev:
+  - name: Laundry
+    scan_interval: 300
+    entities:
+      - input_number.washer_watts
+      - input_boolean.laundry_door_closed
+    questions:
+      - name: Laundry forgotten
+        type: noul
+        instructions: Is the washing machine idle, suggesting the programme has finished?
+        threshold: 0.7
+
+automation:
+  # The template path: the script engine renders `state` before the action sees it,
+  # which is the one thing a REST call never exercises.
+  - alias: Jev template path
+    id: jev_template_path
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_number.washer_watts
+    actions:
+      - action: jev.noul
+        response_variable: verdict
+        data:
+          state: >-
+            The washing machine is
+            {% if states('input_number.washer_watts') | float(0) < 5 %}
+            drawing almost no power, which means it is idle
+            {% else %}
+            drawing {{ states('input_number.washer_watts') }} W, which means a
+            programme is running
+            {% endif %}.
+            A programme was started 40 minutes ago, and nobody has entered the
+            laundry room since.
+          instructions: Is the laundry finished but still sitting in the machine?
+          true_means: The programme is done and nobody has emptied it
+          false_means: Still running, or already emptied
+          threshold: 0.6
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.jev_template_result
+        data:
+          value: "{{ verdict.noul }}|{{ verdict.is_true }}|{{ verdict.usage.input_tokens }}"
+
+  # The target path: no text at all, the entities are the input.
+  - alias: Jev target path
+    id: jev_target_path
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.laundry_door_closed
+    actions:
+      - action: jev.choice
+        response_variable: room
+        target:
+          entity_id:
+            - input_number.washer_watts
+            - input_boolean.laundry_door_closed
+        data:
+          instructions: Which room do these readings concern?
+          options: [laundry, kitchen, bathroom, other]
+          option_descriptions:
+            laundry: Washing machine and dryer
+            kitchen: Cooking and dishwasher
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.jev_target_result
+        data:
+          value: "{{ room.choice }}|{{ room.confidence }}"

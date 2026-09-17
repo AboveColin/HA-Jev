@@ -178,7 +178,10 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         elif context.selector:
             # Tracking the selector rather than a fixed list means an entity added
             # to a targeted area later starts waking the context on its own.
-            self._unsub_triggers = async_track_target_selector_state_change_event(
+            # This one is an async function, whatever its -> CALLBACK_TYPE
+            # annotation says. Assigning it without awaiting stores a coroutine, the
+            # tracker never registers, and unload later fails on calling it.
+            self._unsub_triggers = await async_track_target_selector_state_change_event(
                 self.hass, context.selector, _changed
             )
 

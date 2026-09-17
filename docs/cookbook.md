@@ -121,7 +121,18 @@ number, and the shape carries information the number throws away.
 A flat or two-humped distribution is a sign your question is doing two jobs. Split
 it, and combine the answers in your own template, where you can see the arithmetic.
 
-## 5. Where to stop
+## 5. Keep the numbers in your own code
+
+Jev judges, it does not calculate. Asking it whether 1.2 is below a stated threshold
+of 5 produced a separation of 0.06 between an idle machine and a running one.
+Doing that comparison in the template and handing over the words "drawing almost no
+power, which means it is idle" produced a separation of 0.48 on the same question.
+
+That generalises. Thresholds, unit conversions, date arithmetic and lookups belong
+in Jinja or in Python, where they are exact and cost nothing. Give the model the
+conclusion and ask it to judge what the conclusion means.
+
+## 6. Where to stop
 
 Do not put this in front of a lock, a heater, a smoke alarm or anything that costs
 money to get wrong. The model returns a number with no reasoning attached, its
