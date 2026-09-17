@@ -275,6 +275,57 @@ also take an object or a list there, not only a string, which is worth doing whe
 the state has several named parts: the model reads JSON as labelled data rather
 than as one blob.
 
+## Automation variables and trigger data
+
+Everything an automation knows can go into a question, with no special support
+needed: Home Assistant renders action data before the action ever sees it. That
+covers `trigger`, a `variables:` block, `this`, and anything else in scope.
+
+```yaml
+automation:
+  - alias: Triage the doorbell
+    triggers:
+      - trigger: mqtt
+        topic: intercom/transcript
+    variables:
+      household:
+        residents: [Colin]
+        expects_deliveries: true
+    actions:
+      - action: jev.choice
+        response_variable: caller
+        data:
+          state:
+            said: "{{ trigger.payload }}"
+            time: "{{ now().strftime('%H:%M on %A') }}"
+            household: "{{ household }}"
+          instructions: What kind of caller is this?
+          options: [delivery, neighbour, sales, other]
+```
+
+A variable holding a mapping stays a mapping. That example arrives as real JSON with
+`household.residents` still a list, not as a stringified dict, which matters because
+the model reads field names as labels. Verified in a running instance: the debug log
+shows `asking 4 question(s) about a dict state: {'trigger_value': 'a ZEBRA walked
+past', 'room': 'laundry', 'machine': {'brand': 'Miele', 'idle_watts': 5}}`, and
+questions about `machine.brand` and `machine.idle_watts` answered correctly.
+
+Turn on debug logging to see exactly what was sent:
+
+```yaml
+logger:
+  logs:
+    custom_components.jev: debug
+```
+
+Templates work the same way in `instructions`, `background`, `options` and `levels`,
+because they are all just action data.
+
+One limit worth knowing: a `jev:` context in `configuration.yaml` has no automation
+around it, so it has no variables and no trigger. It has entities, a template, and
+`background` on each question. Anything that needs a trigger's data belongs in an
+automation calling an action.
+
 ## What it costs, and the budget
 
 Three entities report spending: calls today, input tokens today, and estimated cost

@@ -194,3 +194,44 @@ async def test_an_answer_of_the_wrong_type_says_so(hass, loaded_entry, mock_clie
         await call(hass, "choice", {
             "state": "x", "instructions": "y", "options": ["a", "b"],
         })
+
+
+async def test_a_structured_state_is_passed_through_untouched(
+    hass, loaded_entry, mock_client
+):
+    """An automation variable holding a mapping must stay a mapping.
+
+    Home Assistant renders action data natively, so `{{ machine }}` arrives as a
+    dict with real ints. Flattening it here would throw away the field names the
+    model reads as labels.
+    """
+    state = {
+        "trigger_value": "a ZEBRA walked past",
+        "room": "laundry",
+        "machine": {"brand": "Miele", "idle_watts": 5, "running_watts": 300},
+    }
+    await call(hass, "noul", {"state": state, "instructions": "Is `machine.idle_watts` 5?"})
+    sent = mock_client.ask.await_args.args[0]
+    assert sent == state
+    assert isinstance(sent["machine"]["idle_watts"], int)
+
+
+async def test_a_list_state_survives_too(hass, loaded_entry, mock_client):
+    """Arrays suit a sequence of messages or records, per the API docs."""
+    state = [{"from": "a housemate", "text": "is the washing done"}, {"from": "sensor", "text": "1.2 W"}]
+    await call(hass, "noul", {"state": state, "instructions": "Is anyone asking a question?"})
+    assert mock_client.ask.await_args.args[0] == state
+
+
+async def test_a_template_inside_a_structured_state_is_left_alone(
+    hass, loaded_entry, mock_client
+):
+    """Only a bare unrendered string is rendered here.
+
+    Inside a mapping the script engine has already done it, and re-rendering values
+    we did not render would be guessing at somebody else's data.
+    """
+    hass.states.async_set("sensor.watts", "1.2")
+    state = {"reading": "{{ states('sensor.watts') }}"}
+    await call(hass, "noul", {"state": state, "instructions": "Is it idle?"})
+    assert mock_client.ask.await_args.args[0] == state

@@ -1,7 +1,7 @@
-# The Home Assistant config the live automation test drives. Copy the pieces you
-# need into a throwaway instance; it is not meant for a real one.
+# The Home Assistant config the live script drives. Copy the pieces you need into a
+# throwaway instance; it is not meant for a real one.
 #
-# input_number.washer_watts stands in for a power sensor, and the two input_text
+# input_number.washer_watts stands in for a power sensor, and the input_text
 # helpers exist so an automation can write its answer somewhere a test can read.
 
 input_number:
@@ -20,6 +20,12 @@ input_text:
     initial: unset
     max: 100
   jev_target_result:
+    initial: unset
+    max: 100
+  jev_probe:
+    initial: start
+    max: 100
+  jev_vars_result:
     initial: unset
     max: 100
 
@@ -41,6 +47,12 @@ input_text:
     initial: unset
     max: 100
   jev_target_result:
+    initial: unset
+    max: 100
+  jev_probe:
+    initial: start
+    max: 100
+  jev_vars_result:
     initial: unset
     max: 100
 
@@ -114,3 +126,54 @@ automation:
           entity_id: input_text.jev_target_result
         data:
           value: "{{ room.choice }}|{{ room.confidence }}"
+  # Does everything an automation can offer reach the action: trigger data, a
+  # variables block, and a variable holding a mapping rather than a string.
+  - alias: Jev variables path
+    id: jev_variables_path
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_text.jev_probe
+    variables:
+      room_name: laundry
+      machine:
+        brand: Miele
+        idle_watts: 5
+        running_watts: 300
+    actions:
+      - action: jev.ask
+        response_variable: probe
+        data:
+          state:
+            trigger_value: "{{ trigger.to_state.state }}"
+            room: "{{ room_name }}"
+            machine: "{{ machine }}"
+          questions:
+            room:
+              type: choice
+              instructions: Which room does `room` name?
+              criteria:
+                laundry: The laundry room
+                keuken: The kitchen
+                badkamer: The bathroom
+            brand:
+              type: choice
+              instructions: Which brand is named under `machine`?
+              criteria:
+                Miele: Miele
+                Bosch: Bosch
+                Siemens: Siemens
+            trigger_seen:
+              type: noul
+              instructions: Does `trigger_value` contain the word ZEBRA?
+            nested_number:
+              type: noul
+              instructions: Is `machine.idle_watts` exactly 5?
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.jev_vars_result
+        data:
+          value: >-
+            {{ probe.answers.room.choice }}|{{ probe.answers.brand.choice }}|{{
+            probe.answers.trigger_seen.noul }}|{{ probe.answers.nested_number.noul }}
+
