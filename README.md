@@ -24,11 +24,40 @@ gymnastics across six entity states, and no prompt to keep tuning.
 
 ## Install
 
-Needs Home Assistant 2026.9 or newer.
+Needs Home Assistant 2026.9 or newer, and an API key from
+[typesafe.ai](https://typesafe.ai).
 
-Add `https://github.com/AboveColin/HA-Jev` to HACS as a custom repository of type
-Integration, install, restart, then add Jev (TypeSafe) from Settings, Devices and
-services. An API key is the only thing it asks for.
+### Through HACS
+
+It is not in the HACS default list yet, so it has to be added as a custom repository
+once. [hacs/default#11052](https://github.com/hacs/default/pull/11052) is queued with
+all twelve checks passing; when it merges these first two steps go away and Jev shows
+up in a HACS search like anything else.
+
+1. Open HACS, then the three dot menu at the top right, then **Custom repositories**.
+2. Paste `https://github.com/AboveColin/HA-Jev`, set Type to **Integration**, and
+   select **Add**.
+3. Search HACS for **Jev**, open it, and select **Download**.
+4. Restart Home Assistant.
+
+Steps 1 and 2 in one click, if your Home Assistant is reachable from this browser:
+
+[![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=AboveColin&repository=HA-Jev&category=integration)
+
+### By hand
+
+Copy `custom_components/jev` from the
+[latest release](https://github.com/AboveColin/HA-Jev/releases/latest) into your
+`config/custom_components/` directory and restart Home Assistant. HACS will not
+manage updates for a copy installed this way.
+
+### Then set it up
+
+Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. It asks for
+the API key and nothing else, and checks it by asking one short question before the
+entry is created, so a bad key fails here rather than silently later.
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
 ## Four actions
 
