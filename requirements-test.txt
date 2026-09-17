@@ -2,4 +2,9 @@
 pytest-homeassistant-custom-component==0.13.365
 pytest==9.0.3
 pytest-asyncio==1.4.0
-jevclient==1.1.0
+pyyaml
+
+# The client comes from git until it is on PyPI. manifest.json pins the PyPI
+# version, and tests/test_manifest.py fails if the two ever disagree, so this
+# cannot quietly drift into testing a different version from the one users get.
+jevclient @ git+https://github.com/AboveColin/jevclient@main
