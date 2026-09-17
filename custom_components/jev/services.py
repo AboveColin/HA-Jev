@@ -45,6 +45,7 @@ from .const import (
     ATTR_QUESTIONS,
     ATTR_USAGE,
     CONF_FALSE_MEANS,
+    CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
     CONF_LEVELS,
     CONF_OPTION_DESCRIPTIONS,
@@ -61,14 +62,20 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
+from .statebuilder import async_build_state
 
 # instructions and criteria values accept a string, an object or an array.
 ENTRY = vol.Any(cv.string, dict, list)
 
+# What the target picker puts in call.data, which must not reach the question body.
+TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
+
 _BASE = {
-    vol.Required(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+    vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
     vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
     vol.Required(CONF_INSTRUCTIONS): ENTRY,
+    **cv.TARGET_SERVICE_FIELDS,
 }
 
 NOUL_SCHEMA = vol.Schema(
@@ -99,9 +106,11 @@ SCORE_SCHEMA = vol.Schema(
 
 ASK_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+        vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
         vol.Required(ATTR_QUESTIONS): vol.Schema({cv.string: dict}),
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
+        **cv.TARGET_SERVICE_FIELDS,
     }
 )
 
@@ -136,7 +145,22 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> Any:
 async def _ask(hass: HomeAssistant, call: ServiceCall, questions: dict[str, Question]):
     """Send one request and account for what it cost."""
     entry = _entry(hass, call)
-    state = _render(hass, call.data[CONF_STATE_TEMPLATE])
+    selector = {
+        key: value
+        for key, value in call.data.items()
+        if key in TARGET_KEYS and value
+    }
+    if not selector and not call.data.get(CONF_STATE_TEMPLATE):
+        raise ServiceValidationError(
+            "nothing to judge: give this action some text, or pick the entities, "
+            "devices or areas it should look at."
+        )
+    state = async_build_state(
+        hass,
+        _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
+        selector,
+        call.data[CONF_INCLUDE_ATTRIBUTES],
+    )
     try:
         response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:

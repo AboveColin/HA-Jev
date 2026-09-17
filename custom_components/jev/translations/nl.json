@@ -71,6 +71,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "include_attributes": {
+          "name": "Alle attributen meesturen",
+          "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
     },
@@ -97,6 +101,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "include_attributes": {
+          "name": "Alle attributen meesturen",
+          "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
     },
@@ -119,6 +127,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "include_attributes": {
+          "name": "Alle attributen meesturen",
+          "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
     },
@@ -137,6 +149,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "include_attributes": {
+          "name": "Alle attributen meesturen",
+          "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
     }

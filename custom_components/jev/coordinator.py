@@ -9,11 +9,18 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryAuthFailed, TemplateError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ServiceValidationError,
+    TemplateError,
+)
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.target import (
+    async_track_target_selector_state_change_event,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from jevclient import (
     USD_PER_MILLION_INPUT_TOKENS,
@@ -32,6 +39,7 @@ from .const import (
     TRIGGER_DEBOUNCE_SECONDS,
 )
 from .models import ContextConfig
+from .statebuilder import async_build_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -143,13 +151,14 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         self._unsub_triggers: Any = None
 
     async def async_setup_triggers(self) -> None:
-        """Re-evaluate when a tracked entity changes, debounced.
+        """Re-evaluate when what the context looks at changes, debounced.
 
-        Without the debounce a power sensor updating every second would issue a
-        paid request every second.
+        Without the debounce a power sensor updating every second would issue a paid
+        request every second. A context that names entities tracks exactly those
+        unless it says otherwise, because the thing it reads and the thing that
+        should wake it are almost always the same list.
         """
-        if not self.context_config.trigger_entities:
-            return
+        context = self.context_config
         debouncer = Debouncer(
             self.hass,
             _LOGGER,
@@ -162,9 +171,16 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         def _changed(_event: Any) -> None:
             self.hass.async_create_task(debouncer.async_call())
 
-        self._unsub_triggers = async_track_state_change_event(
-            self.hass, self.context_config.trigger_entities, _changed
-        )
+        if context.trigger_entities:
+            self._unsub_triggers = async_track_state_change_event(
+                self.hass, context.trigger_entities, _changed
+            )
+        elif context.selector:
+            # Tracking the selector rather than a fixed list means an entity added
+            # to a targeted area later starts waking the context on its own.
+            self._unsub_triggers = async_track_target_selector_state_change_event(
+                self.hass, context.selector, _changed
+            )
 
     @callback
     def async_shutdown_triggers(self) -> None:
@@ -186,13 +202,25 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
                 f"integration options to continue."
             )
 
+        context = self.context_config
         try:
-            state_text = self.context_config.template.async_render(parse_result=False)
+            text = (
+                context.template.async_render(parse_result=False)
+                if context.template is not None
+                else None
+            )
         except TemplateError as err:
             raise UpdateFailed(
-                f"the state template for context "
-                f"{self.context_config.name!r} failed: {err}"
+                f"the state template for context {context.name!r} failed: {err}"
             ) from err
+        try:
+            state_text = async_build_state(
+                self.hass, text, context.selector, context.include_attributes
+            )
+        except ServiceValidationError as err:
+            # A picked device or area that has since been removed. Saying so beats
+            # quietly asking about whatever is left.
+            raise UpdateFailed(f"context {context.name!r}: {err}") from err
 
         questions = {q.key: q.question for q in self.context_config.questions}
         try:

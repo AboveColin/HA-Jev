@@ -56,3 +56,14 @@ CONF_FALSE_MEANS: Final = "false_means"
 CONF_OPTIONS: Final = "options"
 CONF_OPTION_DESCRIPTIONS: Final = "option_descriptions"
 CONF_LEVELS: Final = "levels"
+
+# A target can be an area or a whole device, so one picker click can pull in a lot.
+# Measured 2026-09-17 against the live API: 1 entity cost 339 input tokens, 5 cost
+# 559 and 10 cost 931, so an entity record is 65.8 tokens. This cap is therefore
+# about 16,500 tokens per evaluation, or $0.0007 at the published price. It sits far
+# past any question that means something, and stops someone pointing a one minute
+# context at the whole house.
+MAX_TARGET_ENTITIES: Final = 250
+
+CONF_INCLUDE_ATTRIBUTES: Final = "include_attributes"
+CONF_ENTITIES: Final = "entities"

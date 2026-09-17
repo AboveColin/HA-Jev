@@ -25,7 +25,9 @@ from jevclient import USD_PER_MILLION_INPUT_TOKENS, JevClient
 from .const import (
     CONF_CRITERIA,
     CONF_DAILY_TOKEN_BUDGET,
+    CONF_ENTITIES,
     CONF_FALSE,
+    CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
     CONF_PRICE_PER_MILLION,
     CONF_QUESTIONS,
@@ -110,10 +112,41 @@ QUESTION_SCHEMA = vol.All(
     _check_question_shape,
 )
 
-CONTEXT_SCHEMA = vol.Schema(
+# A list of entity ids is the short form of the full picker, which is what almost
+# everyone wants to write.
+TARGET_SCHEMA = vol.Schema(
+    {
+        vol.Optional("entity_id"): cv.entity_ids,
+        vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("area_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("floor_id"): vol.All(cv.ensure_list, [cv.string]),
+        vol.Optional("label_id"): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+
+
+def _entities_to_selector(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return TARGET_SCHEMA(value)
+    return {"entity_id": cv.entity_ids(value)}
+
+
+def _check_context_has_input(raw: dict[str, Any]) -> dict[str, Any]:
+    if not raw.get(CONF_STATE_TEMPLATE) and not raw.get(CONF_ENTITIES):
+        raise vol.Invalid(
+            f"context {raw.get(CONF_NAME, '?')!r}: give it 'entities:' to look at, "
+            f"'state:' to write the text yourself, or both"
+        )
+    return raw
+
+
+CONTEXT_SCHEMA = vol.All(
+    vol.Schema(
     {
         vol.Required(CONF_NAME): cv.string,
-        vol.Required(CONF_STATE_TEMPLATE): cv.template,
+        vol.Optional(CONF_STATE_TEMPLATE): cv.template,
+        vol.Optional(CONF_ENTITIES): _entities_to_selector,
+        vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
         vol.Optional(
             CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_SECONDS
         ): vol.All(vol.Coerce(int), vol.Range(min=MIN_UPDATE_INTERVAL_SECONDS)),
@@ -122,6 +155,8 @@ CONTEXT_SCHEMA = vol.Schema(
             cv.ensure_list, [QUESTION_SCHEMA], vol.Length(min=1)
         ),
     }
+    ),
+    _check_context_has_input,
 )
 
 CONFIG_SCHEMA = vol.Schema(
@@ -144,13 +179,16 @@ def _build_contexts(hass: HomeAssistant) -> list[ContextConfig]:
             build_question_config(q, f"{context_key}_{slugify(q[CONF_NAME])}")
             for q in raw[CONF_QUESTIONS]
         ]
-        template = raw[CONF_STATE_TEMPLATE]
-        template.hass = hass
+        template = raw.get(CONF_STATE_TEMPLATE)
+        if template is not None:
+            template.hass = hass
         contexts.append(
             ContextConfig(
                 key=context_key,
                 name=raw[CONF_NAME],
                 template=template,
+                selector=raw.get(CONF_ENTITIES),
+                include_attributes=raw[CONF_INCLUDE_ATTRIBUTES],
                 questions=questions,
                 scan_interval=raw[CONF_SCAN_INTERVAL],
                 trigger_entities=raw[CONF_TRIGGER_ENTITIES],
