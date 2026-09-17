@@ -16,8 +16,11 @@ rules:
       re-evaluation. Every evaluation is a paid API call, so a flapping entity must
       not be able to spend money in a loop.
   brands:
-    status: todo
-    comment: Assets ship in custom_components/jev/brand. Core needs a home-assistant/brands PR.
+    status: done
+    comment: >-
+      icon, logo and their @2x and dark_ variants ship in custom_components/jev/brand.
+      Since Home Assistant 2026.3 a custom integration serves its own brand images and
+      home-assistant/brands no longer accepts them, so this is the whole rule now.
   common-modules: done
   config-flow-test-coverage:
     status: done
@@ -28,13 +31,13 @@ rules:
     comment: >-
       jevclient is MIT, source public at github.com/AboveColin/jevclient, built in
       CI from that source and published to PyPI over trusted publishing.
-  docs-actions: todo
+  docs-actions: done
   docs-conditions:
     status: exempt
     comment: The integration provides no conditions.
-  docs-high-level-description: todo
-  docs-installation-instructions: todo
-  docs-removal-instructions: todo
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
   docs-triggers:
     status: exempt
     comment: The integration provides no triggers.
@@ -46,13 +49,12 @@ rules:
     status: done
     comment: The config flow asks one short question to prove the key works.
   test-before-setup:
-    status: todo
+    status: done
     comment: >-
-      Deliberately not implemented as written. Setup does not abort when the first
-      evaluation fails, because the two ways it fails are a spent budget and an
-      unreachable API, and both are states the user needs explained by the budget
-      and usage entities that only exist once setup finishes. A core submission
-      needs this argued or the behaviour changed.
+      Setup asks one short question, about 40 input tokens, and raises
+      ConfigEntryNotReady or ConfigEntryAuthFailed if it fails. A spent budget is
+      handled separately and does not block setup, because the entities that explain
+      a spent budget only exist once setup finishes.
   unique-config-entry:
     status: done
     comment: The unique id is a hash of the API key, never the key itself.
@@ -64,20 +66,22 @@ rules:
       ServiceValidationError for bad input, HomeAssistantError for runtime failure.
       Verified over the websocket API, which is the path the UI and automations use.
   config-entry-unloading: done
-  docs-configuration-parameters: todo
-  docs-installation-parameters: todo
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
   entity-unavailable:
     status: done
     comment: An answer is unavailable until one for that exact question has arrived.
   integration-owner: done
   log-when-unavailable:
-    status: todo
-    comment: The coordinator logs every failure rather than once per outage.
+    status: done
+    comment: >-
+      One error when the outage starts, one info when it ends. A 30 s context would
+      otherwise write 2,880 identical lines a day.
   parallel-updates: done
   reauthentication-flow: done
   test-coverage:
-    status: todo
-    comment: 90% measured. Silver requires above 95%.
+    status: done
+    comment: 96% measured across 99 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -90,7 +94,7 @@ rules:
   discovery-update-info:
     status: exempt
     comment: No discovery, so no network information to refresh.
-  docs-data-update: todo
+  docs-data-update: done
   docs-examples:
     status: done
     comment: Twelve worked examples in examples/, each checked by the test suite.
@@ -99,7 +103,7 @@ rules:
     status: exempt
     comment: A service, not a device.
   docs-supported-functions: done
-  docs-troubleshooting: todo
+  docs-troubleshooting: done
   docs-use-cases: done
   dynamic-devices:
     status: exempt
@@ -110,11 +114,24 @@ rules:
     status: done
     comment: The per-context latency sensor is diagnostic and off by default.
   entity-translations:
-    status: todo
-    comment: Entity names are user-defined question names, so this needs thought rather than keys.
-  exception-translations: todo
-  icon-translations: todo
-  reconfiguration-flow: todo
+    status: done
+    comment: >-
+      Every entity the integration names itself uses a translation key, including the
+      per-context latency sensor, whose context name travels as a placeholder. A
+      question sensor is named by the user's own question text, which is theirs to
+      write and cannot be translated by anyone else.
+  exception-translations:
+    status: done
+    comment: >-
+      Thirteen keys, including the library's own limit errors, which are re-raised
+      with the real numbers as placeholders rather than passed through in English.
+      A test asserts every key raised in code exists in every language file.
+  icon-translations:
+    status: done
+    comment: icons.json covers every translated entity and all four actions. A test asserts that.
+  reconfiguration-flow:
+    status: done
+    comment: The API key can be replaced without losing entities or their history.
   repair-issues:
     status: done
     comment: The daily budget raises a repair issue naming the budget and what was used.

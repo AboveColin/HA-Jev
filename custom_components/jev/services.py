@@ -27,6 +27,10 @@ from homeassistant.exceptions import (
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.template import Template
 from jevclient import (
+    MAX_CHOICE_OPTIONS,
+    MAX_SCORE_LEVELS,
+    MIN_CHOICE_OPTIONS,
+    MIN_SCORE_LEVELS,
     Choice,
     ChoiceAnswer,
     JevAuthError,
@@ -136,7 +140,11 @@ def _render(hass: HomeAssistant, value: Any) -> Any:
     try:
         return Template(value, hass).async_render(parse_result=False)
     except TemplateError as err:
-        raise ServiceValidationError(f"the state template failed: {err}") from err
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="template_failed",
+            translation_placeholders={"reason": str(err)},
+        ) from err
 
 
 def _typed(answer: Any, expected: type, question_type: str) -> Any:
@@ -147,8 +155,12 @@ def _typed(answer: Any, expected: type, question_type: str) -> Any:
     """
     if not isinstance(answer, expected):
         raise HomeAssistantError(
-            f"asked a {question_type} question and got a "
-            f"{type(answer).__name__} back, which the API should not do"
+            translation_domain=DOMAIN,
+            translation_key="wrong_answer_type",
+            translation_placeholders={
+                "question_type": question_type,
+                "got": type(answer).__name__,
+            },
         )
     return answer
 
@@ -165,8 +177,7 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> JevConfigEntry:
         entries = [e for e in entries if e.entry_id == wanted]
     if not entries:
         raise ServiceValidationError(
-            "no loaded Jev config entry to ask with. Add the integration first, or "
-            "pick one under API key when more than one is set up."
+            translation_domain=DOMAIN, translation_key="no_entry"
         )
     return entries[0]
 
@@ -181,8 +192,7 @@ async def _ask(
     }
     if not selector and not call.data.get(CONF_STATE_TEMPLATE):
         raise ServiceValidationError(
-            "nothing to judge: give this action some text, or pick the entities, "
-            "devices or areas it should look at."
+            translation_domain=DOMAIN, translation_key="nothing_to_judge"
         )
     state = async_build_state(
         hass,
@@ -199,9 +209,17 @@ async def _ask(
     try:
         response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:
-        raise HomeAssistantError(f"TypeSafe rejected the API key: {err}") from err
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="auth_rejected",
+            translation_placeholders={"reason": str(err)},
+        ) from err
     except JevError as err:
-        raise HomeAssistantError(f"asking Jev failed: {err}") from err
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="ask_failed",
+            translation_placeholders={"reason": str(err)},
+        ) from err
     usage = entry.runtime_data.usage
     usage.roll_over(date.today())
     usage.record(response.usage.input_tokens)
@@ -277,7 +295,15 @@ def async_register_services(hass: HomeAssistant) -> None:
         try:
             question = Choice(_instructions(call), criteria)
         except ValueError as err:
-            raise ServiceValidationError(str(err)) from err
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="choice_options_out_of_range",
+                translation_placeholders={
+                    "min": str(MIN_CHOICE_OPTIONS),
+                    "max": str(MAX_CHOICE_OPTIONS),
+                    "count": str(len(criteria)),
+                },
+            ) from err
         response = await _ask(hass, call, {"answer": question})
         answer = _typed(response.answers["answer"], ChoiceAnswer, TYPE_CHOICE)
         return {
@@ -291,7 +317,15 @@ def async_register_services(hass: HomeAssistant) -> None:
         try:
             question = Score(_instructions(call), call.data[CONF_LEVELS])
         except ValueError as err:
-            raise ServiceValidationError(str(err)) from err
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="score_levels_out_of_range",
+                translation_placeholders={
+                    "min": str(MIN_SCORE_LEVELS),
+                    "max": str(MAX_SCORE_LEVELS),
+                    "count": str(len(call.data[CONF_LEVELS])),
+                },
+            ) from err
         response = await _ask(hass, call, {"answer": question})
         answer = _typed(response.answers["answer"], ScoreAnswer, TYPE_SCORE)
         return {
@@ -313,14 +347,17 @@ def async_register_services(hass: HomeAssistant) -> None:
         for key, raw in call.data[ATTR_QUESTIONS].items():
             if "type" not in raw or CONF_INSTRUCTIONS not in raw:
                 raise ServiceValidationError(
-                    f"question {key!r} needs both 'type' and 'instructions'. Types are "
-                    f"'{TYPE_NOUL}', '{TYPE_CHOICE}' and '{TYPE_SCORE}'."
+                    translation_domain=DOMAIN,
+                    translation_key="question_shape",
+                    translation_placeholders={"key": key},
                 )
             try:
                 questions[key] = build_question(raw)
             except (KeyError, ValueError) as err:
                 raise ServiceValidationError(
-                    f"question {key!r} is not valid: {err}"
+                    translation_domain=DOMAIN,
+                    translation_key="question_invalid",
+                    translation_placeholders={"key": key, "reason": str(err)},
                 ) from err
         response = await _ask(hass, call, questions)
         return {

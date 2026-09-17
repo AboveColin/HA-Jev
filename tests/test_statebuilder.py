@@ -64,14 +64,14 @@ async def test_attributes_are_left_out_unless_asked_for(hass):
 async def test_a_target_that_no_longer_exists_is_refused(hass):
     with pytest.raises(ServiceValidationError) as err:
         async_entity_records(hass, {"area_id": ["a-room-that-was-deleted"]})
-    assert "do not exist" in str(err.value)
+    assert err.value.translation_key == "missing_targets"
 
 
 async def test_an_empty_target_is_refused(hass, area_registry):
     area = area_registry.async_create("Empty room")
     with pytest.raises(ServiceValidationError) as err:
         async_entity_records(hass, {"area_id": [area.id]})
-    assert "no entities" in str(err.value)
+    assert err.value.translation_key == "empty_target"
 
 
 async def test_the_cap_names_the_limit_and_the_ask(hass):
@@ -82,9 +82,13 @@ async def test_the_cap_names_the_limit_and_the_ask(hass):
         async_entity_records(
             hass, {"entity_id": [f"sensor.many_{i}" for i in range(over)]}
         )
-    message = str(err.value)
-    assert str(over) in message
-    assert str(MAX_TARGET_ENTITIES) in message
+    assert err.value.translation_key == "too_many_entities"
+    # The message has to name the limit and what was asked for, or an agent reading
+    # it cannot fix the configuration that caused it.
+    assert err.value.translation_placeholders == {
+        "count": str(over),
+        "limit": str(MAX_TARGET_ENTITIES),
+    }
 
 
 async def test_text_alone_is_passed_through_unchanged(hass):

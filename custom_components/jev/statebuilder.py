@@ -26,7 +26,7 @@ from homeassistant.helpers.target import (
 )
 from homeassistant.util import dt as dt_util
 
-from .const import MAX_TARGET_ENTITIES
+from .const import DOMAIN, MAX_TARGET_ENTITIES
 
 # Attributes worth sending for every entity. Everything else is skipped: a weather
 # forecast or a media player's picture is thousands of tokens of noise, and the
@@ -108,20 +108,24 @@ def async_entity_records(
     }
     if gone := {kind: sorted(ids) for kind, ids in missing.items() if ids}:
         raise ServiceValidationError(
-            f"these targets do not exist: {gone}. Asking about the rest would answer "
-            f"a different question from the one you wrote."
+            translation_domain=DOMAIN,
+            translation_key="missing_targets",
+            translation_placeholders={"targets": str(gone)},
         )
 
     entity_ids = sorted(selected.referenced | selected.indirectly_referenced)
     if not entity_ids:
         raise ServiceValidationError(
-            "that target holds no entities, so there would be nothing to judge."
+            translation_domain=DOMAIN, translation_key="empty_target"
         )
     if len(entity_ids) > MAX_TARGET_ENTITIES:
         raise ServiceValidationError(
-            f"that target holds {len(entity_ids)} entities and the limit is "
-            f"{MAX_TARGET_ENTITIES}. Every entity is billed as input on every "
-            f"evaluation, so pick the ones the question turns on, or split it."
+            translation_domain=DOMAIN,
+            translation_key="too_many_entities",
+            translation_placeholders={
+                "count": str(len(entity_ids)),
+                "limit": str(MAX_TARGET_ENTITIES),
+            },
         )
 
     entities = er.async_get(hass)

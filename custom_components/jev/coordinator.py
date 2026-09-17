@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -148,7 +149,12 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         self.runtime = runtime
         self.last_state_text: str | None = None
         self.last_latency_ms: float | None = None
+        # Log once when it goes away and once when it comes back. A context that
+        # evaluates every 30 s would otherwise write 2,880 identical lines a day
+        # during an outage, which buries the one line that mattered.
+        self._logged_unavailable = False
         self._unsub_triggers: Any = None
+        self._debouncer: Debouncer[Coroutine[Any, Any, None]] | None = None
 
     async def async_setup_triggers(self) -> None:
         """Re-evaluate when what the context looks at changes, debounced.
@@ -159,7 +165,7 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         should wake it are almost always the same list.
         """
         context = self.context_config
-        debouncer = Debouncer(
+        debouncer = self._debouncer = Debouncer(
             self.hass,
             _LOGGER,
             cooldown=TRIGGER_DEBOUNCE_SECONDS,
@@ -190,6 +196,11 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         if self._unsub_triggers is not None:
             self._unsub_triggers()
             self._unsub_triggers = None
+        if self._debouncer is not None:
+            # A debounce scheduled just before unload would otherwise fire into a
+            # coordinator that no longer has a config entry behind it.
+            self._debouncer.async_shutdown()
+            self._debouncer = None
 
     async def _async_update_data(self) -> dict[str, Answer]:
         usage = self.runtime.usage
@@ -233,14 +244,28 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         except JevRateLimitError as err:
             raise UpdateFailed(f"rate limited by TypeSafe: {err}") from err
         except JevError as err:
+            self._log_unavailable_once(err)
             raise UpdateFailed(str(err)) from err
 
+        if self._logged_unavailable:
+            _LOGGER.info("TypeSafe is answering again, context %r resumed", context.name)
+            self._logged_unavailable = False
         usage.record(response.usage.input_tokens)
         self.runtime.model_version = response.model or self.runtime.model_version
         self.last_state_text = state_text
         self.last_latency_ms = response.latency_ms
         usage.notify()
         return response.answers
+
+    def _log_unavailable_once(self, err: Exception) -> None:
+        if self._logged_unavailable:
+            return
+        self._logged_unavailable = True
+        _LOGGER.error(
+            "TypeSafe is not answering, so context %r cannot be evaluated: %s",
+            self.context_config.name,
+            err,
+        )
 
     def _raise_budget_issue(self, usage: UsageAccount) -> None:
         if usage.budget_exceeded:
