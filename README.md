@@ -90,8 +90,8 @@ trigger on a state change instead of re-deciding the threshold in a template.
 
 Every question in a context is evaluated in isolation against the same text, and
 the API answers them in parallel. Measured from the Netherlands: three questions
-took 712 ms and a hundred took 714 ms. So put related questions in one context and
-they cost almost nothing extra in time.
+took 712 ms and a hundred took 714 ms, a difference of 24 ms for 97 more questions.
+So put related questions in one context and they cost almost nothing extra in time.
 
 They do cost money. Question text is billed as input, roughly 38 tokens for a short
 one, so a hundred questions is a few thousand tokens per evaluation rather than a
@@ -228,9 +228,10 @@ Confidence is not calibrated. TypeSafe publishes no calibration evidence, and it
 docs call the value a convenient default. Treat 0.9 as "higher than 0.6", not as
 "right 90 percent of the time", until you have measured it on your own questions.
 
-It answers in about 700 ms from Western Europe, not the 70 to 500 ms TypeSafe
-publishes for their own region. Fine for a doorbell, too slow for anything in a
-tight loop.
+It is slower from here than TypeSafe's published 70 to 500 ms. Measured from the
+Netherlands across 16 calls: a warm connection answers in 250 to 580 ms, the first
+call after an idle spell takes 700 to 900 ms, and a request carrying 400 questions
+took 1.3 s. Fine for a doorbell, too slow for anything in a tight loop.
 
 Do not put it in front of a safety decision. A probability with no explanation is not
 the right thing to hold a lock, a heater or a smoke alarm.
