@@ -1,7 +1,6 @@
 noul:
   target:
     entity: {}
-    device: {}
   fields:
     state:
       required: false
@@ -59,7 +58,6 @@ noul:
 choice:
   target:
     entity: {}
-    device: {}
   fields:
     state:
       required: false
@@ -111,7 +109,6 @@ choice:
 score:
   target:
     entity: {}
-    device: {}
   fields:
     state:
       required: false
@@ -156,7 +153,6 @@ score:
 ask:
   target:
     entity: {}
-    device: {}
   fields:
     state:
       required: false
