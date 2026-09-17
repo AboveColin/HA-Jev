@@ -85,6 +85,22 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm", data_schema=STEP_USER_SCHEMA, errors=errors
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Swap the API key without removing the integration and losing its entities."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if error := await self._async_validate(user_input[CONF_API_KEY]):
+                errors["base"] = error
+            else:
+                return self.async_update_reload_and_abort(
+                    self._get_reconfigure_entry(), data_updates=user_input
+                )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=STEP_USER_SCHEMA, errors=errors
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: Any) -> JevOptionsFlow:

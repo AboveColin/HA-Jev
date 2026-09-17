@@ -14,6 +14,13 @@
         "data": {
           "api_key": "API-sleutel"
         }
+      },
+      "reconfigure": {
+        "title": "Vervang je API-sleutel",
+        "description": "Plak een andere TypeSafe API-sleutel. Je vragen en entiteiten blijven staan.",
+        "data": {
+          "api_key": "API-sleutel"
+        }
       }
     },
     "error": {
@@ -22,7 +29,8 @@
     },
     "abort": {
       "already_configured": "Deze API-sleutel is al ingesteld.",
-      "reauth_successful": "De nieuwe sleutel werkt."
+      "reauth_successful": "De nieuwe sleutel werkt.",
+      "reconfigure_successful": "Opnieuw ingesteld."
     }
   },
   "options": {
@@ -167,6 +175,68 @@
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "calls_today": {
+        "name": "Aanroepen vandaag"
+      },
+      "input_tokens_today": {
+        "name": "Invoertokens vandaag"
+      },
+      "estimated_cost_today": {
+        "name": "Geschatte kosten vandaag"
+      },
+      "context_latency": {
+        "name": "Reactietijd {context}"
+      }
+    },
+    "binary_sensor": {
+      "daily_budget_exceeded": {
+        "name": "Daglimiet overschreden"
+      }
+    }
+  },
+  "exceptions": {
+    "nothing_to_judge": {
+      "message": "Niets om te beoordelen: geef deze actie tekst, of kies de entiteiten, apparaten of ruimtes waar hij naar moet kijken."
+    },
+    "no_entry": {
+      "message": "Geen geladen Jev-configuratie om mee te vragen. Voeg de integratie eerst toe, of kies er een onder API-sleutel als er meer dan een is."
+    },
+    "missing_targets": {
+      "message": "Deze doelen bestaan niet: {targets}. De rest beoordelen zou een andere vraag beantwoorden dan je stelde."
+    },
+    "empty_target": {
+      "message": "Dat doel bevat geen entiteiten, dus er valt niets te beoordelen."
+    },
+    "too_many_entities": {
+      "message": "Dat doel bevat {count} entiteiten en de limiet is {limit}. Elke entiteit wordt bij elke evaluatie als invoer afgerekend, dus kies de entiteiten waar de vraag om draait, of splits hem."
+    },
+    "question_shape": {
+      "message": "Vraag {key} heeft zowel 'type' als 'instructions' nodig. De types zijn noul, choice en score."
+    },
+    "question_invalid": {
+      "message": "Vraag {key} is ongeldig: {reason}"
+    },
+    "template_failed": {
+      "message": "Het state-template is mislukt: {reason}"
+    },
+    "auth_rejected": {
+      "message": "TypeSafe weigert de API-sleutel: {reason}"
+    },
+    "ask_failed": {
+      "message": "Jev bevragen is mislukt: {reason}"
+    },
+    "wrong_answer_type": {
+      "message": "Een {question_type}-vraag gesteld en een {got} teruggekregen, wat de API niet hoort te doen."
+    },
+    "choice_options_out_of_range": {
+      "message": "Een choice neemt {min} tot {max} opties en deze heeft er {count}."
+    },
+    "score_levels_out_of_range": {
+      "message": "Een score neemt {min} tot {max} niveaus, laagste eerst, en deze heeft er {count}."
     }
   }
 }

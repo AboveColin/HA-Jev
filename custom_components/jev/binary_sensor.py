@@ -75,7 +75,7 @@ class JevThresholdSensor(JevQuestionEntity, BinarySensorEntity):
 class JevBudgetSensor(JevUsageEntity, BinarySensorEntity):
     """On when the daily token budget has stopped evaluations."""
 
-    _attr_name = "Daily budget exceeded"
+    _attr_translation_key = "daily_budget_exceeded"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 

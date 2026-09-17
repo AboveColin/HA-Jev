@@ -15,12 +15,19 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
-from jevclient import USD_PER_MILLION_INPUT_TOKENS, JevClient
+from jevclient import (
+    USD_PER_MILLION_INPUT_TOKENS,
+    JevAuthError,
+    JevClient,
+    JevError,
+    Noul,
+)
 
 from .const import (
     CONF_BACKGROUND,
@@ -221,6 +228,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     usage.restore(await store.async_load())
     runtime = JevRuntimeData(client=client, usage=usage)
     entry.runtime_data = runtime
+
+    # Prove the service answers before entities appear. One noul against a two word
+    # state costs about 40 input tokens, well under a thousandth of a cent, and it
+    # is the difference between a clear "cannot reach TypeSafe" and a house full of
+    # entities that never populate.
+    try:
+        await client.ask("ok", {"probe": Noul("Is this text in English?")})
+    except JevAuthError as err:
+        raise ConfigEntryAuthFailed(str(err)) from err
+    except JevError as err:
+        raise ConfigEntryNotReady(f"TypeSafe did not answer: {err}") from err
 
     for context in _build_contexts(hass):
         coordinator = JevCoordinator(hass, entry, runtime, context)

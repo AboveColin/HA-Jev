@@ -30,8 +30,10 @@ async def test_user_flow_creates_entry(hass, mock_client):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Jev"
     assert result["data"] == {CONF_API_KEY: API_KEY}
-    # Setup asks one short question to prove the key works.
-    assert mock_client.ask.await_count == 1
+    # Two short questions: the flow proves the key works before creating the entry,
+    # then setup proves the service answers before any entity appears. Each is about
+    # 40 input tokens.
+    assert mock_client.ask.await_count == 2
 
 
 @pytest.mark.parametrize(
@@ -115,3 +117,25 @@ async def test_options_flow_stores_the_budget(hass, loaded_entry):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert loaded_entry.options[CONF_DAILY_TOKEN_BUDGET] == 50_000
+
+
+async def test_reconfigure_swaps_the_key_and_keeps_the_entities(
+    hass, mock_client, loaded_entry
+):
+    """Changing a key must not mean removing the integration and losing its history."""
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    assert result["step_id"] == "reconfigure"
+
+    mock_client.ask.side_effect = JevAuthError("that one is wrong too")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "still-wrong"}
+    )
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    mock_client.ask.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "a-fresh-key"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_API_KEY] == "a-fresh-key"

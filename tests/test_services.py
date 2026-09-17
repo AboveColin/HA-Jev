@@ -166,8 +166,28 @@ async def test_bad_input_is_refused_before_a_request_is_spent(
     mock_client.ask.reset_mock()
     with pytest.raises(ServiceValidationError) as err:
         await call(hass, action, data)
+    # str() resolves through Home Assistant's translation system, so this also
+    # proves the strings file renders with the placeholders filled in.
     assert fragment in str(err.value)
     assert mock_client.ask.await_count == 0
+
+
+async def test_a_refusal_names_the_number_that_was_actually_given(
+    hass, loaded_entry, mock_client
+):
+    """A message saying "2 to 10" without saying you passed 11 is half a message."""
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "score",
+            {
+                "state": "x",
+                "instructions": "y",
+                "levels": [str(i) for i in range(11)],
+            },
+        )
+    message = str(err.value)
+    assert "11" in message and "2 to 10" in message
 
 
 async def test_an_unrendered_template_is_rendered(hass, loaded_entry, mock_client):
@@ -303,3 +323,38 @@ async def test_a_template_inside_a_structured_state_is_left_alone(
     state = {"reading": "{{ states('sensor.watts') }}"}
     await call(hass, "noul", {"state": state, "instructions": "Is it idle?"})
     assert mock_client.ask.await_args.args[0] == state
+
+
+async def test_a_rejected_key_during_an_action_says_so(hass, loaded_entry, mock_client):
+    from jevclient import JevAuthError
+
+    mock_client.ask.side_effect = JevAuthError("revoked")
+    with pytest.raises(HomeAssistantError) as err:
+        await call(hass, "noul", {"state": "x", "instructions": "y"})
+    assert err.value.translation_key == "auth_rejected"
+
+
+async def test_a_transport_failure_during_an_action_says_so(
+    hass, loaded_entry, mock_client
+):
+    from jevclient import JevConnectionError
+
+    mock_client.ask.side_effect = JevConnectionError("no route")
+    with pytest.raises(HomeAssistantError) as err:
+        await call(hass, "noul", {"state": "x", "instructions": "y"})
+    assert err.value.translation_key == "ask_failed"
+
+
+async def test_asking_with_a_named_entry_picks_that_entry(
+    hass, loaded_entry, mock_client
+):
+    response = await call(
+        hass,
+        "noul",
+        {
+            "state": "x",
+            "instructions": "y",
+            "config_entry": loaded_entry.entry_id,
+        },
+    )
+    assert "noul" in response

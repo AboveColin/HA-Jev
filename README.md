@@ -459,6 +459,79 @@ from picked entities, the daily budget stopping evaluation while the entities th
 explain it stay available, usage surviving a reload, and diagnostics redacting the
 key.
 
+## How the data updates
+
+Nothing polls TypeSafe on its own. A question is evaluated when one of three things
+happens: a context reaches its `scan_interval`, an entity a context is pointed at
+changes state (debounced by 5 seconds), or an automation calls one of the actions.
+The floor on `scan_interval` is 30 seconds, because every evaluation is a paid call
+and a flapping sensor must not be able to spend money in a loop.
+
+Each context is one request holding all of its questions. Answers arrive together,
+so all the entities of a context update at the same instant.
+
+## Configuration
+
+Set up through the UI, and the only thing it asks for is an API key.
+
+| Option | Where | Default | What it does |
+|---|---|---|---|
+| API key | config flow | none | Your TypeSafe key. Checked with one short question before the entry is created. |
+| Daily input token budget | options | 0 | Stops evaluating for the rest of the day once this many input tokens are spent. 0 means no limit. |
+| Price per million input tokens | options | 0.042 | Only affects the estimated cost sensor. Change it if TypeSafe changes theirs. |
+
+Contexts and questions go in `configuration.yaml` under `jev:`:
+
+| Key | Required | What it does |
+|---|---|---|
+| `name` | yes | Names the context and prefixes its entities |
+| `entities` | one of these two | Entities, devices, areas, floors or labels to read |
+| `state` | one of these two | Text or a template to judge, used alone or as a note beside the entities |
+| `scan_interval` | no | Seconds between evaluations, minimum 30, default 300 |
+| `trigger_entities` | no | Wake on these instead of on whatever `entities` names |
+| `include_attributes` | no | Send every attribute of the picked entities, off by default |
+| `questions` | yes | One or more questions, each with `name`, `type`, `instructions`, and `criteria` for choice and score |
+
+To change the API key later, use Reconfigure on the integration. Your questions and
+entity history are kept. To remove the integration, delete it from Settings, Devices
+and services; that removes its entities and its stored daily usage, and nothing is
+left behind in `configuration.yaml` except the `jev:` block you wrote.
+
+## Troubleshooting
+
+Turn on debug logging first. It prints the type and the full content of every state
+sent, which is almost always the answer:
+
+```yaml
+logger:
+  logs:
+    custom_components.jev: debug
+```
+
+**An answer looks wrong or barely moves.** Read the state in the log. Nine times out
+of ten it does not contain what you assumed, or it contains a number the model is
+being asked to compare against a threshold. See the section above on telling it how
+to read the numbers.
+
+**Every answer sits near 0.5 with low confidence.** The question is probably
+measuring more than one thing. Split it into one question per dimension and combine
+them in your template.
+
+**Entities are unavailable and the budget sensor is on.** The daily budget stopped
+evaluation. Raise it in the options, or evaluate less often.
+
+**Entities are unavailable and the budget sensor is off.** Look for a line saying
+TypeSafe is not answering. It is logged once when the outage starts and once when it
+ends, not on every attempt.
+
+**Setup fails with "TypeSafe did not answer".** The integration proves the service
+answers before creating any entity, so this is a connectivity or service problem
+rather than a configuration one. Home Assistant retries on its own.
+
+**An action returns an error naming a limit.** The message names the limit and the
+number you gave. A choice takes 2 to 255 options, a score 2 to 10 levels, and a
+target at most 250 entities.
+
 ## Quality
 
 `quality_scale.yaml` records this integration against Home Assistant's quality scale,

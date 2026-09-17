@@ -14,6 +14,13 @@
         "data": {
           "api_key": "API key"
         }
+      },
+      "reconfigure": {
+        "title": "Replace your API key",
+        "description": "Paste a different TypeSafe API key. Your questions and entities are kept.",
+        "data": {
+          "api_key": "API key"
+        }
       }
     },
     "error": {
@@ -22,7 +29,8 @@
     },
     "abort": {
       "already_configured": "This API key is already set up.",
-      "reauth_successful": "The new key works."
+      "reauth_successful": "The new key works.",
+      "reconfigure_successful": "Reconfigured successfully."
     }
   },
   "options": {
@@ -167,6 +175,68 @@
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "calls_today": {
+        "name": "Calls today"
+      },
+      "input_tokens_today": {
+        "name": "Input tokens today"
+      },
+      "estimated_cost_today": {
+        "name": "Estimated cost today"
+      },
+      "context_latency": {
+        "name": "{context} latency"
+      }
+    },
+    "binary_sensor": {
+      "daily_budget_exceeded": {
+        "name": "Daily budget exceeded"
+      }
+    }
+  },
+  "exceptions": {
+    "nothing_to_judge": {
+      "message": "Nothing to judge: give this action some text, or pick the entities, devices or areas it should look at."
+    },
+    "no_entry": {
+      "message": "No loaded Jev config entry to ask with. Add the integration first, or pick one under API key when more than one is set up."
+    },
+    "missing_targets": {
+      "message": "These targets do not exist: {targets}. Asking about the rest would answer a different question from the one you wrote."
+    },
+    "empty_target": {
+      "message": "That target holds no entities, so there would be nothing to judge."
+    },
+    "too_many_entities": {
+      "message": "That target holds {count} entities and the limit is {limit}. Every entity is billed as input on every evaluation, so pick the ones the question turns on, or split it."
+    },
+    "question_shape": {
+      "message": "Question {key} needs both 'type' and 'instructions'. Types are noul, choice and score."
+    },
+    "question_invalid": {
+      "message": "Question {key} is not valid: {reason}"
+    },
+    "template_failed": {
+      "message": "The state template failed: {reason}"
+    },
+    "auth_rejected": {
+      "message": "TypeSafe rejected the API key: {reason}"
+    },
+    "ask_failed": {
+      "message": "Asking Jev failed: {reason}"
+    },
+    "wrong_answer_type": {
+      "message": "Asked a {question_type} question and got a {got} back, which the API should not do."
+    },
+    "choice_options_out_of_range": {
+      "message": "A choice takes {min} to {max} options and this one has {count}."
+    },
+    "score_levels_out_of_range": {
+      "message": "A score takes {min} to {max} levels, lowest first, and this one has {count}."
     }
   }
 }

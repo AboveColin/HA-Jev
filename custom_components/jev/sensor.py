@@ -130,7 +130,10 @@ class JevLatencySensor(JevQuestionEntity, SensorEntity):
 
     def __init__(self, coordinator: JevCoordinator, entry_id: str) -> None:
         super().__init__(coordinator, entry_id, question_key="")
-        self._attr_name = f"{coordinator.context_config.name} latency"
+        # The context name is the user's own word, so it travels as a placeholder
+        # rather than being baked into an untranslatable string.
+        self._attr_translation_key = "context_latency"
+        self._attr_translation_placeholders = {"context": coordinator.context_config.name}
         self._attr_unique_id = f"{entry_id}_{coordinator.context_config.key}_latency"
 
     @property
@@ -147,7 +150,7 @@ class JevLatencySensor(JevQuestionEntity, SensorEntity):
 class JevCallsSensor(JevUsageEntity, SensorEntity):
     """Calls made today. Resets at midnight, local time."""
 
-    _attr_name = "Calls today"
+    _attr_translation_key = "calls_today"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
@@ -167,7 +170,7 @@ class JevInputTokensSensor(JevUsageEntity, SensorEntity):
     per context, not only with the size of the state.
     """
 
-    _attr_name = "Input tokens today"
+    _attr_translation_key = "input_tokens_today"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = "tokens"
@@ -193,7 +196,7 @@ class JevCostSensor(JevUsageEntity, SensorEntity):
     million is a setting and TypeSafe can change theirs.
     """
 
-    _attr_name = "Estimated cost today"
+    _attr_translation_key = "estimated_cost_today"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "USD"
