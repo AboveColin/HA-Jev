@@ -129,7 +129,8 @@ TARGET_SCHEMA = vol.Schema(
 
 def _entities_to_selector(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
-        return TARGET_SCHEMA(value)
+        validated: dict[str, Any] = TARGET_SCHEMA(value)
+        return validated
     return {"entity_id": cv.entity_ids(value)}
 
 

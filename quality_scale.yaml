@@ -1,0 +1,137 @@
+# Where this integration stands against Home Assistant's integration quality scale.
+#
+# The graded tiers only apply to integrations inside Home Assistant core. A custom
+# integration is scored "Custom", which is not a tier. This file exists because the
+# scale is a useful target and because a core submission needs it filled in.
+#
+# Every "done" below is something checked in the test suite or measured, not a claim.
+
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling:
+    status: done
+    comment: >-
+      Default 300 s per context, floor of 30 s, and a 5 s debounce on target-driven
+      re-evaluation. Every evaluation is a paid API call, so a flapping entity must
+      not be able to spend money in a loop.
+  brands:
+    status: todo
+    comment: Assets ship in custom_components/jev/brand. Core needs a home-assistant/brands PR.
+  common-modules: done
+  config-flow-test-coverage:
+    status: done
+    comment: 100% of config_flow.py, measured by pytest-cov in CI.
+  config-flow: done
+  dependency-transparency:
+    status: done
+    comment: >-
+      jevclient is MIT, source public at github.com/AboveColin/jevclient, built in
+      CI from that source and published to PyPI over trusted publishing.
+  docs-actions: todo
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no conditions.
+  docs-high-level-description: todo
+  docs-installation-instructions: todo
+  docs-removal-instructions: todo
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no triggers.
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure:
+    status: done
+    comment: The config flow asks one short question to prove the key works.
+  test-before-setup:
+    status: todo
+    comment: >-
+      Deliberately not implemented as written. Setup does not abort when the first
+      evaluation fails, because the two ways it fails are a spent budget and an
+      unreachable API, and both are states the user needs explained by the budget
+      and usage entities that only exist once setup finishes. A core submission
+      needs this argued or the behaviour changed.
+  unique-config-entry:
+    status: done
+    comment: The unique id is a hash of the API key, never the key itself.
+
+  # Silver
+  action-exceptions:
+    status: done
+    comment: >-
+      ServiceValidationError for bad input, HomeAssistantError for runtime failure.
+      Verified over the websocket API, which is the path the UI and automations use.
+  config-entry-unloading: done
+  docs-configuration-parameters: todo
+  docs-installation-parameters: todo
+  entity-unavailable:
+    status: done
+    comment: An answer is unavailable until one for that exact question has arrived.
+  integration-owner: done
+  log-when-unavailable:
+    status: todo
+    comment: The coordinator logs every failure rather than once per outage.
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: 90% measured. Silver requires above 95%.
+
+  # Gold
+  devices: done
+  diagnostics:
+    status: done
+    comment: The API key is redacted, and a test asserts it never appears.
+  discovery:
+    status: exempt
+    comment: A cloud service reached with an API key. There is nothing on the network to find.
+  discovery-update-info:
+    status: exempt
+    comment: No discovery, so no network information to refresh.
+  docs-data-update: todo
+  docs-examples:
+    status: done
+    comment: Twelve worked examples in examples/, each checked by the test suite.
+  docs-known-limitations: done
+  docs-supported-devices:
+    status: exempt
+    comment: A service, not a device.
+  docs-supported-functions: done
+  docs-troubleshooting: todo
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: One service device per config entry, which cannot appear later.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: done
+    comment: The per-context latency sensor is diagnostic and off by default.
+  entity-translations:
+    status: todo
+    comment: Entity names are user-defined question names, so this needs thought rather than keys.
+  exception-translations: todo
+  icon-translations: todo
+  reconfiguration-flow: todo
+  repair-issues:
+    status: done
+    comment: The daily budget raises a repair issue naming the budget and what was used.
+  stale-devices:
+    status: exempt
+    comment: One device per entry, removed with the entry.
+
+  # Platinum
+  async-dependency:
+    status: done
+    comment: jevclient is aiohttp-based and fully async.
+  inject-websession:
+    status: done
+    comment: >-
+      The client takes Home Assistant's shared aiohttp session. This is the rule the
+      vendor's own SDK cannot satisfy: it requires an httpx2.AsyncClient, and Home
+      Assistant ships aiohttp and httpx, not httpx2.
+  strict-typing:
+    status: done
+    comment: mypy --strict passes on all 12 modules, enforced in CI.
