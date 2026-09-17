@@ -24,7 +24,8 @@ gymnastics over six entity states, and no prompt to keep tuning.
 
 ## Install
 
-HACS, as a custom repository, until the integration is in the default list. Add
+Needs Home Assistant 2026.9 or newer. HACS, as a custom repository, until the
+integration is in the default list. Add
 `https://github.com/AboveColin/HA-Jev` as an Integration, install, restart, then add
 **Jev (TypeSafe)** from Settings, Devices and services. It asks for an API key and
 checks it by asking one short question.
@@ -307,7 +308,7 @@ A variable holding a mapping stays a mapping. That example arrives as real JSON 
 `household.residents` still a list, not as a stringified dict, which matters because
 the model reads field names as labels. Verified in a running instance: the debug log
 shows `asking 4 question(s) about a dict state: {'trigger_value': 'a ZEBRA walked
-past', 'room': 'bijkeuken', 'machine': {'brand': 'Miele', 'idle_watts': 5}}`, and
+past', 'room': 'laundry', 'machine': {'brand': 'Miele', 'idle_watts': 5}}`, and
 questions about `machine.brand` and `machine.idle_watts` answered correctly.
 
 Turn on debug logging to see exactly what was sent:
@@ -418,6 +419,27 @@ took 1.3 s. Fine for a doorbell, too slow for anything in a tight loop.
 
 Do not put it in front of a safety decision. A probability with no explanation is not
 the right thing to hold a lock, a heater or a smoke alarm.
+
+## Examples
+
+[examples/](examples/) has twelve worked files, each self-contained and
+copy-pasteable. Four of them combine Jev with a language model through
+`ai_task.generate_data`, which works with Google Generative AI, OpenAI, Anthropic or
+a local Ollama:
+
+| | |
+|---|---|
+| [Jev gates the LLM](examples/07_llm_jev_gate.yaml) | a cheap typed decision in front of an expensive call, so the LLM only writes when there is something worth saying |
+| [a cascade](examples/08_llm_cascade.yaml) | Jev answers the ordinary cases, and low confidence escalates to the model that can reason |
+| [a guardrail](examples/09_llm_guardrail.yaml) | the LLM writes, Jev checks the draft against the source before it is sent |
+| [extract then verify](examples/10_llm_extract_verify.yaml) | the LLM pulls fields out, Jev verifies each one against the text it came from |
+
+The other eight cover a laundry reminder, alert triage, doorbell triage, a layer of
+named situations, confidence gating, composite scoring, one attention queue across
+channels, and where to keep arithmetic.
+
+Every example is checked by the test suite: the YAML has to parse, any `jev:` block
+has to pass the real config schema, and none of them may mention a real house.
 
 ## Tests
 

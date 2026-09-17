@@ -1,0 +1,68 @@
+# Jev decides whether an LLM call is worth making. The LLM only writes when there is
+# something worth saying.
+#
+# This is the cheapest of the four combinations and the one to start with. A Jev call
+# is around 300 tokens and 300 ms. An LLM call is a hundred times the cost and
+# several seconds. Most events do not deserve one, and Jev is what tells you which.
+#
+# Needs an AI task entity: set up Google Generative AI, OpenAI, Anthropic or a local
+# Ollama, and point entity_id at the ai_task entity it creates.
+
+automation:
+  - alias: Tell me about the shed, but only when it matters
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.shed_door
+          - sensor.shed_temperature
+          - binary_sensor.shed_motion
+    actions:
+      # Step one, always: cheap, typed, fast.
+      - action: jev.ask
+        response_variable: jev
+        target:
+          entity_id:
+            - binary_sensor.shed_door
+            - sensor.shed_temperature
+            - binary_sensor.shed_motion
+        data:
+          questions:
+            worth_saying:
+              type: noul
+              instructions: Is there anything here a person would actually want to be told?
+              background: >-
+                The shed is unheated and nobody goes in at night. The door standing
+                open, or the temperature dropping below freezing while the door is
+                open, is worth knowing. Normal daytime movement is not.
+            urgency:
+              type: score
+              instructions: How soon should they hear about it?
+              criteria:
+                - Not at all
+                - Next time they look at their phone
+                - Now
+
+      # Step two, rarely: expensive, wordy, good at wording.
+      - condition: template
+        value_template: "{{ jev.answers.worth_saying.noul > 0.7 }}"
+
+      - action: ai_task.generate_data
+        response_variable: wording
+        data:
+          task_name: shed notification
+          entity_id: ai_task.google_ai_task
+          instructions: >-
+            Write one short sentence for a phone notification about the shed.
+            Plain and factual, no greeting, no emoji, under 20 words.
+            Door: {{ states('binary_sensor.shed_door') }}.
+            Temperature: {{ states('sensor.shed_temperature') }} degrees.
+            Motion: {{ states('binary_sensor.shed_motion') }}.
+
+      - action: notify.mobile_app_phone
+        data:
+          message: "{{ wording.data }}"
+          data:
+            push:
+              interruption-level: >-
+                {{ 'time-sensitive' if jev.answers.urgency.score > 1.5 else 'active' }}

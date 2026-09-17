@@ -116,7 +116,7 @@ score:
     state:
       required: false
       example: |
-        {{ trigger.payload | default('nix1 podman-hunky.service failed at 03:12, restarted twice') }}
+        {{ trigger.payload | default('backup.nightly failed at 03:12, second failure this week') }}
       selector:
         template:
     instructions:

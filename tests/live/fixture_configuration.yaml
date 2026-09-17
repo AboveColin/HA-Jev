@@ -1,18 +1,18 @@
 # The Home Assistant config the live script drives. Copy the pieces you need into a
 # throwaway instance; it is not meant for a real one.
 #
-# input_number.wasmachine_watt stands in for a power sensor, and the input_text
+# input_number.washing_machine_power stands in for a power sensor, and the input_text
 # helpers exist so an automation can write its answer somewhere a test can read.
 
 input_number:
-  wasmachine_watt:
+  washing_machine_power:
     min: 0
     max: 3000
     initial: 1.2
     step: 0.1
 
 input_boolean:
-  bijkeuken_deur_dicht:
+  laundry_door_closed:
     initial: true
 
 input_text:
@@ -32,14 +32,14 @@ input_text:
 jev: debug
 
 input_number:
-  wasmachine_watt:
+  washing_machine_power:
     min: 0
     max: 3000
     initial: 1.2
     step: 0.1
 
 input_boolean:
-  bijkeuken_deur_dicht:
+  laundry_door_closed:
     initial: true
 
 input_text:
@@ -60,8 +60,8 @@ jev:
   - name: Laundry
     scan_interval: 300
     entities:
-      - input_number.wasmachine_watt
-      - input_boolean.bijkeuken_deur_dicht
+      - input_number.washing_machine_power
+      - input_boolean.laundry_door_closed
     questions:
       - name: Laundry forgotten
         type: noul
@@ -76,17 +76,17 @@ automation:
     mode: queued
     triggers:
       - trigger: state
-        entity_id: input_number.wasmachine_watt
+        entity_id: input_number.washing_machine_power
     actions:
       - action: jev.noul
         response_variable: verdict
         data:
           state: >-
             The washing machine is
-            {% if states('input_number.wasmachine_watt') | float(0) < 5 %}
+            {% if states('input_number.washing_machine_power') | float(0) < 5 %}
             drawing almost no power, which means it is idle
             {% else %}
-            drawing {{ states('input_number.wasmachine_watt') }} W, which means a
+            drawing {{ states('input_number.washing_machine_power') }} W, which means a
             programme is running
             {% endif %}.
             A programme was started 40 minutes ago, and nobody has entered the
@@ -107,14 +107,14 @@ automation:
     mode: queued
     triggers:
       - trigger: state
-        entity_id: input_boolean.bijkeuken_deur_dicht
+        entity_id: input_boolean.laundry_door_closed
     actions:
       - action: jev.choice
         response_variable: room
         target:
           entity_id:
-            - input_number.wasmachine_watt
-            - input_boolean.bijkeuken_deur_dicht
+            - input_number.washing_machine_power
+            - input_boolean.laundry_door_closed
         data:
           instructions: Which room do these readings concern?
           options: [laundry, kitchen, bathroom, other]
@@ -135,7 +135,7 @@ automation:
       - trigger: state
         entity_id: input_text.jev_probe
     variables:
-      room_name: bijkeuken
+      room_name: laundry
       machine:
         brand: Miele
         idle_watts: 5
@@ -153,7 +153,7 @@ automation:
               type: choice
               instructions: Which room does `room` name?
               criteria:
-                bijkeuken: The laundry room
+                laundry: The laundry room
                 keuken: The kitchen
                 badkamer: The bathroom
             brand:

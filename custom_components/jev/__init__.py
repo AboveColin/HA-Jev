@@ -144,19 +144,19 @@ def _check_context_has_input(raw: dict[str, Any]) -> dict[str, Any]:
 
 CONTEXT_SCHEMA = vol.All(
     vol.Schema(
-    {
-        vol.Required(CONF_NAME): cv.string,
-        vol.Optional(CONF_STATE_TEMPLATE): cv.template,
-        vol.Optional(CONF_ENTITIES): _entities_to_selector,
-        vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
-        vol.Optional(
-            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_SECONDS
-        ): vol.All(vol.Coerce(int), vol.Range(min=MIN_UPDATE_INTERVAL_SECONDS)),
-        vol.Optional(CONF_TRIGGER_ENTITIES, default=[]): cv.entity_ids,
-        vol.Required(CONF_QUESTIONS): vol.All(
-            cv.ensure_list, [QUESTION_SCHEMA], vol.Length(min=1)
-        ),
-    }
+        {
+            vol.Required(CONF_NAME): cv.string,
+            vol.Optional(CONF_STATE_TEMPLATE): cv.template,
+            vol.Optional(CONF_ENTITIES): _entities_to_selector,
+            vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
+            vol.Optional(
+                CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_SECONDS
+            ): vol.All(vol.Coerce(int), vol.Range(min=MIN_UPDATE_INTERVAL_SECONDS)),
+            vol.Optional(CONF_TRIGGER_ENTITIES, default=[]): cv.entity_ids,
+            vol.Required(CONF_QUESTIONS): vol.All(
+                cv.ensure_list, [QUESTION_SCHEMA], vol.Length(min=1)
+            ),
+        }
     ),
     _check_context_has_input,
 )
@@ -164,6 +164,7 @@ CONTEXT_SCHEMA = vol.All(
 CONFIG_SCHEMA = vol.Schema(
     {DOMAIN: vol.All(cv.ensure_list, [CONTEXT_SCHEMA])}, extra=vol.ALLOW_EXTRA
 )
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Read the YAML contexts. The API key itself comes from the config entry."""

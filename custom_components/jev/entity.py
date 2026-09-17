@@ -68,4 +68,3 @@ class JevUsageEntity(Entity):
     async def async_will_remove_from_hass(self) -> None:
         if self.async_write_ha_state in self._runtime.usage.listeners:
             self._runtime.usage.listeners.remove(self.async_write_ha_state)
-

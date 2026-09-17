@@ -1,0 +1,83 @@
+# Where to keep the arithmetic, and where to ask.
+#
+# Prices, thresholds and unit conversions belong in your own code. They are exact
+# there and they cost nothing. This example does all of that in Jinja and asks Jev
+# only the part that is actually a judgment: whether running the machine now fits
+# what is going on in the house.
+#
+# Measured on a case just like this: handing over a raw number and a threshold and
+# expecting the model to compare them separated two situations by 0.06. Doing the
+# comparison first, or stating the rule in background:, separated them by roughly
+# 0.6. Either works. Both is no better than one.
+
+template:
+  # Arithmetic, in code, where it is exact.
+  - sensor:
+      - name: Cheapest hours today
+        state: >-
+          {{ (state_attr('sensor.electricity_price', 'prices') or [])
+             | sort(attribute='price') | map(attribute='hour') | list | first(3) | join(', ') }}
+
+script:
+  should_i_run_the_dishwasher:
+    sequence:
+      - variables:
+          price_now: "{{ states('sensor.electricity_price') | float(0) }}"
+          price_avg: "{{ states('sensor.electricity_price_today_average') | float(0) }}"
+          # The comparison is done here, and what Jev receives is the conclusion.
+          price_verdict: >-
+            {% if price_now < price_avg * 0.8 %}well below today's average
+            {% elif price_now > price_avg * 1.2 %}well above today's average
+            {% else %}about average for today{% endif %}
+          solar_verdict: >-
+            {% if states('sensor.solar_power') | float(0) > 1500 %}producing more
+            than the house is using{% else %}producing little or nothing{% endif %}
+
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state:
+            electricity: "The price right now is {{ price_verdict }}."
+            solar: "The panels are {{ solar_verdict }}."
+            time: "{{ now().strftime('%H:%M on %A') }}"
+            household: >-
+              People home: {{ states.person | selectattr('state', 'eq', 'home')
+              | map(attribute='name') | join(', ') or 'nobody' }}.
+              Beds occupied: {{ states.binary_sensor
+              | selectattr('entity_id', 'search', 'bed_occupied')
+              | selectattr('state', 'eq', 'on') | list | count }}.
+          questions:
+            good_moment:
+              type: noul
+              instructions: Is this a good moment to start a two hour dishwasher cycle?
+              background: >-
+                The dishwasher is loud and sits next to the living room. Running it
+                while people are asleep, or during a meal, is worse than waiting.
+                Cheap electricity matters, but not enough to wake anybody.
+            reason:
+              type: choice
+              instructions: What mainly decides the answer?
+              criteria:
+                price: The cost of the electricity right now
+                solar: Whether the panels are covering it
+                people: Who is at home and what they are doing
+                time: The hour of the day
+
+      - choose:
+          - conditions: "{{ jev.answers.good_moment.noul > 0.7 }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.dishwasher
+              - action: logbook.log
+                data:
+                  name: Dishwasher
+                  message: >-
+                    Started, mainly because of {{ jev.answers.reason.choice }}.
+        default:
+          - action: logbook.log
+            data:
+              name: Dishwasher
+              message: >-
+                Waiting. {{ jev.answers.good_moment.noul }},
+                mainly {{ jev.answers.reason.choice }}.

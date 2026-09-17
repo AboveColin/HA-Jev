@@ -4,12 +4,17 @@ Usage: python3 /tmp/hactl.py states | options <token_budget> | log
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = "http://127.0.0.1:8124"
+# All three are overridable, because the only instance this should ever point at
+# is a throwaway one belonging to whoever is running it.
+BASE = os.environ.get("HA_URL", "http://127.0.0.1:8124")
+USERNAME = os.environ.get("HA_USER", "dev")
+PASSWORD = os.environ.get("HA_PASSWORD", "")
 CID = "http://127.0.0.1:8124/"
 
 
@@ -28,18 +33,27 @@ def req(path, data=None, token=None, form=False):
     try:
         with urllib.request.urlopen(r, timeout=60) as resp:
             raw = resp.read().decode()
-            return resp.status, (json.loads(raw) if raw.strip().startswith(("{", "[")) else raw)
+            return resp.status, (
+                json.loads(raw) if raw.strip().startswith(("{", "[")) else raw
+            )
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode()
 
 
 def login():
-    _, f = req("/auth/login_flow", {"client_id": CID, "handler": ["homeassistant", None],
-                                    "redirect_uri": CID})
-    _, o = req(f"/auth/login_flow/{f['flow_id']}",
-               {"client_id": CID, "username": "dev", "password": "devdevdev1234"})
-    _, t = req("/auth/token", {"grant_type": "authorization_code",
-                               "code": o["result"], "client_id": CID}, form=True)
+    _, f = req(
+        "/auth/login_flow",
+        {"client_id": CID, "handler": ["homeassistant", None], "redirect_uri": CID},
+    )
+    _, o = req(
+        f"/auth/login_flow/{f['flow_id']}",
+        {"client_id": CID, "username": USERNAME, "password": PASSWORD},
+    )
+    _, t = req(
+        "/auth/token",
+        {"grant_type": "authorization_code", "code": o["result"], "client_id": CID},
+        form=True,
+    )
     return t["access_token"]
 
 
@@ -52,11 +66,17 @@ def show_states(token):
 
 def set_budget(token, budget):
     _, entries = req("/api/config/config_entries/entry", token=token)
-    entry = [e for e in entries if e["domain"] == "jev"][0]
-    _, flow = req("/api/config/config_entries/options/flow",
-                  {"handler": entry["entry_id"]}, token=token)
-    st, _ = req(f"/api/config/config_entries/options/flow/{flow['flow_id']}",
-                {"daily_token_budget": budget, "price_per_million": 0.042}, token=token)
+    entry = next(e for e in entries if e["domain"] == "jev")
+    _, flow = req(
+        "/api/config/config_entries/options/flow",
+        {"handler": entry["entry_id"]},
+        token=token,
+    )
+    st, _ = req(
+        f"/api/config/config_entries/options/flow/{flow['flow_id']}",
+        {"daily_token_budget": budget, "price_per_million": 0.042},
+        token=token,
+    )
     print(f"budget set to {budget} via the options flow -> {st}")
 
 

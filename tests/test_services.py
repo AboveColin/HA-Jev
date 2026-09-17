@@ -15,13 +15,19 @@ async def call(hass, action, data):
     )
 
 
-async def test_noul_returns_the_probability_and_the_threshold(hass, loaded_entry, mock_client):
+async def test_noul_returns_the_probability_and_the_threshold(
+    hass, loaded_entry, mock_client
+):
     mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.81))
-    response = await call(hass, "noul", {
-        "state": "The machine has drawn 1.2 W for eight minutes.",
-        "instructions": "Is the programme finished?",
-        "threshold": 0.7,
-    })
+    response = await call(
+        hass,
+        "noul",
+        {
+            "state": "The machine has drawn 1.2 W for eight minutes.",
+            "instructions": "Is the programme finished?",
+            "threshold": 0.7,
+        },
+    )
     assert response["noul"] == 0.81
     assert response["is_true"] is True
     assert response["threshold"] == 0.7
@@ -29,7 +35,9 @@ async def test_noul_returns_the_probability_and_the_threshold(hass, loaded_entry
     assert response["model"] == "jev-1.13.0"
 
 
-async def test_the_threshold_is_the_callers_and_nothing_else(hass, loaded_entry, mock_client):
+async def test_the_threshold_is_the_callers_and_nothing_else(
+    hass, loaded_entry, mock_client
+):
     """0.55 is a yes at 0.5 and a no at 0.7. The probability never changes."""
     mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.55))
     low = await call(hass, "noul", {"state": "x", "instructions": "y", "threshold": 0.5})
@@ -49,12 +57,16 @@ async def test_choice_sends_the_options_and_returns_the_distribution(
             confidence=0.95,
         )
     )
-    response = await call(hass, "choice", {
-        "state": "400 Invalid Customer",
-        "instructions": "Which area owns this?",
-        "options": ["auth", "storage"],
-        "option_descriptions": {"auth": "Tokens and credentials"},
-    })
+    response = await call(
+        hass,
+        "choice",
+        {
+            "state": "400 Invalid Customer",
+            "instructions": "Which area owns this?",
+            "options": ["auth", "storage"],
+            "option_descriptions": {"auth": "Tokens and credentials"},
+        },
+    )
     assert response["choice"] == "auth"
     assert response["probabilities"] == {"auth": 0.96, "storage": 0.04}
 
@@ -64,7 +76,9 @@ async def test_choice_sends_the_options_and_returns_the_distribution(
     assert sent.criteria == {"auth": "Tokens and credentials", "storage": None}
 
 
-async def test_score_normalizes_against_its_own_top_level(hass, loaded_entry, mock_client):
+async def test_score_normalizes_against_its_own_top_level(
+    hass, loaded_entry, mock_client
+):
     mock_client.ask.return_value = build_response(
         answer=ScoreAnswer(
             score=2.1,
@@ -73,11 +87,15 @@ async def test_score_normalizes_against_its_own_top_level(hass, loaded_entry, mo
             confidence=0.84,
         )
     )
-    response = await call(hass, "score", {
-        "state": "the unit failed twice",
-        "instructions": "How urgent?",
-        "levels": ["Ignore", "This week", "Today", "Wake someone"],
-    })
+    response = await call(
+        hass,
+        "score",
+        {
+            "state": "the unit failed twice",
+            "instructions": "How urgent?",
+            "levels": ["Ignore", "This week", "Today", "Wake someone"],
+        },
+    )
     assert response["score"] == 2.1
     assert response["normalized"] == pytest.approx(0.7)
     assert response["nearest_level"] == "Today"
@@ -89,18 +107,27 @@ async def test_ask_returns_every_answer_under_the_callers_own_keys(
     mock_client.ask.return_value = build_response(
         real=NoulAnswer(noul=0.77),
         urgency=ScoreAnswer(
-            score=1.4, legend={"0": "No", "1": "Today"},
-            probabilities={"0": 0.3, "1": 0.7}, confidence=0.6,
+            score=1.4,
+            legend={"0": "No", "1": "Today"},
+            probabilities={"0": 0.3, "1": 0.7},
+            confidence=0.6,
         ),
     )
-    response = await call(hass, "ask", {
-        "state": "something happened",
-        "questions": {
-            "real": {"type": "noul", "instructions": "Is it real?"},
-            "urgency": {"type": "score", "instructions": "How urgent?",
-                        "criteria": ["No", "Today"]},
+    response = await call(
+        hass,
+        "ask",
+        {
+            "state": "something happened",
+            "questions": {
+                "real": {"type": "noul", "instructions": "Is it real?"},
+                "urgency": {
+                    "type": "score",
+                    "instructions": "How urgent?",
+                    "criteria": ["No", "Today"],
+                },
+            },
         },
-    })
+    )
     assert set(response["answers"]) == {"real", "urgency"}
     assert response["answers"]["real"]["noul"] == 0.77
     assert response["answers"]["urgency"]["nearest_level"] == "Today"
@@ -109,14 +136,26 @@ async def test_ask_returns_every_answer_under_the_callers_own_keys(
 @pytest.mark.parametrize(
     ("action", "data", "fragment"),
     [
-        ("score", {"state": "x", "instructions": "y", "levels": ["one"]},
-         "2 to 10 levels"),
-        ("score", {"state": "x", "instructions": "y",
-                   "levels": [str(i) for i in range(11)]}, "2 to 10 levels"),
-        ("choice", {"state": "x", "instructions": "y", "options": ["one"]},
-         "2 to 255 options"),
-        ("ask", {"state": "x", "questions": {"q": {"type": "noul"}}},
-         "needs both 'type' and 'instructions'"),
+        (
+            "score",
+            {"state": "x", "instructions": "y", "levels": ["one"]},
+            "2 to 10 levels",
+        ),
+        (
+            "score",
+            {"state": "x", "instructions": "y", "levels": [str(i) for i in range(11)]},
+            "2 to 10 levels",
+        ),
+        (
+            "choice",
+            {"state": "x", "instructions": "y", "options": ["one"]},
+            "2 to 255 options",
+        ),
+        (
+            "ask",
+            {"state": "x", "questions": {"q": {"type": "noul"}}},
+            "needs both 'type' and 'instructions'",
+        ),
         ("noul", {"instructions": "y"}, "give this action some text"),
     ],
 )
@@ -134,10 +173,14 @@ async def test_bad_input_is_refused_before_a_request_is_spent(
 async def test_an_unrendered_template_is_rendered(hass, loaded_entry, mock_client):
     """A call from the developer tools or REST arrives with the template intact."""
     hass.states.async_set("sensor.watts", "1.2")
-    await call(hass, "noul", {
-        "state": "Power is {{ states('sensor.watts') }} W",
-        "instructions": "Is it idle?",
-    })
+    await call(
+        hass,
+        "noul",
+        {
+            "state": "Power is {{ states('sensor.watts') }} W",
+            "instructions": "Is it idle?",
+        },
+    )
     assert mock_client.ask.await_args.args[0] == "Power is 1.2 W"
 
 
@@ -153,11 +196,15 @@ async def test_background_travels_with_the_question_not_the_state(
 ):
     """Standing facts belong to the question. Measured: readings alone separated two
     situations by 0.21, the same rule written into the question by 0.60."""
-    await call(hass, "noul", {
-        "state": "Power: 1.2 W",
-        "instructions": "Is it idle?",
-        "background": "This machine draws under 5 W when idle.",
-    })
+    await call(
+        hass,
+        "noul",
+        {
+            "state": "Power: 1.2 W",
+            "instructions": "Is it idle?",
+            "background": "This machine draws under 5 W when idle.",
+        },
+    )
     state, questions = mock_client.ask.await_args.args
     assert questions["answer"].instructions == {
         "question": "Is it idle?",
@@ -172,15 +219,23 @@ async def test_a_mapping_background_keeps_the_authors_own_key_names(
 ):
     """The model reads the key, and only the author knows what to call it."""
     mock_client.ask.return_value = build_response(
-        answer=ScoreAnswer(score=1.0, legend={"0": "No", "1": "Yes"},
-                           probabilities={"0": 0.0, "1": 1.0}, confidence=1.0)
+        answer=ScoreAnswer(
+            score=1.0,
+            legend={"0": "No", "1": "Yes"},
+            probabilities={"0": 0.0, "1": 1.0},
+            confidence=1.0,
+        )
     )
-    await call(hass, "score", {
-        "state": "x",
-        "instructions": "How urgent?",
-        "levels": ["No", "Yes"],
-        "background": {"how_to_read_the_power": "Under 5 W means idle."},
-    })
+    await call(
+        hass,
+        "score",
+        {
+            "state": "x",
+            "instructions": "How urgent?",
+            "levels": ["No", "Yes"],
+            "background": {"how_to_read_the_power": "Under 5 W means idle."},
+        },
+    )
     assert mock_client.ask.await_args.args[1]["answer"].instructions == {
         "question": "How urgent?",
         "how_to_read_the_power": "Under 5 W means idle.",
@@ -191,9 +246,15 @@ async def test_an_answer_of_the_wrong_type_says_so(hass, loaded_entry, mock_clie
     """Schema-guaranteed output is still somebody else's guarantee."""
     mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.5))
     with pytest.raises(HomeAssistantError, match="which the API should not do"):
-        await call(hass, "choice", {
-            "state": "x", "instructions": "y", "options": ["a", "b"],
-        })
+        await call(
+            hass,
+            "choice",
+            {
+                "state": "x",
+                "instructions": "y",
+                "options": ["a", "b"],
+            },
+        )
 
 
 async def test_a_structured_state_is_passed_through_untouched(
@@ -207,10 +268,12 @@ async def test_a_structured_state_is_passed_through_untouched(
     """
     state = {
         "trigger_value": "a ZEBRA walked past",
-        "room": "bijkeuken",
+        "room": "laundry",
         "machine": {"brand": "Miele", "idle_watts": 5, "running_watts": 300},
     }
-    await call(hass, "noul", {"state": state, "instructions": "Is `machine.idle_watts` 5?"})
+    await call(
+        hass, "noul", {"state": state, "instructions": "Is `machine.idle_watts` 5?"}
+    )
     sent = mock_client.ask.await_args.args[0]
     assert sent == state
     assert isinstance(sent["machine"]["idle_watts"], int)
@@ -218,8 +281,13 @@ async def test_a_structured_state_is_passed_through_untouched(
 
 async def test_a_list_state_survives_too(hass, loaded_entry, mock_client):
     """Arrays suit a sequence of messages or records, per the API docs."""
-    state = [{"from": "colin", "text": "is the washing done"}, {"from": "sensor", "text": "1.2 W"}]
-    await call(hass, "noul", {"state": state, "instructions": "Is anyone asking a question?"})
+    state = [
+        {"from": "colin", "text": "is the washing done"},
+        {"from": "sensor", "text": "1.2 W"},
+    ]
+    await call(
+        hass, "noul", {"state": state, "instructions": "Is anyone asking a question?"}
+    )
     assert mock_client.ask.await_args.args[0] == state
 
 

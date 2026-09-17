@@ -1,0 +1,83 @@
+# Home Assistant knows temperature, motion and power. It does not know that somebody
+# is cooking, that a guest is staying, or that nobody got up this morning. Every
+# automation that needs one of those rebuilds it from raw entities, which is why
+# they break when a sensor moves.
+#
+# One context, one call, several named situations. Every other automation triggers
+# on those instead of on raw entities.
+
+jev:
+  - name: House
+    scan_interval: 600
+    state: >-
+      Time: {{ now().strftime('%H:%M on %A') }}.
+      Motion in the last hour: {{ states.binary_sensor
+        | selectattr('attributes.device_class', 'eq', 'motion')
+        | selectattr('state', 'eq', 'on')
+        | map(attribute='name') | join(', ') or 'none' }}.
+      Kitchen power draw: {{ states('sensor.kitchen_power') }} W.
+      Extractor fan: {{ states('switch.extractor_fan') }}.
+      Front door last opened {{ relative_time(states.binary_sensor.front_door.last_changed) }} ago.
+      People home: {{ states.person | selectattr('state', 'eq', 'home')
+        | map(attribute='name') | join(', ') or 'nobody' }}.
+      Beds occupied: {{ states.binary_sensor
+        | selectattr('entity_id', 'search', 'bed_occupied')
+        | selectattr('state', 'eq', 'on') | list | count }}.
+    questions:
+      - name: Cooking
+        type: noul
+        instructions: Is somebody cooking right now?
+        background: >-
+          The kitchen draws under 50 W at rest. An induction hob or oven takes it
+          over 1000 W. The extractor fan is switched on by hand, not automatically.
+        threshold: 0.7
+
+      - name: Nobody home
+        type: noul
+        instructions: Is the house empty?
+        threshold: 0.8
+
+      - name: Guest present
+        type: noul
+        instructions: Is somebody staying here who does not live here?
+        background: >-
+          Two people live here. A third bed being occupied, or the front door being
+          used at unusual hours, suggests a guest.
+        threshold: 0.7
+
+      - name: Morning routine done
+        type: noul
+        instructions: Has the usual morning routine happened today?
+        background: >-
+          On a normal weekday morning there is motion upstairs, then the kitchen
+          draws power, then the front door opens. It is worth noticing when none of
+          that has happened by late morning.
+        threshold: 0.6
+
+# Now the automations are one line of condition instead of twelve.
+automation:
+  - alias: Extractor fan follows the cooking
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.jev_cooking
+        to: "on"
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.extractor_fan
+
+  - alias: Nobody got up
+    triggers:
+      - trigger: time
+        at: "11:00:00"
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.jev_morning_routine_done
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.jev_nobody_home
+        state: "off"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: Nothing has happened here this morning. Worth a look.

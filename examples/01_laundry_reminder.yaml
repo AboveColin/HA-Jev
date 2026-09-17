@@ -1,0 +1,42 @@
+# The smallest useful thing. One question, one threshold, one binary sensor an
+# automation can trigger on.
+#
+# Note where the rule about what the wattage means lives: in background:, attached
+# to the question. Measured on this exact case, the same sentence put in the state
+# text instead was worth about half as much, and leaving it out entirely left an
+# idle machine and a running one 0.06 apart rather than 0.60.
+
+jev:
+  - name: Laundry
+    scan_interval: 300
+    entities:
+      - sensor.washing_machine_power
+      - binary_sensor.laundry_door
+    questions:
+      - name: Laundry forgotten
+        type: noul
+        instructions: Is the laundry finished but still sitting in the machine?
+        background: >-
+          This machine draws under 5 W when idle and over 300 W while a programme
+          runs. The door sensor reads open once somebody has emptied it.
+        "true": The programme is done and nobody has emptied it
+        "false": Still running, or already emptied
+        threshold: 0.7
+
+automation:
+  - alias: Remind about the washing
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.jev_laundry_forgotten
+        to: "on"
+        # It has to stay true for ten minutes. A single evaluation is a judgment,
+        # not a fact, and this costs nothing to wait for.
+        for: "00:10:00"
+    conditions:
+      - condition: time
+        after: "08:00:00"
+        before: "22:00:00"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: The washing is done and still in the machine.

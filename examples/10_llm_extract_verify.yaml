@@ -1,0 +1,100 @@
+# The LLM extracts, Jev verifies each field against the source.
+#
+# Extraction is where language models are most useful and least trustworthy: the
+# shape is always right, and one field in twenty is quietly invented. Verifying is a
+# different job from extracting, and it is a job Jev can do per field for a fraction
+# of a cent.
+#
+# Every question here is answerable on its own, which is what makes this work.
+
+script:
+  read_invoice:
+    fields:
+      text:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: ai_task.generate_data
+        response_variable: extracted
+        data:
+          task_name: read an invoice
+          entity_id: ai_task.google_ai_task
+          instructions: |
+            Extract the fields from this invoice. Copy values exactly as written.
+            {{ text }}
+          structure:
+            supplier:
+              description: Who issued the invoice
+              required: true
+              selector:
+                text:
+            amount:
+              description: Total amount due, digits only
+              required: true
+              selector:
+                text:
+            due_date:
+              description: Date payment is due, as written
+              selector:
+                text:
+
+      # One verification question per extracted field, all in one call. They are
+      # judged independently, so a wrong supplier does not drag down the amount.
+      - action: jev.ask
+        response_variable: check
+        data:
+          state:
+            source_text: "{{ text }}"
+            extracted: "{{ extracted.data }}"
+          questions:
+            supplier_ok:
+              type: noul
+              instructions: >-
+                Does `source_text` name `extracted.supplier` as the party issuing
+                this invoice?
+            amount_ok:
+              type: noul
+              instructions: >-
+                Does `source_text` state `extracted.amount` as the total amount due,
+                rather than a subtotal, a tax line or a previous balance?
+            due_date_ok:
+              type: noul
+              instructions: >-
+                Does `source_text` give `extracted.due_date` as the payment due date?
+            is_reminder:
+              type: noul
+              instructions: >-
+                Is `source_text` a reminder or a demand for an invoice already sent,
+                rather than a first invoice?
+
+      - variables:
+          all_verified: >-
+            {{ check.answers.supplier_ok.noul > 0.7
+               and check.answers.amount_ok.noul > 0.7
+               and check.answers.due_date_ok.noul > 0.7 }}
+
+      - choose:
+          - conditions: "{{ all_verified }}"
+            sequence:
+              - action: todo.add_item
+                target:
+                  entity_id: todo.bills
+                data:
+                  item: >-
+                    {{ extracted.data.supplier }} {{ extracted.data.amount }}
+                  due_date: "{{ extracted.data.due_date }}"
+
+        default:
+          # A field that could not be verified goes to a person with the numbers
+          # attached, rather than into the list as though it were checked.
+          - action: notify.mobile_app_phone
+            data:
+              title: Check this invoice by hand
+              message: >-
+                {{ extracted.data.supplier }} {{ extracted.data.amount }}
+                due {{ extracted.data.due_date }}.
+                supplier={{ check.answers.supplier_ok.noul }}
+                amount={{ check.answers.amount_ok.noul }}
+                date={{ check.answers.due_date_ok.noul }}

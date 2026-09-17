@@ -8,11 +8,11 @@ import sys
 import time
 
 sys.path.insert(0, "/tmp")
-import hactl  # noqa: E402
+import hactl
 
 TOKEN = hactl.login()
-WATTS = "input_number.wasmachine_watt"
-DOOR = "input_boolean.bijkeuken_deur_dicht"
+WATTS = "input_number.washing_machine_power"
+DOOR = "input_boolean.laundry_door_closed"
 TEMPLATE_RESULT = "input_text.jev_template_result"
 TARGET_RESULT = "input_text.jev_target_result"
 
@@ -23,8 +23,11 @@ def state_of(entity_id):
 
 
 def set_number(value):
-    hactl.req("/api/services/input_number/set_value",
-              {"entity_id": WATTS, "value": value}, token=TOKEN)
+    hactl.req(
+        "/api/services/input_number/set_value",
+        {"entity_id": WATTS, "value": value},
+        token=TOKEN,
+    )
 
 
 def wait_for_change(entity_id, previous, timeout=60):
@@ -56,8 +59,10 @@ failures = []
 results = {}
 
 print("=== automation 1: templates rendered by the script engine ===")
-for watts, expectation in ((1.2, "idle, so the laundry is sitting there"),
-                           (1450.0, "running, so it is not sitting there")):
+for watts, expectation in (
+    (1.2, "idle, so the laundry is sitting there"),
+    (1450.0, "running, so it is not sitting there"),
+):
     ensure_reading_differs(watts)
     before = state_of(TEMPLATE_RESULT)
     set_number(watts)
@@ -67,7 +72,10 @@ for watts, expectation in ((1.2, "idle, so the laundry is sitting there"),
         print(f"  {watts:>7} W -> nothing written")
         continue
     noul, is_true, tokens = after.split("|")
-    print(f"  {watts:>7} W -> noul={noul} is_true={is_true} tokens={tokens}   ({expectation})")
+    print(
+        f"  {watts:>7} W -> noul={noul} is_true={is_true} "
+        f"tokens={tokens}   ({expectation})"
+    )
     if not tokens.isdigit() or tokens == "0":
         failures.append(f"usage did not survive into the automation for {watts} W")
     results[watts] = float(noul)
@@ -101,9 +109,11 @@ else:
 
 print("\n=== automation 3: trigger data and automation variables ===")
 before = state_of("input_text.jev_vars_result")
-hactl.req("/api/services/input_text/set_value",
-          {"entity_id": "input_text.jev_probe", "value": "a ZEBRA walked past"},
-          token=TOKEN)
+hactl.req(
+    "/api/services/input_text/set_value",
+    {"entity_id": "input_text.jev_probe", "value": "a ZEBRA walked past"},
+    token=TOKEN,
+)
 after = wait_for_change("input_text.jev_vars_result", before)
 if after is None:
     failures.append("the variables path wrote no result")
@@ -116,7 +126,7 @@ else:
     print(f"  a number inside a map -> idle_watts is 5 at {watts}")
     # Each of these is only answerable if that part of the data actually arrived,
     # and the mapping ones only if it arrived as a mapping rather than as a string.
-    if room != "bijkeuken":
+    if room != "laundry":
         failures.append(f"a plain variable did not reach the model: room={room}")
     if brand != "Miele":
         failures.append(f"a nested mapping did not reach the model: brand={brand}")
@@ -126,8 +136,12 @@ else:
         failures.append(f"a number inside a mapping did not survive: {watts}")
 
 print("\n=== the context sensors from the same config ===")
-for entity_id in ("sensor.jev_laundry_forgotten", "binary_sensor.jev_laundry_forgotten",
-                  "sensor.jev_calls_today", "sensor.jev_estimated_cost_today"):
+for entity_id in (
+    "sensor.jev_laundry_forgotten",
+    "binary_sensor.jev_laundry_forgotten",
+    "sensor.jev_calls_today",
+    "sensor.jev_estimated_cost_today",
+):
     value = state_of(entity_id)
     print(f"  {entity_id:44} = {value}")
     if value in ("unavailable", "unknown"):

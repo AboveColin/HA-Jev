@@ -1,0 +1,64 @@
+# An intercom transcript arrives on MQTT and somebody is standing at the door. This
+# is one of the few places where the latency buys something: a decision lands in
+# about 300 ms, which is inside the time a caller waits.
+
+automation:
+  - alias: Triage the doorbell
+    mode: queued
+    triggers:
+      - trigger: mqtt
+        topic: intercom/transcript
+    variables:
+      # Whatever the household knows that the transcript does not. It arrives as
+      # real JSON, so the field names stay readable to the model.
+      household:
+        residents: [Sam, Alex]
+        expects_deliveries: true
+        language: Dutch
+    actions:
+      - action: jev.choice
+        response_variable: caller
+        data:
+          state:
+            said: "{{ trigger.payload }}"
+            time: "{{ now().strftime('%H:%M on %A') }}"
+            household: "{{ household }}"
+          instructions: What kind of caller is this?
+          options:
+            - delivery
+            - neighbour
+            - sales
+            - service
+            - other
+          option_descriptions:
+            delivery: A parcel, a meal, or anything being dropped off
+            neighbour: Somebody who lives nearby, on a social or practical errand
+            sales: Selling energy, internet, or a charity subscription at the door
+            service: An expected engineer, meter reader or contractor
+            # `other` deliberately has no description. The model can only pick from
+            # the list it is given, so a catch-all keeps a surprise from being
+            # forced into a wrong box.
+
+      - choose:
+          - conditions: >-
+              {{ caller.choice == 'sales' and caller.confidence > 0.8 }}
+            sequence:
+              - action: media_player.play_media
+                target:
+                  entity_id: media_player.intercom
+                data:
+                  media_content_id: /local/no_thank_you.mp3
+                  media_content_type: music
+
+          - conditions: "{{ caller.choice == 'delivery' }}"
+            sequence:
+              - action: notify.mobile_app_phone
+                data:
+                  message: "A delivery is at the door: {{ trigger.payload }}"
+
+        default:
+          - action: notify.mobile_app_phone
+            data:
+              message: >-
+                Someone at the door ({{ caller.choice }},
+                {{ (caller.confidence * 100) | round }}% sure): {{ trigger.payload }}

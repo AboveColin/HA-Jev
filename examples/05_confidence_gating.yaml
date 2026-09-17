@@ -1,0 +1,54 @@
+# Confidence is a second axis. Use it to decide whether to act at all, not only what
+# to do. The thresholds below are a starting point and nothing more: TypeSafe
+# publishes no calibration evidence, so treat 0.9 as "higher than 0.6" rather than
+# as "right nine times out of ten" until you have checked it on your own questions.
+#
+# The riskier the action, the higher the bar. Turning a lamp on is cheap to get
+# wrong. Unlocking a door is not, and belongs nowhere near this.
+
+script:
+  handle_message:
+    fields:
+      text:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: jev.choice
+        response_variable: intent
+        data:
+          state: "{{ text }}"
+          instructions: What is this message asking for?
+          options: [lights, heating, music, shopping, other]
+
+      - choose:
+          # High: act, say nothing.
+          - conditions: "{{ intent.confidence > 0.85 }}"
+            sequence:
+              - action: "script.handle_{{ intent.choice }}"
+
+          # Medium: act, but ask first. The runner-up is worth showing, because a
+          # close second is usually why the confidence is middling.
+          - conditions: "{{ intent.confidence > 0.5 }}"
+            sequence:
+              - variables:
+                  runner_up: >-
+                    {{ (intent.probabilities.items()
+                       | rejectattr('0', 'eq', intent.choice)
+                       | sort(attribute='1', reverse=true) | first)[0] }}
+              - action: notify.mobile_app_phone
+                data:
+                  message: >-
+                    Looks like {{ intent.choice }}, possibly {{ runner_up }}.
+                    Shall I do {{ intent.choice }}?
+                  data:
+                    actions:
+                      - action: "DO_{{ intent.choice | upper }}"
+                        title: Yes
+
+        # Low: do nothing at all, and say so. Guessing here is worse than asking.
+        default:
+          - action: notify.mobile_app_phone
+            data:
+              message: "I could not tell what this is about: {{ text }}"
