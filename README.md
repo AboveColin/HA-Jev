@@ -481,6 +481,13 @@ a local Ollama:
 | [a guardrail](examples/09_llm_guardrail.yaml) | the model writes, Jev checks the draft against the source before it is sent |
 | [extract then verify](examples/10_llm_extract_verify.yaml) | the model pulls fields out, Jev verifies each one against the text it came from |
 
+[13_voice_commands.yaml](examples/13_voice_commands.yaml) is the largest, following
+TypeSafe's own smart home demo. It asks twelve questions in one request and reads
+three of them, turns spoken commands into real service calls, hands compound
+commands to an LLM to split, and hands general questions to an LLM to answer. The
+device options are built from your own entity registry, so the answer is an
+`entity_id` you can act on directly.
+
 The other eight cover a laundry reminder, alert triage, doorbell triage, a layer of
 named situations, confidence gating, composite scoring, one attention queue across
 channels, and where to keep arithmetic.

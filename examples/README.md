@@ -17,6 +17,7 @@ self-contained and uses invented entity ids, so change those and nothing else.
 | [10_llm_extract_verify.yaml](10_llm_extract_verify.yaml) | an LLM extracts fields, Jev verifies each against the source |
 | [11_post_and_parcels.yaml](11_post_and_parcels.yaml) | one attention queue across several channels |
 | [12_energy_window.yaml](12_energy_window.yaml) | where to keep the arithmetic and where to ask |
+| [13_voice_commands.yaml](13_voice_commands.yaml) | a voice command router: 12 questions in one request, most of them thrown away |
 
 ## Three rules that change the answers
 
@@ -37,6 +38,33 @@ in your own template, which is what 06 does.
 the same state, in parallel. Three questions took 712 ms and a hundred took 714 ms.
 Adding a question costs tokens, not time, so 02 asks three where most people would
 make three calls.
+
+## The voice command router
+
+[13_voice_commands.yaml](13_voice_commands.yaml) is the biggest one and follows
+TypeSafe's own [smart home demo](https://docs.typesafe.ai/demos/smart-home). It asks
+twelve questions in a single request and reads three of them, which is the whole
+argument for speculative fan-out: the alternative is three round trips gated on each
+other.
+
+It differs from the demo in one way. The device and room options are built from your
+own entity registry, so the answer to "which device" is a real `entity_id` with no
+mapping table to keep in step.
+
+Three things in it came out of watching it fail on a real instance:
+
+Confidence decides which answer to trust. On "turn on the kitchen lights" the scope
+answer was `one_room` at 0.41 while the device answer was `light.kitchen_lights` at
+1.00. Branching on scope first threw away the certain answer for the uncertain one.
+
+It acts on one entity per call. A single call carrying the whole list fails as a
+whole the moment one entity refuses, so "shut off all the music" left everything
+playing because one player does not support `turn_off`. Per entity, that command now
+stops six of eight speakers and skips the two that genuinely cannot be stopped.
+
+It never stops silently. A bare `condition:` inside a branch ends the script with no
+trace, which is the worst way for an automation to do nothing, so it logs what it
+understood and why it did not act.
 
 ## The LLM examples
 
