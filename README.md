@@ -97,36 +97,112 @@ They do cost money. Question text is billed as input, roughly 38 tokens for a sh
 one, so a hundred questions is a few thousand tokens per evaluation rather than a
 few hundred.
 
-## Ask from a script
+## Four actions, and three of them need no YAML at all
 
-The `jev.ask` action answers in the same script, for anything that does not deserve
-a permanent entity.
+Most automations ask one question. Those get their own action, with every field
+filled in when you open it, so the first useful run is an edit of the example
+rather than a blank object editor.
+
+**`jev.noul`** asks a yes/no question and returns the probability of yes.
 
 ```yaml
-script:
-  triage_doorbell:
-    sequence:
-      - action: jev.ask
-        response_variable: jev
-        data:
-          state: "{{ trigger.payload }}"
-          questions:
-            sales:
-              type: noul
-              instructions: Is this someone selling something door to door?
-            kind:
-              type: choice
-              instructions: What kind of caller is this?
-              criteria:
-                delivery: A parcel or food delivery
-                neighbour: Somebody who lives nearby
-                sales: Selling energy, internet or charity subscriptions
-      - if: "{{ jev.answers.sales.noul > 0.8 }}"
-        then:
-          - action: media_player.play_media
-            target: { entity_id: media_player.intercom }
-            data: { media_content_id: "/local/nee_dank_u.mp3", media_content_type: music }
+- action: jev.noul
+  response_variable: laundry
+  data:
+    state: |
+      Washing machine: {{ states('sensor.washing_machine_power') }} W
+      Finished: {{ relative_time(states.sensor.washing_machine_finished.last_changed) }} ago
+    instructions: Is the laundry finished but still sitting in the machine?
+    true_means: The programme is done and nobody has emptied it
+    false_means: Still running, or already emptied
+    threshold: 0.7
+- if: "{{ laundry.is_true }}"
+  then:
+    - action: notify.mobile_app
+      data: { message: "The washing is done and still in the machine." }
 ```
+
+Returns `noul` (0 to 1), `is_true` against your threshold, and `threshold`. Use one
+noul per label when several labels can be true at once, rather than a choice.
+
+**`jev.choice`** picks one of your options and returns the whole distribution.
+
+```yaml
+- action: jev.choice
+  response_variable: caller
+  data:
+    state: "{{ trigger.payload }}"
+    instructions: What kind of caller is at the door?
+    options: [delivery, neighbour, sales, other]
+    option_descriptions:
+      delivery: A parcel or food delivery
+      sales: Selling energy, internet or a charity subscription
+- if: "{{ caller.choice == 'sales' and caller.confidence > 0.8 }}"
+  then: [...]
+```
+
+Returns `choice`, `probabilities` and `confidence`. Options are limited to 255.
+Include a catch-all such as `other`, because the model can only pick from the list
+you give it.
+
+**`jev.score`** rates against levels you describe.
+
+```yaml
+- action: jev.score
+  response_variable: urgency
+  data:
+    state: "{{ trigger.payload }}"
+    instructions: How urgently must someone act on this?
+    levels:
+      - Nothing to do, it resolved itself
+      - Worth looking at this week
+      - Needs attention today
+      - Wake someone up now
+```
+
+Returns `score` (0 to the number of levels minus one), `normalized` (the same score
+as 0 to 1, which is what you need before weighting several scores together),
+`nearest_level`, `legend`, `probabilities` and `confidence`.
+
+Two rules that change the answers you get. Describe a situation per level, not a
+degree: "Broken, but there is a workaround" gives the model something to match and
+"Moderately severe" does not. And keep one dimension per question, because a level
+that says punctual and clever and experienced measures three things, so a mixed
+input cannot be placed anywhere and the confidence collapses. Levels are limited to
+10, and each one is judged on its own, so comparative wording and numbers written
+into the text do nothing.
+
+**`jev.ask`** is the one to reach for when you want several answers about the same
+text. Every question is judged independently and they run in parallel, so twenty
+questions take about as long as one.
+
+```yaml
+- action: jev.ask
+  response_variable: jev
+  data:
+    state: |
+      Front door: {{ states('binary_sensor.front_door') }}
+      Nobody home since: {{ relative_time(states.person.home_owner.last_changed) }}
+      Outside: {{ states('sensor.outside_temperature') }} degrees
+    questions:
+      warn:
+        type: noul
+        instructions: Should someone be warned about this?
+      urgency:
+        type: score
+        instructions: How urgently must someone act?
+        criteria: [Nothing to do, Worth looking at this week, Needs attention today]
+- if: "{{ jev.answers.warn.noul > 0.8 }}"
+  then: [...]
+```
+
+The keys are yours. They come back as the keys of `answers` and the model never
+sees them, so name them for your code.
+
+All four actions accept a template in `state` and render it before sending. They
+also take an object or a list there, not only a string, which is worth doing when
+the state has several named parts: the model reads JSON as labelled data rather
+than as one blob.
 
 ## What it costs, and the budget
 

@@ -3,6 +3,10 @@
 Four patterns that use what this model is good at, and one that shows where to
 stop.
 
+The examples below use `jev.ask`, which asks several questions in one request. When
+you only want one answer, `jev.noul`, `jev.choice` and `jev.score` are the same thing
+with the question spelled out as form fields instead.
+
 ## 1. A situation layer
 
 Home Assistant knows temperature, motion and power. It does not know that someone

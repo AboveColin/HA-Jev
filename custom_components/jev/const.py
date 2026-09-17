@@ -46,3 +46,13 @@ ISSUE_BUDGET_EXCEEDED: Final = "daily_budget_exceeded"
 # makes one write rather than one per call.
 STORE_SAVE_DELAY_SECONDS: Final = 15
 STORAGE_VERSION: Final = 1
+
+SERVICE_NOUL: Final = "noul"
+SERVICE_CHOICE: Final = "choice"
+SERVICE_SCORE: Final = "score"
+
+CONF_TRUE_MEANS: Final = "true_means"
+CONF_FALSE_MEANS: Final = "false_means"
+CONF_OPTIONS: Final = "options"
+CONF_OPTION_DESCRIPTIONS: Final = "option_descriptions"
+CONF_LEVELS: Final = "levels"
