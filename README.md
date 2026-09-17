@@ -245,6 +245,24 @@ One caveat on those numbers. They are means of five runs, and repeated runs of t
 same cell on different days wander by around 0.15. The ordering held across every
 run, so treat the gaps as the finding rather than the digits.
 
+## Read the distribution when the answer matters
+
+A score entity gives you a number. Its attributes give you the shape behind that
+number, and the shape carries what the number throws away. A score of 1.0 can be all
+the probability sitting on level 1, or it can be an even split between level 0 and
+level 2, and those two mean opposite things.
+
+```jinja
+{% set p = state_attr('sensor.jev_nudge_urgency', 'probabilities') %}
+{% if p['0'] > 0.3 and p['2'] > 0.3 %}
+  The model is split between not at all and right now, which usually means the state
+  text is describing two different situations. Narrow the context.
+{% endif %}
+```
+
+A flat or two-humped distribution usually means the question is doing two jobs. Split
+it and combine the answers in your own template, where you can see the arithmetic.
+
 ## Automation variables and trigger data
 
 Everything an automation knows can go into a question with no special support,
