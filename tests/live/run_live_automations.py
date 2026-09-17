@@ -99,6 +99,32 @@ else:
     if choice not in ("laundry", "kitchen", "bathroom", "other"):
         failures.append(f"choice returned something outside the option list: {choice}")
 
+print("\n=== automation 3: trigger data and automation variables ===")
+before = state_of("input_text.jev_vars_result")
+hactl.req("/api/services/input_text/set_value",
+          {"entity_id": "input_text.jev_probe", "value": "a ZEBRA walked past"},
+          token=TOKEN)
+after = wait_for_change("input_text.jev_vars_result", before)
+if after is None:
+    failures.append("the variables path wrote no result")
+    print("  nothing written within 60 s")
+else:
+    room, brand, zebra, watts = after.split("|")
+    print(f"  a variable            -> room={room}")
+    print(f"  a nested mapping      -> brand={brand}")
+    print(f"  the trigger value     -> saw ZEBRA at {zebra}")
+    print(f"  a number inside a map -> idle_watts is 5 at {watts}")
+    # Each of these is only answerable if that part of the data actually arrived,
+    # and the mapping ones only if it arrived as a mapping rather than as a string.
+    if room != "bijkeuken":
+        failures.append(f"a plain variable did not reach the model: room={room}")
+    if brand != "Miele":
+        failures.append(f"a nested mapping did not reach the model: brand={brand}")
+    if float(zebra) < 0.8:
+        failures.append(f"trigger data did not reach the model: {zebra}")
+    if float(watts) < 0.8:
+        failures.append(f"a number inside a mapping did not survive: {watts}")
+
 print("\n=== the context sensors from the same config ===")
 for entity_id in ("sensor.jev_laundry_forgotten", "binary_sensor.jev_laundry_forgotten",
                   "sensor.jev_calls_today", "sensor.jev_estimated_cost_today"):

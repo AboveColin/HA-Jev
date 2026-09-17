@@ -31,7 +31,14 @@ It expects the instance on `127.0.0.1:8124` with a user `dev`, which is what
 
 ## What it asserts, and what it deliberately does not
 
-It asserts that both automations write a result, that the token usage survives into
+The third automation exists for one reason: an automation can pass its own
+variables and its trigger data into the action, and the only way to prove each piece
+arrived is to ask a question that is unanswerable without it. A mapping variable is
+the interesting case, because it has to arrive as a mapping rather than as a
+stringified dict. Turn on debug logging for `custom_components.jev` and the log
+prints the type and the content of every state sent.
+
+It asserts that all three automations write a result, that the token usage survives into
 the automation, and that the answer **separates**: an idle machine and a running one
 must differ by at least 0.3.
 

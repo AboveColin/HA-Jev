@@ -8,6 +8,7 @@ several questions about the same state, answered in one request.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Any
 
@@ -67,6 +68,8 @@ from .models import compose_instructions
 from .statebuilder import async_build_state
 
 # instructions and criteria values accept a string, an object or an array.
+_LOGGER = logging.getLogger(__name__)
+
 ENTRY = vol.Any(cv.string, dict, list)
 
 # What the target picker puts in call.data, which must not reach the question body.
@@ -183,6 +186,12 @@ async def _ask(hass: HomeAssistant, call: ServiceCall, questions: dict[str, Ques
         _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
         selector,
         call.data[CONF_INCLUDE_ATTRIBUTES],
+    )
+    _LOGGER.debug(
+        "asking %s question(s) about a %s state: %s",
+        len(questions),
+        type(state).__name__,
+        state,
     )
     try:
         response = await entry.runtime_data.client.ask(state, questions)
