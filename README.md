@@ -27,27 +27,20 @@ gymnastics across six entity states, and no prompt to keep tuning.
 Needs Home Assistant 2026.9 or newer.
 
 Add `https://github.com/AboveColin/HA-Jev` to HACS as a custom repository of type
-Integration, install it, restart, then add Jev (TypeSafe) from Settings, Devices and
-services. It asks for an API key and checks it by asking one short question. The key
-is the only thing it asks for.
+Integration, install, restart, then add Jev (TypeSafe) from Settings, Devices and
+services. An API key is the only thing it asks for.
 
-## Ask a question from an automation
-
-Three actions ask one question each, and every field arrives filled in, so the first
-run is an edit of a worked example.
-
-### jev.noul asks a yes/no question
+## Four actions
 
 ```yaml
 - action: jev.noul
   response_variable: laundry
+  target:
+    entity_id: sensor.washing_machine_power
   data:
-    state: |
-      Washing machine: {{ states('sensor.washing_machine_power') }} W
-      Finished: {{ relative_time(states.sensor.washing_machine_finished.last_changed) }} ago
     instructions: Is the laundry finished but still sitting in the machine?
-    true_means: The programme is done and nobody has emptied it
-    false_means: Still running, or already emptied
+    background: >-
+      This machine draws under 5 W when idle and over 300 W while a programme runs.
     threshold: 0.7
 - if: "{{ laundry.is_true }}"
   then:
@@ -55,231 +48,83 @@ run is an edit of a worked example.
       data: { message: The washing is done and still in the machine. }
 ```
 
-It returns `noul` from 0 to 1, `is_true` against your threshold, and the threshold
-itself. Use one noul per label when several labels can be true at once, rather than
-forcing them into a choice.
+| Action | Ask | Get back |
+|---|---|---|
+| `jev.noul` | a yes/no question | `noul` 0 to 1, and `is_true` against your threshold |
+| `jev.choice` | `options:`, two to 255 of them | `choice`, `probabilities`, `confidence` |
+| `jev.score` | `levels:`, two to 10, lowest first | `score`, `normalized`, `nearest_level`, `legend`, `probabilities`, `confidence` |
+| `jev.ask` | any mix, keyed by your own names | the same, under `answers` |
 
-### jev.choice picks one of your options
+Every field arrives filled in, so the first run is an edit of a worked example.
+Questions in one request are judged independently and answered in parallel, so three
+took 712 ms and a hundred took 714 ms. Adding a question costs tokens, not time. Ask
+everything at once.
 
-```yaml
-- action: jev.choice
-  response_variable: caller
-  data:
-    state: "{{ trigger.payload }}"
-    instructions: What kind of caller is at the door?
-    options: [delivery, neighbour, sales, other]
-    option_descriptions:
-      delivery: A parcel or food delivery
-      sales: Selling energy, internet or a charity subscription
-- if: "{{ caller.choice == 'sales' and caller.confidence > 0.8 }}"
-  then: [...]
-```
-
-It returns `choice`, `probabilities` and `confidence`. Options are limited to 255.
-Include a catch-all such as `other`, because the model can only pick from the list
-you give it.
-
-### jev.score rates against levels you describe
-
-```yaml
-- action: jev.score
-  response_variable: urgency
-  data:
-    state: "{{ trigger.payload }}"
-    instructions: How urgently must someone act on this?
-    levels:
-      - Nothing to do, it resolved itself
-      - Worth looking at this week
-      - Needs attention today
-      - Wake someone up now
-```
-
-It returns `score` from 0 to the number of levels minus one, `normalized` as the
-same score from 0 to 1, `nearest_level`, `legend`, `probabilities` and `confidence`.
-Use `normalized` before weighting several scores together, because two rubrics of
-different lengths are not comparable until each is divided by its own top level.
-
-Two things change the answers you get. Describe a situation per level rather than a
-degree. "Broken, but there is a workaround" gives the model something to match and
-"Moderately severe" does not. And keep one dimension per question, because a level
-saying punctual and clever and experienced measures three things at once, so a mixed
-input cannot be placed anywhere and the confidence collapses. Levels are limited to
-10, and each is judged on its own, so comparative wording and numbers written into
-the level text do nothing.
-
-### jev.ask asks several at once
-
-```yaml
-- action: jev.ask
-  response_variable: jev
-  data:
-    state: |
-      Front door: {{ states('binary_sensor.front_door') }}
-      Nobody home since: {{ relative_time(states.person.you.last_changed) }}
-      Outside: {{ states('sensor.outside_temperature') }} degrees
-    questions:
-      warn:
-        type: noul
-        instructions: Should someone be warned about this?
-      urgency:
-        type: score
-        instructions: How urgently must someone act?
-        criteria: [Nothing to do, Worth looking at this week, Needs attention today]
-- if: "{{ jev.answers.warn.noul > 0.8 }}"
-  then: [...]
-```
-
-The keys are yours. They come back as the keys of `answers` and the model never sees
-them, so name them for your code.
-
-Every question in a request is judged independently against the same text, and the
-API answers them in parallel. Measured from the Netherlands, three questions took
-712 ms and a hundred took 714 ms. Adding a question costs tokens, not time, so ask
-everything you want to know at once.
+Three things change the answers you get. Use one noul per label when several labels
+can be true at once. Include a catch-all option, because the model can only pick from
+the list you give it. And describe a situation per score level rather than a degree,
+since "Broken, but there is a workaround" gives the model something to match and
+"Moderately severe" does not.
 
 ## Point it at entities instead of writing the text
 
-Every action takes a target, so you can pick entities, devices, areas, floors or
-labels in the normal picker and skip the template.
-
-```yaml
-- action: jev.noul
-  target:
-    area_id: laundry_room
-  data:
-    instructions: Is the washing machine idle, suggesting the programme has finished?
-```
-
-The integration turns what you picked into a JSON object, which is the shape the
-TypeSafe docs ask for, because the model reads field names as labels:
+Every action takes a target, so pick entities, devices, areas, floors or labels in
+the normal picker and skip the template. The integration sends a JSON object, which
+is the shape the TypeSafe docs ask for, because the model reads field names as
+labels:
 
 ```json
-{
-  "now": "2026-09-17 09:16 Thursday",
-  "entities": [
-    {"entity_id": "sensor.washing_machine_power", "name": "Washing machine power",
-     "state": "1.2", "unit_of_measurement": "W", "device_class": "power",
-     "area": "Laundry room", "changed": "14 minutes ago"}
-  ]
-}
+{"now": "2026-09-17 09:16 Thursday",
+ "entities": [{"entity_id": "sensor.washing_machine_power", "name": "Washing machine power",
+               "state": "1.2", "unit_of_measurement": "W", "device_class": "power",
+               "area": "Laundry room", "changed": "14 minutes ago"}]}
 ```
 
-Unavailable and unknown states go through as they are, because a sensor that has
-stopped reporting is often the answer rather than a gap to paper over.
+Unavailable and unknown go through as they are, because a sensor that stopped
+reporting is often the answer rather than a gap to paper over.
 
-Add `state:` as well as a target and your text arrives as a `note` beside the
-readings. That combination is usually the right one, and it is worth more than it
-looks. Asking whether the laundry is finished but still in the machine, about a
-power sensor and a door sensor, returned 0.31. Adding one sentence saying the
-programme finished 14 minutes ago, same question and same two entities, returned
-0.80. Twenty-five tokens of context bought that.
+Add `state:` as well and your text arrives as a `note` beside the readings. That
+pairing is worth more than it looks: the same question about the same two entities
+returned 0.31 with the readings alone and 0.80 after one sentence of context.
 
-Each entity costs about 66 input tokens, measured against the live API. One entity
-made a 339 token request, five made 559 and ten made 931. A target is capped at 250
-entities, roughly 16,500 tokens or $0.0007 per evaluation. The cap stops somebody
-pointing a one-minute context at the whole house. It is not there to ration normal
-use.
-
-`include_attributes` sends every attribute rather than the value, unit, device class
-and area. Leave it off unless you need it. A weather forecast or a media player's
-artwork list runs to thousands of tokens on every evaluation.
+An entity costs about 66 input tokens, measured. One made a 339 token request, five
+made 559, ten made 931. A target is capped at 250 entities, roughly 16,500 tokens or
+$0.0007 per evaluation, which stops somebody pointing a one-minute context at the
+whole house. `include_attributes` sends every attribute too, and is off by default
+because a weather forecast runs to thousands of tokens on every evaluation.
 
 ## Tell it how to read the numbers
 
 This is the single change that moves answers the most. Jev makes a judgment and does
-not compare numbers. Hand it a reading, bury the rule in the surrounding prose, and
+not compare numbers. Hand it a reading with the rule buried in surrounding prose and
 it will not work out which side of the threshold the reading falls on.
 
-Two fixes work about equally well. Measured on the same question, five runs per
-cell, asking whether the laundry is finished but still in the machine, at 1.2 W and
-at 1450 W:
+Measured on the same question, five runs per cell, at 1.2 W and 1450 W:
 
 | | idle | running | separation |
 |---|---|---|---|
 | the readings alone | 0.47 | 0.26 | +0.21 |
-| the rule in a `background:` field | 0.70 | 0.10 | +0.60 |
+| the rule in `background:` | 0.70 | 0.10 | +0.60 |
 | the comparison done in the template | 0.74 | 0.06 | +0.69 |
 | both | 0.72 | 0.04 | +0.68 |
 
-Either one roughly triples the separation, and they do not stack, so do one.
+Either fix roughly triples the separation and they do not stack, so do one.
+`background:` needs no Jinja, and it travels with the question rather than with the
+readings, which is most of the effect: the same sentence put in the state measured
++0.33. Pass an object instead of a sentence and your own key names are kept, which
+is worth doing because the model reads them.
 
-The `background:` field needs no Jinja:
-
-```yaml
-- action: jev.noul
-  target:
-    entity_id: sensor.washing_machine_power
-  data:
-    instructions: Is the laundry finished but still sitting in the machine?
-    background: >-
-      This machine draws under 5 W when idle and over 300 W while a programme runs.
-```
-
-It travels with the question rather than with the readings, and that placement is
-most of the effect. The same sentence added to the state instead measured +0.33,
-about half of what it is worth in the question.
-
-Pass an object rather than a sentence and your own key names are kept, which is
-worth doing because the model reads them:
-
-```yaml
-    background:
-      how_to_read_the_power: Under 5 W means idle, over 300 W means a programme is running.
-      what_counts_as_emptied: The door sensor opening after the programme ended.
-```
-
-The other route does the comparison in Jinja, where it is exact and free, and hands
-over the conclusion in words:
-
-```yaml
-state: >-
-  The washing machine is
-  {% if states('sensor.washing_machine_power') | float(0) < 5 %}
-  drawing almost no power, which means it is idle
-  {% else %}
-  drawing {{ states('sensor.washing_machine_power') }} W, so a programme is running
-  {% endif %}.
-```
-
-One caveat on those numbers. They are means of five runs, and repeated runs of the
-same cell on different days wander by around 0.15. The ordering held across every
-run, so treat the gaps as the finding rather than the digits.
-
-## Read the distribution when the answer matters
-
-A score entity gives you a number. Its attributes give you the shape behind that
-number, and the shape carries what the number throws away. A score of 1.0 can be all
-the probability sitting on level 1, or it can be an even split between level 0 and
-level 2, and those two mean opposite things.
-
-```jinja
-{% set p = state_attr('sensor.jev_nudge_urgency', 'probabilities') %}
-{% if p['0'] > 0.3 and p['2'] > 0.3 %}
-  The model is split between not at all and right now, which usually means the state
-  text is describing two different situations. Narrow the context.
-{% endif %}
-```
-
-A flat or two-humped distribution usually means the question is doing two jobs. Split
-it and combine the answers in your own template, where you can see the arithmetic.
+Those are means of five runs. Repeated runs wander by around 0.15, so treat the gaps
+as the finding rather than the digits.
 
 ## Automation variables and trigger data
 
-Everything an automation knows can go into a question with no special support,
-because Home Assistant renders action data before the action sees it. That covers
-`trigger`, a `variables:` block and `this`.
+Everything an automation knows can go into a question, because Home Assistant
+renders action data before the action sees it. That covers `trigger`, a `variables:`
+block and `this`. A variable holding a mapping stays a mapping, so
+`household.residents` arrives as a list rather than a stringified dict.
 
 ```yaml
-automation:
-  - alias: Triage the doorbell
-    triggers:
-      - trigger: mqtt
-        topic: intercom/transcript
-    variables:
-      household:
-        residents: [Sam]
-        expects_deliveries: true
-    actions:
       - action: jev.choice
         response_variable: caller
         data:
@@ -291,20 +136,10 @@ automation:
           options: [delivery, neighbour, sales, other]
 ```
 
-A variable holding a mapping stays a mapping. That example arrives as real JSON with
-`household.residents` still a list, not as a stringified dict, which matters because
-the model reads field names as labels. Verified in a running instance, where the
-debug log shows the state going out as a dict with its nested mapping and integers
-intact.
-
-Templates work the same way in `instructions`, `background`, `options` and `levels`,
-because all of it is action data.
-
 ## Turn questions into entities
 
 Questions in `configuration.yaml` become permanent entities, evaluated on a schedule
-or when the things they watch change. A context is one piece of text, or one set of
-entities, plus everything you want to know about it.
+or when the things they watch change.
 
 ```yaml
 jev:
@@ -320,104 +155,98 @@ jev:
         background: >-
           This machine draws under 5 W when idle and over 300 W while a programme runs.
         threshold: 0.7
-
       - name: Nudge urgency
         type: score
         instructions: How urgently should someone be reminded?
-        criteria:
-          - Not at all
-          - When convenient
-          - Right now
-
-      - name: Room
-        type: choice
-        instructions: Which room does this concern?
-        criteria:
-          laundry: Washer and dryer
-          kitchen: Cooking and dishwasher
-          bathroom:
+        criteria: [Not at all, When convenient, Right now]
 ```
 
-That produces `sensor.jev_laundry_forgotten` holding a probability from 0 to 1,
-`binary_sensor.jev_laundry_forgotten` holding that probability against your
-threshold, `sensor.jev_nudge_urgency` holding a number that can land between levels,
-and `sensor.jev_room` holding one of your options with the full distribution in its
-attributes.
+A noul sensor holds a probability, a score sensor holds a number that can land
+between levels, and a choice sensor holds one of your options with the distribution
+in its attributes. Add `threshold:` to a noul and you also get a binary sensor to
+trigger on.
 
-A context that names entities is woken by those same entities. `entities:` also
-takes the full picker form, so `area_id: laundry_room` or `device_id:` work the same
-way, and targeting an area means an entity added to that area later starts waking
-the context on its own. Write `state:` instead when the wording matters, or write
-both.
+A context that names entities is woken by those entities. `entities:` also takes the
+full picker form, so `area_id:` or `device_id:` work, and targeting an area means an
+entity added later starts waking the context on its own. Write `state:` instead when
+the wording matters, or write both. One context is one request, so keep related
+questions together.
 
-One context is one request, so put related questions together.
+## Examples
 
-### The three question types
+Thirteen worked files in [examples/](examples/), each self-contained and
+copy-pasteable. The test suite walks all of them: the YAML has to parse, any `jev:`
+block has to pass the real config schema, and none may name a real house.
 
-| Type | What you ask | The entity state | Attributes |
-|---|---|---|---|
-| `noul` | a yes/no question | probability of yes, 0 to 1 | none, the probability is the whole answer |
-| `choice` | pick one of your options | the winning option | `probabilities`, `confidence` |
-| `score` | rate against ordered levels | a number, which may fall between levels | `probabilities`, `confidence`, `legend`, `nearest_level` |
+| | |
+|---|---|
+| [01 laundry reminder](examples/01_laundry_reminder.yaml) | the smallest useful thing: one question, one threshold, one binary sensor |
+| [02 alert triage](examples/02_alert_triage.yaml) | three questions in one call, three notification paths |
+| [03 doorbell triage](examples/03_doorbell_triage.yaml) | a choice on an intercom transcript, acted on in 300 ms |
+| [04 situation layer](examples/04_situation_layer.yaml) | named situations every other automation can trigger on |
+| [05 confidence gating](examples/05_confidence_gating.yaml) | act, ask, or stay quiet, decided by confidence |
+| [06 composite score](examples/06_composite_score.yaml) | several scores combined with weights you own |
+| [07 Jev gates the LLM](examples/07_llm_jev_gate.yaml) | a cheap typed decision in front of an expensive call |
+| [08 cascade](examples/08_llm_cascade.yaml) | Jev answers the ordinary cases, low confidence escalates |
+| [09 guardrail](examples/09_llm_guardrail.yaml) | the LLM writes, Jev checks the draft against the source |
+| [10 extract then verify](examples/10_llm_extract_verify.yaml) | the LLM pulls fields out, Jev verifies each against the text |
+| [11 post and parcels](examples/11_post_and_parcels.yaml) | one attention queue across several channels |
+| [12 energy window](examples/12_energy_window.yaml) | where to keep the arithmetic and where to ask |
+| [13 voice commands](examples/13_voice_commands.yaml) | a command router: 12 questions in one request, three of them read |
 
-Add `threshold:` to a noul and you also get a binary sensor, so an automation can
-trigger on a state change instead of re-deciding the threshold in a template.
+Four combine Jev with a language model through `ai_task.generate_data`, which works
+with Google Generative AI, OpenAI, Anthropic or a local Ollama. The division of
+labour is the same in all four. Jev decides in about 300 ms for a fraction of a cent
+and returns something code can branch on, and the model writes prose or handles what
+Jev was unsure about.
+
+The voice command router is the largest, following TypeSafe's own
+[smart home demo](https://docs.typesafe.ai/demos/smart-home). Its device options come
+from your own entity registry, so the answer is an `entity_id` you can act on with no
+mapping table.
 
 ## What it costs, and the budget
 
-Three entities report spending: calls today, input tokens today and estimated cost
-today. The token counts come from the API. The money is an estimate, because the
-price per million is a setting.
+Calls today, input tokens today and estimated cost today are entities. The token
+counts come from the API and the money is an estimate, because the price per million
+is a setting. At $0.042 per million, a context of 450 tokens evaluated every five
+minutes costs about 15 cents a year.
 
-At TypeSafe's published $0.042 per million input tokens, a context of 450 tokens
-evaluated every five minutes costs about 15 cents a year.
-
-Set a daily input token budget in the integration options. It is a tripwire, so put
-it far past anything a working setup would use. When it trips, evaluation stops,
-answers keep their last value, `binary_sensor.jev_daily_budget_exceeded` turns on,
-and a repair notice names the budget and what was used. The totals survive a
-restart, because a budget a restart clears is not a budget.
-
-## How the data updates
-
-Nothing polls TypeSafe on its own. A question is evaluated when a context reaches
-its `scan_interval`, when an entity a context watches changes state, or when an
-automation calls one of the actions. Entity changes are debounced by 5 seconds and
-`scan_interval` has a floor of 30 seconds, because every evaluation is a paid call
-and a flapping sensor must not be able to spend money in a loop.
-
-Each context is one request holding all of its questions, so all the entities of a
-context update at the same instant.
+Set a daily input token budget in the options. It is a tripwire, so put it far past
+anything a working setup would use. When it trips, evaluation stops, answers keep
+their last value, `binary_sensor.jev_daily_budget_exceeded` turns on, and a repair
+notice names the budget and what was used. The totals survive a restart, because a
+budget a restart clears is not a budget.
 
 ## Configuration
 
-Setup is through the UI and asks only for an API key.
-
 | Option | Where | Default | What it does |
 |---|---|---|---|
-| API key | config flow | none | Your TypeSafe key, checked with one short question before the entry is created |
-| Daily input token budget | options | 0 | Stops evaluating for the rest of the day once this many input tokens are spent. 0 means no limit |
+| API key | config flow | none | Checked with one short question before the entry is created |
+| Daily input token budget | options | 0 | Stops evaluating for the day once this many input tokens are spent. 0 means no limit |
 | Price per million input tokens | options | 0.042 | Only affects the estimated cost sensor |
 
-Contexts and questions go in `configuration.yaml` under `jev:`:
-
-| Key | Required | What it does |
+| `jev:` key | Required | What it does |
 |---|---|---|
 | `name` | yes | Names the context and prefixes its entities |
 | `entities` | one of these two | Entities, devices, areas, floors or labels to read |
-| `state` | one of these two | Text or a template to judge, alone or as a note beside the entities |
+| `state` | one of these two | Text or a template, alone or as a note beside the entities |
 | `scan_interval` | no | Seconds between evaluations, minimum 30, default 300 |
 | `trigger_entities` | no | Wake on these instead of on whatever `entities` names |
 | `include_attributes` | no | Send every attribute of the picked entities, off by default |
-| `questions` | yes | One or more questions, each with `name`, `type`, `instructions`, and `criteria` for choice and score |
+| `questions` | yes | Each with `name`, `type`, `instructions`, and `criteria` for choice and score |
 
-To change the API key later, use Reconfigure on the integration. Your questions and
-entity history are kept. To remove the integration, delete it from Settings, Devices
-and services, which removes its entities and its stored daily usage.
+Nothing polls on its own. A question is evaluated when a context reaches its
+`scan_interval`, when an entity it watches changes, or when an automation calls an
+action. Entity changes are debounced by 5 seconds and `scan_interval` has a floor of
+30, because every evaluation is a paid call and a flapping sensor must not spend
+money in a loop.
+
+Use Reconfigure to change the API key, which keeps your entities and their history.
 
 ## Troubleshooting
 
-Turn on debug logging first. It prints the type and the full content of every state
+Turn on debug logging first. It prints the type and full content of every state
 sent, which is almost always the answer:
 
 ```yaml
@@ -426,74 +255,41 @@ logger:
     custom_components.jev: debug
 ```
 
-**An answer looks wrong or barely moves.** Read the state in the log. Nine times out
-of ten it does not contain what you assumed, or it contains a number the model is
-being asked to compare against a threshold. The section on telling it how to read
-the numbers covers that.
+**An answer looks wrong or barely moves.** Read the state in the log. Usually it
+does not contain what you assumed, or it contains a number the model is being asked
+to compare against a threshold.
 
-**Every answer sits near 0.5 with low confidence.** The question is probably
-measuring more than one thing. Split it into one question per dimension and combine
-them in your own template.
+**Every answer sits near 0.5 with low confidence.** The question is measuring more
+than one thing. Split it and combine the parts in your own template.
 
-**Entities are unavailable and the budget sensor is on.** The daily budget stopped
-evaluation. Raise it in the options, or evaluate less often.
+**Entities unavailable, budget sensor on.** The daily budget stopped evaluation.
 
-**Entities are unavailable and the budget sensor is off.** Look for a line saying
-TypeSafe is not answering. It is logged once when the outage starts and once when it
-ends, not on every attempt.
+**Entities unavailable, budget sensor off.** Look for a line saying TypeSafe is not
+answering, logged once when the outage starts and once when it ends.
 
-**Setup fails with "TypeSafe did not answer".** The integration proves the service
-answers before creating any entity, so this is a connectivity or service problem
-rather than a configuration one. Home Assistant retries on its own.
+**Setup fails with "TypeSafe did not answer".** Setup proves the service answers
+before creating any entity, so this is connectivity rather than configuration. Home
+Assistant retries on its own.
 
-**An action returns an error naming a limit.** The message names the limit and the
-number you gave. A choice takes 2 to 255 options, a score 2 to 10 levels, and a
-target at most 250 entities.
+**An error names a limit.** It names the number you gave as well. A choice takes 2
+to 255 options, a score 2 to 10 levels, a target at most 250 entities.
 
 ## What this will not do
 
 It does not explain itself. An answer is a number with no reasoning attached, so
 anything you need to audit later needs its evidence recorded elsewhere.
 
-Confidence is not calibrated. TypeSafe publishes no calibration evidence, and its
-own docs call the value a convenient default. Treat 0.9 as higher than 0.6 rather
-than as right nine times in ten, until you have measured it on your own questions.
+Confidence is not calibrated. TypeSafe publishes no calibration evidence and its own
+docs call the value a convenient default. Treat 0.9 as higher than 0.6 rather than
+as right nine times in ten, until you have measured it on your own questions.
 
-It is slower from here than TypeSafe's published 70 to 500 ms. Measured from the
-Netherlands across 16 calls, a warm connection answers in 250 to 580 ms, the first
-call after an idle spell takes 700 to 900 ms, and a request carrying 400 questions
-took 1.3 s. Fine for a doorbell, too slow for anything in a tight loop.
+It is slower from here than the published 70 to 500 ms. Measured from the
+Netherlands across 16 calls, a warm connection answers in 250 to 580 ms, a first
+call after an idle spell takes 700 to 900 ms, and 400 questions took 1.3 s. Fine for
+a doorbell, too slow for a tight loop.
 
 Do not put it in front of a safety decision. A probability with no explanation is
 not the right thing to hold a lock, a heater or a smoke alarm.
-
-## Examples
-
-[examples/](examples/) has twelve worked files, each self-contained and
-copy-pasteable. Four combine Jev with a language model through
-`ai_task.generate_data`, which works with Google Generative AI, OpenAI, Anthropic or
-a local Ollama:
-
-| | |
-|---|---|
-| [Jev gates the LLM](examples/07_llm_jev_gate.yaml) | a cheap typed decision in front of an expensive call, so the model only writes when there is something worth saying |
-| [a cascade](examples/08_llm_cascade.yaml) | Jev answers the ordinary cases, and low confidence escalates to the model that can reason |
-| [a guardrail](examples/09_llm_guardrail.yaml) | the model writes, Jev checks the draft against the source before it is sent |
-| [extract then verify](examples/10_llm_extract_verify.yaml) | the model pulls fields out, Jev verifies each one against the text it came from |
-
-[13_voice_commands.yaml](examples/13_voice_commands.yaml) is the largest, following
-TypeSafe's own smart home demo. It asks twelve questions in one request and reads
-three of them, turns spoken commands into real service calls, hands compound
-commands to an LLM to split, and hands general questions to an LLM to answer. The
-device options are built from your own entity registry, so the answer is an
-`entity_id` you can act on directly.
-
-The other eight cover a laundry reminder, alert triage, doorbell triage, a layer of
-named situations, confidence gating, composite scoring, one attention queue across
-channels, and where to keep arithmetic.
-
-The test suite walks every example. The YAML has to parse, any `jev:` block has to
-pass the real config schema, and none of them may mention a real house.
 
 ## Tests and quality
 
@@ -502,26 +298,15 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-99 tests run the integration inside a real Home Assistant through
+101 tests run the integration inside a real Home Assistant through
 `pytest-homeassistant-custom-component` with the API client replaced, so the suite
 spends nothing. Coverage is 96 percent, and 100 percent on the config flow.
 
-They cover the config flow including reauth and reconfigure, the check that the API
-key is never used as a unique id, all four actions and everything they refuse, the
-state built from picked entities, the daily budget stopping evaluation while the
-entities that explain it stay available, usage surviving a reload, diagnostics
-redacting the key, and that every translation key raised in code exists in every
-language file.
-
 `quality_scale.yaml` records this integration against Home Assistant's quality scale
-rule by rule: 47 done and 7 exempt with a stated reason, out of 54. Graded tiers are
-only awarded to integrations inside Home Assistant core, so a custom integration
-scores Custom and nothing else, but the scale is a useful target and the file is
-what a core submission needs.
-
-All three Platinum rules are met. The dependency is fully async, it takes Home
-Assistant's shared aiohttp session, and `mypy --strict` passes on all 12 modules,
-enforced in CI rather than claimed.
+rule by rule: 47 done and 7 exempt with a stated reason, out of 54. Graded tiers only
+go to integrations inside core, so a custom integration scores Custom, but the file
+is what a core submission needs. All three Platinum rules are met, including
+`mypy --strict` clean on 12 modules and enforced in CI.
 
 ## Not affiliated with TypeSafe
 
