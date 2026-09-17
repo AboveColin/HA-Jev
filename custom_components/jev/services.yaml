@@ -1,15 +1,145 @@
+noul:
+  fields:
+    state:
+      required: true
+      example: |
+        Washing machine: {{ states('sensor.washing_machine_power') }} W
+        Door: {{ states('binary_sensor.laundry_door') }}
+        Finished: {{ relative_time(states.sensor.washing_machine_finished.last_changed) }} ago
+      selector:
+        template:
+    instructions:
+      required: true
+      default: Is the laundry finished but still sitting in the machine?
+      selector:
+        text:
+          multiline: true
+    true_means:
+      required: false
+      default: The programme is done and nobody has emptied it
+      selector:
+        text:
+          multiline: true
+    false_means:
+      required: false
+      default: Still running, or already emptied
+      selector:
+        text:
+          multiline: true
+    threshold:
+      required: false
+      default: 0.5
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+          mode: slider
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+
+choice:
+  fields:
+    state:
+      required: true
+      example: |
+        {{ trigger.payload | default('Package for number 31, nobody answering') }}
+      selector:
+        template:
+    instructions:
+      required: true
+      default: What kind of caller is at the door?
+      selector:
+        text:
+          multiline: true
+    options:
+      required: true
+      default:
+        - delivery
+        - neighbour
+        - sales
+        - other
+      selector:
+        text:
+          multiple: true
+    option_descriptions:
+      required: false
+      example: >-
+        {"delivery": "A parcel or food delivery", "neighbour": "Somebody who lives
+        nearby", "sales": "Selling energy, internet or a charity subscription"}
+      selector:
+        object:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+
+score:
+  fields:
+    state:
+      required: true
+      example: |
+        {{ trigger.payload | default('nix1 podman-hunky.service failed at 03:12, restarted twice') }}
+      selector:
+        template:
+    instructions:
+      required: true
+      default: How urgently must someone act on this?
+      selector:
+        text:
+          multiline: true
+    levels:
+      required: true
+      default:
+        - Nothing to do, it resolved itself
+        - Worth looking at this week
+        - Needs attention today
+        - Wake someone up now
+      selector:
+        text:
+          multiple: true
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+
 ask:
   fields:
     state:
       required: true
-      example: "The front door has been unlocked for 40 minutes and nobody is home."
+      example: |
+        Front door: {{ states('binary_sensor.front_door') }}
+        Nobody home since: {{ relative_time(states.person.colin.last_changed) }}
+        Outside: {{ states('sensor.outside_temperature') }} degrees
       selector:
-        text:
-          multiline: true
+        template:
     questions:
       required: true
-      example: >
-        {"leave_open": {"type": "noul", "instructions": "Should someone be warned?"}}
+      default:
+        warn:
+          type: noul
+          instructions: Should someone be warned about this?
+        area:
+          type: choice
+          instructions: Which area is this about?
+          criteria:
+            security: Doors, locks and alarms
+            climate: Heating, cooling and ventilation
+            energy: Power and consumption
+            other: Anything else
+        urgency:
+          type: score
+          instructions: How urgently must someone act?
+          criteria:
+            - Nothing to do
+            - Worth looking at this week
+            - Needs attention today
+            - Wake someone up now
       selector:
         object:
     config_entry:

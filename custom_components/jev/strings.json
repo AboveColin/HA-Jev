@@ -4,12 +4,16 @@
       "user": {
         "title": "Connect to TypeSafe",
         "description": "Paste an API key from your TypeSafe account. Home Assistant asks one short question to check that the key works.",
-        "data": { "api_key": "API key" }
+        "data": {
+          "api_key": "API key"
+        }
       },
       "reauth_confirm": {
         "title": "Re-enter your API key",
         "description": "TypeSafe rejected the key currently stored. Paste a working one.",
-        "data": { "api_key": "API key" }
+        "data": {
+          "api_key": "API key"
+        }
       }
     },
     "error": {
@@ -40,17 +44,95 @@
     }
   },
   "services": {
-    "ask": {
-      "name": "Ask",
-      "description": "Ask Jev one or more typed questions about a piece of text, and use the answers in the same script.",
+    "noul": {
+      "name": "Ask a yes/no question",
+      "description": "Ask whether something is true and get the probability of yes, from 0 to 1. Use one of these per label when several labels can be true at once.",
       "fields": {
         "state": {
           "name": "State",
-          "description": "The text to evaluate. Templates are rendered before it is sent."
+          "description": "The text to judge. Write a template and it is rendered before it is sent."
+        },
+        "instructions": {
+          "name": "Question",
+          "description": "Phrase it so that a high number means yes. A statement works as well as a question."
+        },
+        "true_means": {
+          "name": "Yes means",
+          "description": "Optional. What counts as a yes. Worth filling in when the boundary is subtle."
+        },
+        "false_means": {
+          "name": "No means",
+          "description": "Optional. What counts as a no."
+        },
+        "threshold": {
+          "name": "Threshold",
+          "description": "Where to draw the line for the is_true field in the response. The probability itself is always returned as well. A value near 0.5 means the model cannot tell, not that the answer is half true."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
+    },
+    "choice": {
+      "name": "Pick one option",
+      "description": "Pick one option from your list, and get the probability of every option plus a confidence value.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The text to judge. Write a template and it is rendered before it is sent."
+        },
+        "instructions": {
+          "name": "Question",
+          "description": "What the model is choosing between, in one sentence."
+        },
+        "options": {
+          "name": "Options",
+          "description": "Two to 255 options. Include a catch-all such as other when your list might not cover every input."
+        },
+        "option_descriptions": {
+          "name": "Option descriptions",
+          "description": "Optional. A description per option, which sharpens the boundary between similar ones. Saying what an option excludes helps most."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
+    },
+    "score": {
+      "name": "Rate on a scale",
+      "description": "Rate the text against levels you describe, and get a number that can land between two levels.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The text to judge. Write a template and it is rendered before it is sent."
+        },
+        "instructions": {
+          "name": "Question",
+          "description": "One dimension per question. A question measuring three things at once produces a low confidence and a meaningless middle."
+        },
+        "levels": {
+          "name": "Levels",
+          "description": "Two to 10 levels, lowest first. Describe a concrete situation for each, not a degree: Broken but there is a workaround beats Moderately severe. Each level is judged on its own, so comparative wording and numbers in the text do nothing."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
+    },
+    "ask": {
+      "name": "Ask several questions at once",
+      "description": "Ask any mix of question types about one piece of text, in a single request. Every question is judged independently against the same text and they run in parallel, so twenty questions take about as long as one.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The text to judge. Write a template and it is rendered before it is sent."
         },
         "questions": {
           "name": "Questions",
-          "description": "A mapping of your own key to a question. A question has a type of noul, choice or score, instructions, and criteria for choice and score."
+          "description": "Your own key for each question, then its type of noul, choice or score, its instructions, and criteria for choice and score. The keys are yours: they come back as the keys of the answers and the model never sees them."
         },
         "config_entry": {
           "name": "API key",

@@ -14,34 +14,15 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL, Platform
-from homeassistant.core import (
-    HomeAssistant,
-    ServiceCall,
-    ServiceResponse,
-    SupportsResponse,
-)
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
-from jevclient import (
-    USD_PER_MILLION_INPUT_TOKENS,
-    ChoiceAnswer,
-    JevAuthError,
-    JevClient,
-    JevError,
-    NoulAnswer,
-    ScoreAnswer,
-)
+from jevclient import USD_PER_MILLION_INPUT_TOKENS, JevClient
 
 from .const import (
-    ATTR_ANSWERS,
-    ATTR_CONFIG_ENTRY,
-    ATTR_LATENCY_MS,
-    ATTR_QUESTIONS,
-    ATTR_USAGE,
     CONF_CRITERIA,
     CONF_DAILY_TOKEN_BUDGET,
     CONF_FALSE,
@@ -55,14 +36,14 @@ from .const import (
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
     MIN_UPDATE_INTERVAL_SECONDS,
-    SERVICE_ASK,
     STORAGE_VERSION,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
-from .models import ContextConfig, build_question, build_question_config
+from .models import ContextConfig, build_question_config
+from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,16 +68,18 @@ def _check_question_shape(raw: dict[str, Any]) -> dict[str, Any]:
                 f"not 'criteria:'"
             )
     elif kind == TYPE_CHOICE:
-        if not isinstance(criteria, dict) or len(criteria) < 2:
+        if not isinstance(criteria, dict) or not 2 <= len(criteria) <= 255:
             raise vol.Invalid(
-                f"question {name!r}: a choice needs 'criteria:' as a mapping of at "
-                f"least 2 options to a description (or to nothing)"
+                f"question {name!r}: a choice needs 'criteria:' as a mapping of 2 to "
+                f"255 options to a description (or to nothing), got "
+                f"{len(criteria) if isinstance(criteria, dict) else 'none'}"
             )
     elif kind == TYPE_SCORE:
-        if not isinstance(criteria, list) or len(criteria) < 2:
+        if not isinstance(criteria, list) or not 2 <= len(criteria) <= 10:
             raise vol.Invalid(
                 f"question {name!r}: a score needs 'criteria:' as an ordered list of "
-                f"at least 2 levels, lowest first"
+                f"2 to 10 levels, lowest first, got "
+                f"{len(criteria) if isinstance(criteria, list) else 'none'}"
             )
     if kind != TYPE_NOUL and (raw.get(CONF_TRUE) or raw.get(CONF_FALSE)):
         raise vol.Invalid(f"question {name!r}: 'true:' and 'false:' apply to a noul only")
@@ -145,20 +128,11 @@ CONFIG_SCHEMA = vol.Schema(
     {DOMAIN: vol.All(cv.ensure_list, [CONTEXT_SCHEMA])}, extra=vol.ALLOW_EXTRA
 )
 
-SERVICE_ASK_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
-        vol.Required(ATTR_QUESTIONS): vol.Schema({cv.string: dict}),
-        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
-    }
-)
-
-
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Read the YAML contexts. The API key itself comes from the config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["yaml"] = config.get(DOMAIN, [])
-    _async_register_services(hass)
+    async_register_services(hass)
     return True
 
 
@@ -233,86 +207,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool
         for coordinator in entry.runtime_data.coordinators.values():
             coordinator.async_shutdown_triggers()
     return unloaded
-
-
-def _answer_as_dict(answer: Any) -> dict[str, Any]:
-    """Flatten one answer for a service response, so templates can read it."""
-    if isinstance(answer, NoulAnswer):
-        return {"type": TYPE_NOUL, "noul": answer.noul}
-    if isinstance(answer, ChoiceAnswer):
-        return {
-            "type": TYPE_CHOICE,
-            "choice": answer.choice,
-            "probabilities": answer.probabilities,
-            "confidence": answer.confidence,
-        }
-    if isinstance(answer, ScoreAnswer):
-        return {
-            "type": TYPE_SCORE,
-            "score": answer.score,
-            "legend": answer.legend,
-            "probabilities": answer.probabilities,
-            "confidence": answer.confidence,
-            "nearest_level": answer.nearest_level,
-        }
-    raise HomeAssistantError(f"unreadable answer of type {type(answer).__name__}")
-
-
-def _async_register_services(hass: HomeAssistant) -> None:
-    if hass.services.has_service(DOMAIN, SERVICE_ASK):
-        return
-
-    async def _async_ask(call: ServiceCall) -> ServiceResponse:
-        entries: list[JevConfigEntry] = hass.config_entries.async_loaded_entries(DOMAIN)
-        wanted = call.data.get(ATTR_CONFIG_ENTRY)
-        if wanted:
-            entries = [e for e in entries if e.entry_id == wanted]
-        if not entries:
-            raise HomeAssistantError(
-                "no loaded Jev config entry to ask with. Add the integration, or pass "
-                "config_entry with the id of the one you mean."
-            )
-        entry = entries[0]
-
-        try:
-            questions = {
-                key: build_question({CONF_INSTRUCTIONS: "", **raw})
-                for key, raw in call.data[ATTR_QUESTIONS].items()
-            }
-        except (KeyError, ValueError) as err:
-            raise HomeAssistantError(f"a question is not valid: {err}") from err
-
-        try:
-            response = await entry.runtime_data.client.ask(
-                call.data[CONF_STATE_TEMPLATE], questions
-            )
-        except JevAuthError as err:
-            raise HomeAssistantError(f"TypeSafe rejected the API key: {err}") from err
-        except JevError as err:
-            raise HomeAssistantError(f"asking Jev failed: {err}") from err
-
-        usage = entry.runtime_data.usage
-        usage.roll_over(date.today())
-        usage.record(response.usage.input_tokens)
-        usage.notify()
-
-        return {
-            "model": response.model,
-            ATTR_LATENCY_MS: round(response.latency_ms, 1),
-            ATTR_USAGE: {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            },
-            ATTR_ANSWERS: {
-                key: _answer_as_dict(answer)
-                for key, answer in response.answers.items()
-            },
-        }
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_ASK,
-        _async_ask,
-        schema=SERVICE_ASK_SCHEMA,
-        supports_response=SupportsResponse.ONLY,
-    )

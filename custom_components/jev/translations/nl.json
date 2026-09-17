@@ -4,12 +4,16 @@
       "user": {
         "title": "Verbinden met TypeSafe",
         "description": "Plak een API-sleutel uit je TypeSafe-account. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
-        "data": { "api_key": "API-sleutel" }
+        "data": {
+          "api_key": "API-sleutel"
+        }
       },
       "reauth_confirm": {
         "title": "Voer je API-sleutel opnieuw in",
         "description": "TypeSafe weigert de opgeslagen sleutel. Plak een werkende sleutel.",
-        "data": { "api_key": "API-sleutel" }
+        "data": {
+          "api_key": "API-sleutel"
+        }
       }
     },
     "error": {
@@ -40,21 +44,99 @@
     }
   },
   "services": {
-    "ask": {
-      "name": "Vragen",
-      "description": "Stel Jev een of meer getypeerde vragen over een stuk tekst en gebruik de antwoorden in hetzelfde script.",
+    "noul": {
+      "name": "Stel een ja/nee-vraag",
+      "description": "Vraag of iets waar is en krijg de kans op ja, van 0 tot 1. Gebruik er een per label als er meerdere labels tegelijk waar kunnen zijn.",
       "fields": {
         "state": {
           "name": "Toestand",
-          "description": "De tekst die beoordeeld wordt. Templates worden eerst gerenderd."
+          "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
-        "questions": {
-          "name": "Vragen",
-          "description": "Een mapping van je eigen sleutel naar een vraag. Een vraag heeft een type noul, choice of score, instructies, en criteria bij choice en score."
+        "instructions": {
+          "name": "Vraag",
+          "description": "Formuleer zo dat een hoog getal ja betekent. Een stelling werkt net zo goed als een vraag."
+        },
+        "true_means": {
+          "name": "Ja betekent",
+          "description": "Optioneel. Wat als ja telt. Vul dit in als de grens subtiel is."
+        },
+        "false_means": {
+          "name": "Nee betekent",
+          "description": "Optioneel. Wat als nee telt."
+        },
+        "threshold": {
+          "name": "Drempel",
+          "description": "Waar de grens ligt voor het veld is_true in het antwoord. De kans zelf krijg je altijd terug. Een waarde rond 0.5 betekent dat het model het niet kan zeggen, niet dat het antwoord half waar is."
         },
         "config_entry": {
           "name": "API-sleutel",
-          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan één is."
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        }
+      }
+    },
+    "choice": {
+      "name": "Kies een optie",
+      "description": "Kies een optie uit je lijst, met de kans per optie en een betrouwbaarheidswaarde.",
+      "fields": {
+        "state": {
+          "name": "Toestand",
+          "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
+        },
+        "instructions": {
+          "name": "Vraag",
+          "description": "Waartussen het model kiest, in een zin."
+        },
+        "options": {
+          "name": "Opties",
+          "description": "Twee tot 255 opties. Voeg een restcategorie zoals anders toe als je lijst niet alles dekt."
+        },
+        "option_descriptions": {
+          "name": "Omschrijving per optie",
+          "description": "Optioneel. Een omschrijving per optie, wat de grens tussen lijkende opties scherper maakt. Vertellen wat een optie uitsluit helpt het meest."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        }
+      }
+    },
+    "score": {
+      "name": "Geef een cijfer",
+      "description": "Beoordeel de tekst tegen niveaus die je zelf beschrijft, met een getal dat tussen twee niveaus in kan liggen.",
+      "fields": {
+        "state": {
+          "name": "Toestand",
+          "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
+        },
+        "instructions": {
+          "name": "Vraag",
+          "description": "Een dimensie per vraag. Een vraag die drie dingen tegelijk meet geeft lage betrouwbaarheid en een nietszeggend midden."
+        },
+        "levels": {
+          "name": "Niveaus",
+          "description": "Twee tot 10 niveaus, laagste eerst. Beschrijf per niveau een concrete situatie, geen gradatie: Kapot maar er is een omweg werkt beter dan Redelijk ernstig. Elk niveau wordt op zichzelf beoordeeld, dus vergelijkende woorden en getallen in de tekst doen niets."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        }
+      }
+    },
+    "ask": {
+      "name": "Stel meerdere vragen tegelijk",
+      "description": "Stel elke mix van vraagtypen over een stuk tekst, in een verzoek. Elke vraag wordt los beoordeeld tegen dezelfde tekst en ze lopen parallel, dus twintig vragen duren ongeveer even lang als een.",
+      "fields": {
+        "state": {
+          "name": "Toestand",
+          "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
+        },
+        "questions": {
+          "name": "Vragen",
+          "description": "Je eigen sleutel per vraag, dan het type noul, choice of score, de instructies, en criteria bij choice en score. De sleutels zijn van jou: je krijgt ze terug als sleutels van de antwoorden en het model ziet ze nooit."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
         }
       }
     }
