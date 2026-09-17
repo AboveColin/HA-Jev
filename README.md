@@ -34,6 +34,29 @@ checks it by asking one short question.
 Questions live in `configuration.yaml`, grouped into contexts. A context is one
 piece of text plus everything you want to know about it.
 
+A context can name entities instead of a template, in which case those same
+entities are also what wakes it:
+
+```yaml
+jev:
+  - name: Laundry
+    scan_interval: 300
+    entities:
+      - sensor.washing_machine_power
+      - binary_sensor.laundry_door
+    questions:
+      - name: Laundry forgotten
+        type: noul
+        instructions: Is the washing machine idle, suggesting the programme has finished?
+        threshold: 0.7
+```
+
+`entities:` also takes the full picker form, so `area_id: laundry_room` or
+`device_id:` work the same way. Targeting an area rather than a list means an
+entity added to that area later starts waking the context on its own.
+
+Write the text yourself when the wording matters:
+
 ```yaml
 jev:
   - name: Laundry
@@ -96,6 +119,54 @@ So put related questions in one context and they cost almost nothing extra in ti
 They do cost money. Question text is billed as input, roughly 38 tokens for a short
 one, so a hundred questions is a few thousand tokens per evaluation rather than a
 few hundred.
+
+## Point it at entities instead of writing a template
+
+Every action takes a target, so you can pick entities, devices, areas, floors or
+labels in the normal Home Assistant picker and skip the template entirely. The
+integration turns what you picked into a JSON object and sends that.
+
+```yaml
+- action: jev.noul
+  target:
+    area_id: laundry_room
+  data:
+    instructions: Is the washing machine idle, suggesting the programme has finished?
+```
+
+What the model receives for that looks like this, which is the shape the TypeSafe
+docs ask for, because the model reads field names as labels:
+
+```json
+{
+  "now": "2026-09-17 09:16 Thursday",
+  "entities": [
+    {"entity_id": "sensor.washing_machine_power", "name": "Washing machine power",
+     "state": "1.2", "unit_of_measurement": "W", "device_class": "power",
+     "area": "Laundry room", "changed": "14 minutes ago"}
+  ]
+}
+```
+
+Unavailable and unknown states go through as they are, because a sensor that has
+stopped reporting is often the answer rather than a gap to paper over.
+
+Add `state:` as well as a target and your text arrives as a `note` field beside the
+readings. That combination is usually the right one, and it is worth more than it
+looks. Asking "is the laundry finished but still sitting in the machine" about a
+power sensor and a door sensor returned 0.31. Adding one sentence saying the
+programme finished 14 minutes ago, same question and same two entities, returned
+0.80. Twenty-five tokens of context bought that.
+
+Each entity costs about 66 input tokens, measured against the live API: 1 entity
+made a 339 token request, 5 made 559 and 10 made 931. A target is capped at 250
+entities, which is roughly 16,500 tokens or $0.0007 per evaluation. That cap exists
+to stop somebody pointing a one-minute context at the whole house, not to ration
+normal use.
+
+`include_attributes` sends every attribute rather than just the value, unit, device
+class and area. Leave it off unless you need it: a weather forecast or a media
+player's artwork list runs to thousands of tokens on every single evaluation.
 
 ## Four actions, and three of them need no YAML at all
 

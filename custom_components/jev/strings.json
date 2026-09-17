@@ -71,6 +71,10 @@
         "config_entry": {
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
+        },
+        "include_attributes": {
+          "name": "Include all attributes",
+          "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
     },
@@ -97,6 +101,10 @@
         "config_entry": {
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
+        },
+        "include_attributes": {
+          "name": "Include all attributes",
+          "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
     },
@@ -119,6 +127,10 @@
         "config_entry": {
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
+        },
+        "include_attributes": {
+          "name": "Include all attributes",
+          "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
     },
@@ -137,6 +149,10 @@
         "config_entry": {
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
+        },
+        "include_attributes": {
+          "name": "Include all attributes",
+          "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
     }

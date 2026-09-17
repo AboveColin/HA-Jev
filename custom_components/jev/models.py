@@ -44,7 +44,7 @@ class QuestionConfig:
 
 @dataclass(slots=True)
 class ContextConfig:
-    """A state template and every question asked about it.
+    """What to look at, and every question asked about it.
 
     One context is one API call. The API evaluates questions in isolation and in
     parallel against the same state, so adding a question to an existing context
@@ -54,9 +54,11 @@ class ContextConfig:
 
     key: str
     name: str
-    template: Template
     questions: list[QuestionConfig]
     scan_interval: int
+    template: Template | None = None
+    selector: dict[str, Any] | None = None
+    include_attributes: bool = False
     trigger_entities: list[str] = field(default_factory=list)
 
 
