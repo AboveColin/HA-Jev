@@ -27,6 +27,10 @@ from .coordinator import JevCoordinator, JevRuntimeData
 from .entity import JevQuestionEntity, JevUsageEntity
 from .models import QuestionConfig
 
+# Every sensor reads an answer a coordinator already fetched, so there is
+# nothing to serialise: no sensor performs I/O of its own.
+PARALLEL_UPDATES = 0
+
 if TYPE_CHECKING:
     from . import JevConfigEntry
 

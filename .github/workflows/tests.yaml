@@ -32,3 +32,15 @@ jobs:
           python-version: "3.14"
       - run: pip install -r requirements-test.txt
       - run: pytest --cov=custom_components.jev --cov-report=term-missing
+
+  mypy:
+    name: mypy --strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements-test.txt mypy
+      # Platinum's strict-typing rule. Worth enforcing rather than claiming.
+      - run: mypy --strict --ignore-missing-imports custom_components/jev

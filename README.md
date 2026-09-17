@@ -459,6 +459,18 @@ from picked entities, the daily budget stopping evaluation while the entities th
 explain it stay available, usage surviving a reload, and diagnostics redacting the
 key.
 
+## Quality
+
+`quality_scale.yaml` records this integration against Home Assistant's quality scale,
+rule by rule: 31 done, 7 exempt with a reason, 16 still to do. The graded tiers only
+apply to integrations inside Home Assistant core, so a custom integration scores
+"Custom" and nothing else, but the scale is a useful target and the file is what a
+core submission needs.
+
+All three Platinum rules are met. The dependency is fully async, it takes Home
+Assistant's shared aiohttp session, and `mypy --strict` passes on all 12 modules,
+enforced in CI rather than claimed.
+
 ## Not affiliated with TypeSafe
 
 Independent integration. The API client is [jevclient](https://github.com/AboveColin/jevclient).

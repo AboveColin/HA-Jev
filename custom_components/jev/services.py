@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.core import (
@@ -38,6 +38,9 @@ from jevclient import (
     Score,
     ScoreAnswer,
 )
+
+if TYPE_CHECKING:
+    from . import JevConfigEntry
 
 from .const import (
     ATTR_ANSWERS,
@@ -156,7 +159,7 @@ def _instructions(call: ServiceCall) -> Any:
     )
 
 
-def _entry(hass: HomeAssistant, call: ServiceCall) -> Any:
+def _entry(hass: HomeAssistant, call: ServiceCall) -> JevConfigEntry:
     entries = hass.config_entries.async_loaded_entries(DOMAIN)
     if wanted := call.data.get(ATTR_CONFIG_ENTRY):
         entries = [e for e in entries if e.entry_id == wanted]
@@ -168,7 +171,9 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> Any:
     return entries[0]
 
 
-async def _ask(hass: HomeAssistant, call: ServiceCall, questions: dict[str, Question]):
+async def _ask(
+    hass: HomeAssistant, call: ServiceCall, questions: dict[str, Question]
+) -> JevResponse:
     """Send one request and account for what it cost."""
     entry = _entry(hass, call)
     selector = {

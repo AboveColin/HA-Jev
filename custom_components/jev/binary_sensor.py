@@ -18,6 +18,10 @@ from .coordinator import JevCoordinator, JevRuntimeData
 from .entity import JevQuestionEntity, JevUsageEntity
 from .models import QuestionConfig
 
+# Same as the sensor platform: these read answers a coordinator already
+# fetched and perform no I/O of their own.
+PARALLEL_UPDATES = 0
+
 if TYPE_CHECKING:
     from . import JevConfigEntry
 
