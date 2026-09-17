@@ -406,12 +406,16 @@ async def test_a_yaml_question_takes_structured_entries(hass, mock_client, confi
             {
                 "name": "Caller",
                 "type": "choice",
-                "instructions": {"question": "What kind of caller is this?",
-                                 "focus": "What they are asking for, not how politely"},
+                "instructions": {
+                    "question": "What kind of caller is this?",
+                    "focus": "What they are asking for, not how politely",
+                },
                 "criteria": {
-                    "delivery": {"what": "Dropping something off",
-                                 "not_for": "Anyone asking for money",
-                                 "examples": ["parcel for number 31"]},
+                    "delivery": {
+                        "what": "Dropping something off",
+                        "not_for": "Anyone asking for money",
+                        "examples": ["parcel for number 31"],
+                    },
                     "sales": "Selling a contract at the door",
                     "other": None,
                 },
@@ -436,7 +440,10 @@ async def test_a_yaml_score_takes_structured_levels(hass, mock_client, config_en
                 "instructions": "How severe is this?",
                 "criteria": [
                     {"summary": "Cosmetic", "signals": ["wrong colour"]},
-                    {"summary": "Broken with a workaround", "signals": ["needs a restart"]},
+                    {
+                        "summary": "Broken with a workaround",
+                        "signals": ["needs a restart"],
+                    },
                 ],
             }
         ],
