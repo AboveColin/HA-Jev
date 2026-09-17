@@ -95,6 +95,29 @@ the list you give it. And describe a situation per score level rather than a deg
 since "Broken, but there is a workaround" gives the model something to match and
 "Moderately severe" does not.
 
+### Structured instructions and criteria
+
+`instructions`, a noul's `true_means` and `false_means`, and every choice option or
+score level accept an object or an array as well as a string. The model reads field
+names as labels, so a rubric can carry `what`, `not_for` and `examples` per option
+instead of one flattened sentence, in an action or in `configuration.yaml` alike:
+
+```yaml
+    option_descriptions:
+      delivery:
+        what: Dropping something off that was ordered
+        not_for: Anyone asking for money at the door
+        examples: [parcel for number 31, food delivery]
+```
+
+Worth knowing before you write one: I could not measure it helping. On five
+deliberately ambiguous doorbell callers, three runs each, flat strings and
+structured rubrics both agreed with the intended answer 12 times out of 15, both
+were stable across runs, and the structured version scored slightly lower confidence
+at 0.87 against 0.90. TypeSafe's own examples show modest gains on some inputs and
+none on others. Reach for it when two options genuinely blur and a plain sentence
+has already failed, not by default.
+
 ## Point it at entities instead of writing the text
 
 Every action takes a target, so pick entities, devices, areas, floors or labels in

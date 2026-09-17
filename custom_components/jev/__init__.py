@@ -62,6 +62,10 @@ PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 type JevConfigEntry = ConfigEntry[JevRuntimeData]
 
 
+# Anywhere the API takes a string, an object or an array.
+ENTRY = vol.Any(cv.string, dict, list)
+
+
 def _check_question_shape(raw: dict[str, Any]) -> dict[str, Any]:
     """Reject a question the API would reject, and say which field is wrong.
 
@@ -106,11 +110,15 @@ QUESTION_SCHEMA = vol.All(
         {
             vol.Required(CONF_NAME): cv.string,
             vol.Required("type"): vol.In([TYPE_NOUL, TYPE_CHOICE, TYPE_SCORE]),
-            vol.Required(CONF_INSTRUCTIONS): cv.string,
-            vol.Optional(CONF_TRUE): cv.string,
-            vol.Optional(CONF_FALSE): cv.string,
+            # instructions and every criteria value take a string, an object or
+            # an array. The model is trained to read structure, so a rubric with
+            # what/not_for/examples per option can go in as JSON rather than being
+            # flattened into one sentence.
+            vol.Required(CONF_INSTRUCTIONS): ENTRY,
+            vol.Optional(CONF_TRUE): ENTRY,
+            vol.Optional(CONF_FALSE): ENTRY,
             vol.Optional(CONF_CRITERIA): vol.Any(
-                {cv.string: vol.Any(cv.string, None)}, [cv.string]
+                {cv.string: vol.Any(ENTRY, None)}, [ENTRY]
             ),
             vol.Optional(CONF_THRESHOLD): vol.All(
                 vol.Coerce(float), vol.Range(min=0.0, max=1.0)
