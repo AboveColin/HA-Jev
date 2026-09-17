@@ -392,3 +392,55 @@ async def test_the_latency_sensor_reports_the_last_evaluation(
     await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
     assert hass.states.get("sensor.jev_laundry_latency").state == "274"
+
+
+async def test_a_yaml_question_takes_structured_entries(hass, mock_client, config_entry):
+    """instructions and every criteria value accept an object or an array.
+
+    The actions already allowed this; the YAML schema did not, so the same question
+    was legal through an action and rejected in configuration.yaml.
+    """
+    context = {
+        **CONTEXT,
+        "questions": [
+            {
+                "name": "Caller",
+                "type": "choice",
+                "instructions": {"question": "What kind of caller is this?",
+                                 "focus": "What they are asking for, not how politely"},
+                "criteria": {
+                    "delivery": {"what": "Dropping something off",
+                                 "not_for": "Anyone asking for money",
+                                 "examples": ["parcel for number 31"]},
+                    "sales": "Selling a contract at the door",
+                    "other": None,
+                },
+            }
+        ],
+    }
+    await setup_with_context(hass, config_entry, context)
+    sent = next(iter(mock_client.ask.await_args.args[1].values()))
+    assert sent.instructions["focus"] == "What they are asking for, not how politely"
+    assert sent.criteria["delivery"]["examples"] == ["parcel for number 31"]
+    assert sent.criteria["sales"] == "Selling a contract at the door"
+    assert sent.criteria["other"] is None
+
+
+async def test_a_yaml_score_takes_structured_levels(hass, mock_client, config_entry):
+    context = {
+        **CONTEXT,
+        "questions": [
+            {
+                "name": "Severity",
+                "type": "score",
+                "instructions": "How severe is this?",
+                "criteria": [
+                    {"summary": "Cosmetic", "signals": ["wrong colour"]},
+                    {"summary": "Broken with a workaround", "signals": ["needs a restart"]},
+                ],
+            }
+        ],
+    }
+    await setup_with_context(hass, config_entry, context)
+    sent = next(iter(mock_client.ask.await_args.args[1].values()))
+    assert sent.criteria[0]["summary"] == "Cosmetic"
