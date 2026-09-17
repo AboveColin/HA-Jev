@@ -2,3 +2,5 @@ __pycache__/
 *.py[cod]
 .ruff_cache/
 .venv/
+.coverage
+.pytest_cache/

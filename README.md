@@ -290,6 +290,38 @@ answers keep their last value, `binary_sensor.jev_daily_budget_exceeded` turns o
 and a repair notice names the budget and what was used. The totals survive a restart,
 because a budget a restart clears is not a budget.
 
+## Do the arithmetic in your template, not in the question
+
+This is the single change that moves answers the most, and it is easy to get wrong.
+Jev makes a judgment; it does not compare numbers. Giving it a reading and a
+threshold and expecting it to work out which side the reading falls on does not
+work.
+
+Measured, same question, same two situations:
+
+| What the state said | idle | running | separation |
+|---|---|---|---|
+| `1.2 W`, plus "this machine draws under 5 W when idle" | 0.39 | 0.33 | +0.06 |
+| "drawing almost no power, which means it is idle" | 0.60 | 0.12 | +0.48 |
+
+So do the comparison in Jinja, where it is exact and free, and hand over the
+conclusion in words:
+
+```yaml
+state: >-
+  The washing machine is
+  {% if states('sensor.washing_machine_power') | float(0) < 5 %}
+  drawing almost no power, which means it is idle
+  {% else %}
+  drawing {{ states('sensor.washing_machine_power') }} W, so a programme is running
+  {% endif %}.
+  A programme was started 40 minutes ago and nobody has entered the room since.
+```
+
+The same rule decides when a bare target is enough. Entities alone give readings,
+and readings are numbers. If your question turns on what a number means, say what it
+means yourself.
+
 ## What this will not do
 
 It does not explain itself. An answer is a number, with no reasoning attached, so
@@ -306,6 +338,24 @@ took 1.3 s. Fine for a doorbell, too slow for anything in a tight loop.
 
 Do not put it in front of a safety decision. A probability with no explanation is not
 the right thing to hold a lock, a heater or a smoke alarm.
+
+## Tests
+
+```
+pip install -r requirements-test.txt
+pytest
+```
+
+37 tests against a real Home Assistant instance through
+`pytest-homeassistant-custom-component`, with the API client replaced, so nothing
+in the suite spends a token. Coverage is 90 percent overall and 100 percent on the
+config flow.
+
+They cover the config flow including reauth and the check that the API key is never
+used as a unique id, all four actions and everything they refuse, the state built
+from picked entities, the daily budget stopping evaluation while the entities that
+explain it stay available, usage surviving a reload, and diagnostics redacting the
+key.
 
 ## Not affiliated with TypeSafe
 

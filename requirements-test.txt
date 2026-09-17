@@ -1,0 +1,5 @@
+# Pin what the harness pins. A mismatch here shows up as unrelated async failures.
+pytest-homeassistant-custom-component==0.13.365
+pytest==9.0.3
+pytest-asyncio==1.4.0
+jevclient==1.1.0
