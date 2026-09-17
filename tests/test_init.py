@@ -54,7 +54,9 @@ async def test_a_context_makes_a_sensor_per_question(hass, mock_client, config_e
     assert hass.states.get("sensor.jev_calls_today").state == "1"
 
 
-async def test_the_state_is_built_from_the_named_entities(hass, mock_client, config_entry):
+async def test_the_state_is_built_from_the_named_entities(
+    hass, mock_client, config_entry
+):
     await setup_with_context(hass, config_entry)
     sent = mock_client.ask.await_args.args[0]
     assert sent["entities"][0]["name"] == "Washer power"
@@ -77,8 +79,12 @@ async def test_yaml_refuses_the_same_limits_as_the_actions(
     bad = {
         **CONTEXT,
         "questions": [
-            {"name": "Urgency", "type": "score", "instructions": "How urgent?",
-             "criteria": levels}
+            {
+                "name": "Urgency",
+                "type": "score",
+                "instructions": "How urgent?",
+                "criteria": levels,
+            }
         ],
     }
     assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [bad]})
@@ -123,12 +129,15 @@ async def test_usage_survives_a_reload(hass, mock_client, config_entry):
     assert tokens >= 321, "the day's usage reset when the entry reloaded"
 
 
-async def test_yesterdays_total_does_not_count_against_today(hass, mock_client, config_entry):
-    stored = {"day": (date.today() - timedelta(days=1)).isoformat(),
-              "calls": 99, "input_tokens": 999_999}
-    with patch(
-        "homeassistant.helpers.storage.Store.async_load", return_value=stored
-    ):
+async def test_yesterdays_total_does_not_count_against_today(
+    hass, mock_client, config_entry
+):
+    stored = {
+        "day": (date.today() - timedelta(days=1)).isoformat(),
+        "calls": 99,
+        "input_tokens": 999_999,
+    }
+    with patch("homeassistant.helpers.storage.Store.async_load", return_value=stored):
         await setup_with_context(hass, config_entry)
     assert hass.states.get("sensor.jev_calls_today").state == "1"
 
@@ -146,4 +155,6 @@ async def test_a_yaml_question_takes_background_too(hass, mock_client, config_en
     await setup_with_context(hass, config_entry, context)
     sent = mock_client.ask.await_args.args[1]
     question = next(iter(sent.values()))
-    assert question.instructions["background"] == "This machine draws under 5 W when idle."
+    assert (
+        question.instructions["background"] == "This machine draws under 5 W when idle."
+    )

@@ -1,0 +1,89 @@
+# One attention queue across several channels.
+#
+# Mail, paper post, parcels and calendar invites each arrive in their own place,
+# each with its own notification, each demanding you decide whether it matters. The
+# same rubric applied to all of them collapses that into one ranked list and one
+# notification a day.
+#
+# The point is not a better filter for one inbox. It is one rubric across channels
+# that no single app can see at once.
+
+script:
+  queue_item:
+    alias: Add something to the attention queue
+    fields:
+      source:
+        required: true
+        selector:
+          select:
+            options: [email, post, parcel, calendar, bank]
+      text:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state:
+            source: "{{ source }}"
+            text: "{{ text }}"
+            today: "{{ now().strftime('%A %d %B') }}"
+          questions:
+            needs_me:
+              type: noul
+              instructions: Does the person who lives here need to know about this at all?
+              "true": It asks for a decision, an action, or a payment from them
+              "false": Informational, promotional, or already handled
+            deadline:
+              type: noul
+              instructions: Does this carry a date by which something must be done?
+            by_when:
+              type: score
+              instructions: How soon must they act?
+              criteria:
+                - No date at all
+                - Some time in the next few weeks
+                - Within a few days
+                - Today or it is late
+            kind:
+              type: choice
+              instructions: What kind of thing is this?
+              criteria:
+                pay: Money is owed or being taken
+                book: Something must be booked, confirmed or attended
+                reply: Somebody is waiting for an answer
+                file: Worth keeping, nothing to do
+                bin: Neither useful nor actionable
+
+      - condition: template
+        value_template: "{{ jev.answers.needs_me.noul > 0.5 }}"
+
+      - action: todo.add_item
+        target:
+          entity_id: todo.attention
+        data:
+          item: >-
+            [{{ source }}] {{ jev.answers.kind.choice }}:
+            {{ text | truncate(60) }}
+          description: >-
+            urgency {{ jev.answers.by_when.score | round(2) }}
+            ({{ jev.answers.by_when.nearest_level }}),
+            deadline {{ jev.answers.deadline.noul }}
+
+automation:
+  # One notification a day, ordered, instead of five interruptions.
+  - alias: The daily queue
+    triggers:
+      - trigger: time
+        at: "18:30:00"
+    conditions:
+      - condition: numeric_state
+        entity_id: todo.attention
+        above: 0
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          title: "{{ states('todo.attention') }} things want you"
+          message: Open the list when you have a minute.

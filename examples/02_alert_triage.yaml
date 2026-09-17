@@ -1,0 +1,74 @@
+# Three questions about one alert, in one call. Adding the second and third question
+# cost tokens and almost no time: three questions measured 712 ms against 714 ms for
+# a hundred.
+#
+# Call this from anything that produces an alert: an MQTT topic, a template sensor,
+# a shell command, a webhook.
+
+script:
+  triage_alert:
+    alias: Triage an alert with Jev
+    fields:
+      text:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state: "{{ text }}"
+          questions:
+            real:
+              type: noul
+              instructions: >-
+                Is this a real fault that needs a person, rather than a restart, a
+                reconnect or a routine message?
+            area:
+              type: choice
+              instructions: Which area owns this?
+              criteria:
+                auth: Credentials, tokens, certificates, logins
+                storage: Disks, filesystems, backups, databases
+                network: DNS, routing, connectivity, proxies
+                service: A service or container failing to run
+                other: Anything not covered above
+            urgency:
+              type: score
+              instructions: How urgently must a person act on this?
+              criteria:
+                - Nothing to do, it resolved itself
+                - Worth looking at this week
+                - Needs attention today
+                - Wake someone up now
+
+      - choose:
+          # Loudest path first, so a genuine emergency is never caught by a
+          # cheaper condition below it.
+          - conditions: "{{ jev.answers.urgency.score > 2.5 }}"
+            sequence:
+              - action: notify.mobile_app_phone
+                data:
+                  title: "{{ jev.answers.area.choice | title }}"
+                  message: "{{ text }}"
+                  data:
+                    push:
+                      interruption-level: critical
+
+          - conditions: "{{ jev.answers.real.noul > 0.6 }}"
+            sequence:
+              - action: notify.mobile_app_phone
+                data:
+                  title: "{{ jev.answers.area.choice | title }}"
+                  message: "{{ text }}"
+
+        default:
+          # Not silence: a logbook line, so the quiet decisions can be reviewed
+          # later and the thresholds above tuned against real cases.
+          - action: logbook.log
+            data:
+              name: Jev
+              message: >-
+                Ignored an alert. real={{ jev.answers.real.noul }}
+                urgency={{ jev.answers.urgency.score }} text={{ text }}

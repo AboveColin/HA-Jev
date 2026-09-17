@@ -18,8 +18,12 @@ async def test_a_record_carries_what_the_question_needs(
     hass.states.async_set(
         entry.entity_id,
         "1.2",
-        {"friendly_name": "Washer power", "unit_of_measurement": "W",
-         "device_class": "power", "state_class": "measurement"},
+        {
+            "friendly_name": "Washer power",
+            "unit_of_measurement": "W",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
     )
 
     [record] = async_entity_records(hass, {"entity_id": [entry.entity_id]})
@@ -75,7 +79,9 @@ async def test_the_cap_names_the_limit_and_the_ask(hass):
     for i in range(over):
         hass.states.async_set(f"sensor.many_{i}", "1")
     with pytest.raises(ServiceValidationError) as err:
-        async_entity_records(hass, {"entity_id": [f"sensor.many_{i}" for i in range(over)]})
+        async_entity_records(
+            hass, {"entity_id": [f"sensor.many_{i}" for i in range(over)]}
+        )
     message = str(err.value)
     assert str(over) in message
     assert str(MAX_TARGET_ENTITIES) in message
@@ -87,7 +93,9 @@ async def test_text_alone_is_passed_through_unchanged(hass):
 
 async def test_text_and_entities_become_one_object(hass):
     hass.states.async_set("sensor.watts", "1.2")
-    payload = async_build_state(hass, "The programme finished.", {"entity_id": ["sensor.watts"]})
+    payload = async_build_state(
+        hass, "The programme finished.", {"entity_id": ["sensor.watts"]}
+    )
     assert payload["note"] == "The programme finished."
     assert payload["entities"][0]["entity_id"] == "sensor.watts"
     assert "now" in payload

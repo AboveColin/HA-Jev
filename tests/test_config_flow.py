@@ -59,9 +59,7 @@ async def test_user_flow_errors_recover(hass, mock_client, error, expected):
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):
     config_entry.add_to_hass(hass)
-    with patch(
-        "custom_components.jev.config_flow.hashlib.sha256"
-    ) as sha:
+    with patch("custom_components.jev.config_flow.hashlib.sha256") as sha:
         sha.return_value.hexdigest.return_value = config_entry.unique_id + "padding"
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}

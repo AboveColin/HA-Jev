@@ -1,11 +1,11 @@
 # The Home Assistant config the live script drives. Copy the pieces you need into a
 # throwaway instance; it is not meant for a real one.
 #
-# input_number.washer_watts stands in for a power sensor, and the input_text
+# input_number.washing_machine_power stands in for a power sensor, and the input_text
 # helpers exist so an automation can write its answer somewhere a test can read.
 
 input_number:
-  washer_watts:
+  washing_machine_power:
     min: 0
     max: 3000
     initial: 1.2
@@ -32,7 +32,7 @@ input_text:
 jev: debug
 
 input_number:
-  washer_watts:
+  washing_machine_power:
     min: 0
     max: 3000
     initial: 1.2
@@ -60,7 +60,7 @@ jev:
   - name: Laundry
     scan_interval: 300
     entities:
-      - input_number.washer_watts
+      - input_number.washing_machine_power
       - input_boolean.laundry_door_closed
     questions:
       - name: Laundry forgotten
@@ -76,17 +76,17 @@ automation:
     mode: queued
     triggers:
       - trigger: state
-        entity_id: input_number.washer_watts
+        entity_id: input_number.washing_machine_power
     actions:
       - action: jev.noul
         response_variable: verdict
         data:
           state: >-
             The washing machine is
-            {% if states('input_number.washer_watts') | float(0) < 5 %}
+            {% if states('input_number.washing_machine_power') | float(0) < 5 %}
             drawing almost no power, which means it is idle
             {% else %}
-            drawing {{ states('input_number.washer_watts') }} W, which means a
+            drawing {{ states('input_number.washing_machine_power') }} W, which means a
             programme is running
             {% endif %}.
             A programme was started 40 minutes ago, and nobody has entered the
@@ -113,7 +113,7 @@ automation:
         response_variable: room
         target:
           entity_id:
-            - input_number.washer_watts
+            - input_number.washing_machine_power
             - input_boolean.laundry_door_closed
         data:
           instructions: Which room do these readings concern?

@@ -172,9 +172,7 @@ async def _ask(hass: HomeAssistant, call: ServiceCall, questions: dict[str, Ques
     """Send one request and account for what it cost."""
     entry = _entry(hass, call)
     selector = {
-        key: value
-        for key, value in call.data.items()
-        if key in TARGET_KEYS and value
+        key: value for key, value in call.data.items() if key in TARGET_KEYS and value
     }
     if not selector and not call.data.get(CONF_STATE_TEMPLATE):
         raise ServiceValidationError(

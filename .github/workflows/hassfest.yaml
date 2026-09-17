@@ -1,0 +1,17 @@
+name: Validate with hassfest
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Home Assistant changes its rules; a repo that passed six months ago may not
+    # today, and finding that out from a user's issue is worse than from a cron.
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master

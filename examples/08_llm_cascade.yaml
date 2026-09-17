@@ -1,0 +1,81 @@
+# Jev answers the easy ones. The LLM gets the rest.
+#
+# Most inputs of a given kind are ordinary and a typed judgment settles them. A few
+# are strange, and a flat probability distribution is exactly what "strange" looks
+# like. Route on the confidence rather than on the answer, and the expensive model
+# only sees the cases that earn it.
+#
+# Measure your own split before trusting anyone's threshold, including this one. The
+# useful number is what fraction of real inputs land above it, and whether the ones
+# below really were the hard cases.
+
+script:
+  classify_email:
+    fields:
+      subject:
+        required: true
+        selector:
+          text:
+      body:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: jev.choice
+        response_variable: quick
+        data:
+          state:
+            subject: "{{ subject }}"
+            body: "{{ body }}"
+          instructions: What kind of message is this?
+          options: [invoice, appointment, delivery, government, marketing, personal, other]
+          option_descriptions:
+            invoice: A bill, a payment request or a reminder to pay
+            appointment: A booking, a confirmation, or a change to one
+            delivery: A parcel or courier update
+            government: Anything from a public body, a council or a tax office
+            marketing: Promotional, however personally it is addressed
+
+      - choose:
+          - conditions: "{{ quick.confidence > 0.75 }}"
+            sequence:
+              - action: input_text.set_value
+                target:
+                  entity_id: input_text.last_mail_kind
+                data:
+                  value: "{{ quick.choice }}"
+
+        default:
+          # Jev could not tell, so pay for the model that can reason about it. The
+          # structure key makes it answer in the same shape, so the rest of the
+          # automation does not care which branch produced the answer.
+          - action: ai_task.generate_data
+            response_variable: slow
+            data:
+              task_name: classify an unusual message
+              entity_id: ai_task.google_ai_task
+              instructions: >-
+                Classify this message. A fast classifier was unsure, and its
+                probabilities were {{ quick.probabilities }}.
+                Subject: {{ subject }}
+                Body: {{ body }}
+              structure:
+                kind:
+                  description: One of invoice, appointment, delivery, government, marketing, personal, other
+                  required: true
+                  selector:
+                    text:
+                reason:
+                  description: One sentence on why
+                  selector:
+                    text:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.last_mail_kind
+            data:
+              value: "{{ slow.data.kind }}"
+          - action: logbook.log
+            data:
+              name: Mail
+              message: "Escalated to the LLM: {{ slow.data.reason }}"

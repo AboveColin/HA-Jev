@@ -1,0 +1,93 @@
+# The LLM writes, Jev checks it before it goes out.
+#
+# A language model will happily produce something confident and wrong, or chatty
+# where you wanted terse. Checking the draft against a rubric costs about 300 tokens
+# and 300 ms, which is nothing next to the call that produced it.
+#
+# The checks are separate questions on purpose. "Is this good" cannot be answered.
+# "Does this state a time that is not in the source" can.
+
+script:
+  announce_the_day:
+    sequence:
+      - action: ai_task.generate_data
+        response_variable: draft
+        data:
+          task_name: morning summary
+          entity_id: ai_task.google_ai_task
+          instructions: >-
+            Write a two sentence summary of today for a household.
+            Weather: {{ states('weather.home') }},
+            {{ state_attr('weather.home', 'temperature') }} degrees.
+            Calendar: {{ state_attr('calendar.family', 'message') or 'nothing' }}
+            at {{ state_attr('calendar.family', 'start_time') or 'no time' }}.
+            Bins collected today: {{ states('sensor.next_collection_type') }}.
+
+      - action: jev.ask
+        response_variable: check
+        data:
+          state:
+            draft: "{{ draft.data }}"
+            source:
+              weather: "{{ states('weather.home') }}"
+              temperature: "{{ state_attr('weather.home', 'temperature') }}"
+              calendar: "{{ state_attr('calendar.family', 'message') }}"
+              calendar_time: "{{ state_attr('calendar.family', 'start_time') }}"
+              bins: "{{ states('sensor.next_collection_type') }}"
+          questions:
+            invented:
+              type: noul
+              instructions: >-
+                Does `draft` state any fact that is not present in `source`?
+              "true": It states a time, number or event that source does not contain
+              "false": Everything in the draft can be traced to source
+            contradicts:
+              type: noul
+              instructions: Does `draft` contradict anything in `source`?
+            length:
+              type: noul
+              instructions: Is `draft` at most three sentences?
+            tone:
+              type: score
+              instructions: How chatty is `draft`?
+              criteria:
+                - Plain and factual
+                - A little conversational
+                - Chatty, with pleasantries or emoji
+
+      - choose:
+          - conditions: >-
+              {{ check.answers.invented.noul < 0.3
+                 and check.answers.contradicts.noul < 0.3
+                 and check.answers.length.noul > 0.7
+                 and check.answers.tone.score < 1.5 }}
+            sequence:
+              - action: tts.speak
+                target:
+                  entity_id: tts.piper
+                data:
+                  cache: false
+                  media_player_entity_id: media_player.kitchen
+                  message: "{{ draft.data }}"
+
+        default:
+          # Do not silently send a draft that failed. Fall back to something dull
+          # and correct, and log what tripped so the rubric can be tuned.
+          - action: tts.speak
+            target:
+              entity_id: tts.piper
+            data:
+              cache: false
+              media_player_entity_id: media_player.kitchen
+              message: >-
+                It is {{ state_attr('weather.home', 'temperature') }} degrees and
+                {{ states('weather.home') }} today.
+          - action: logbook.log
+            data:
+              name: Jev
+              message: >-
+                Held back a draft. invented={{ check.answers.invented.noul }}
+                contradicts={{ check.answers.contradicts.noul }}
+                length={{ check.answers.length.noul }}
+                tone={{ check.answers.tone.score }}
+                draft={{ draft.data }}

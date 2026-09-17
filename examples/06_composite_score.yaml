@@ -1,0 +1,84 @@
+# One question per dimension, then your own weights. This is worth the extra
+# questions for two reasons.
+#
+# A question measuring three things at once cannot be answered: a mixed input has
+# nowhere to sit on the scale, and the confidence collapses. Split it and each part
+# is answerable.
+#
+# And the weights stay in your template. Changing your mind about how much the price
+# matters is an edit to a number here, not a rewrite of a prompt, and it does not
+# cost a single token.
+
+script:
+  rate_listing:
+    alias: Rate a rental listing
+    fields:
+      listing:
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state: "{{ listing }}"
+          questions:
+            price:
+              type: score
+              instructions: How good is the price for what is on offer?
+              criteria:
+                - Clearly overpriced for this size and area
+                - A little above what this is worth
+                - About right
+                - A clear bargain
+            location:
+              type: score
+              instructions: How well does the location suit somebody who commutes by bicycle?
+              criteria:
+                - Far out, a long ride or a transfer
+                - Reachable but not pleasant
+                - A comfortable ride
+                - Close enough to walk
+            condition:
+              type: score
+              instructions: What condition is the property described as being in?
+              criteria:
+                - Needs work before it is liveable
+                - Dated but usable
+                - Well kept
+                - Recently renovated
+            dealbreaker:
+              type: noul
+              instructions: >-
+                Does the text mention anything that would rule this out: no pets, a
+                temporary contract, a shared kitchen or bathroom, or an income
+                requirement?
+
+      - variables:
+          # `normalized` is each score divided by its own top level. Two rubrics of
+          # different lengths are not comparable until that is done, and this is the
+          # step people get wrong when they weight scores together.
+          overall: >-
+            {{ (0.5 * jev.answers.price.normalized
+              + 0.3 * jev.answers.location.normalized
+              + 0.2 * jev.answers.condition.normalized) | round(3) }}
+
+      - choose:
+          # A dealbreaker is not a small negative weight. It is a separate rule, and
+          # rolling it into the weighted sum would let a good price outvote it.
+          - conditions: "{{ jev.answers.dealbreaker.noul > 0.6 }}"
+            sequence:
+              - action: logbook.log
+                data:
+                  name: Listing
+                  message: "Ruled out by a dealbreaker. Score would have been {{ overall }}."
+
+          - conditions: "{{ overall | float > 0.7 }}"
+            sequence:
+              - action: notify.mobile_app_phone
+                data:
+                  message: >-
+                    Worth a look, scored {{ overall }}.
+                    Price {{ jev.answers.price.nearest_level }}.
+                    Location {{ jev.answers.location.nearest_level }}.
