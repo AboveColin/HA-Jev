@@ -23,6 +23,7 @@ from homeassistant.util import slugify
 from jevclient import USD_PER_MILLION_INPUT_TOKENS, JevClient
 
 from .const import (
+    CONF_BACKGROUND,
     CONF_CRITERIA,
     CONF_DAILY_TOKEN_BUDGET,
     CONF_ENTITIES,
@@ -107,6 +108,7 @@ QUESTION_SCHEMA = vol.All(
             vol.Optional(CONF_THRESHOLD): vol.All(
                 vol.Coerce(float), vol.Range(min=0.0, max=1.0)
             ),
+            vol.Optional(CONF_BACKGROUND): vol.Any(cv.string, dict, list),
         }
     ),
     _check_question_shape,

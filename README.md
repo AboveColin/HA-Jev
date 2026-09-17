@@ -290,22 +290,52 @@ answers keep their last value, `binary_sensor.jev_daily_budget_exceeded` turns o
 and a repair notice names the budget and what was used. The totals survive a restart,
 because a budget a restart clears is not a budget.
 
-## Do the arithmetic in your template, not in the question
+## Tell it how to read the numbers
 
-This is the single change that moves answers the most, and it is easy to get wrong.
-Jev makes a judgment; it does not compare numbers. Giving it a reading and a
-threshold and expecting it to work out which side the reading falls on does not
-work.
+This is the single change that moves answers the most. Jev makes a judgment; it
+does not compare numbers. Hand it a reading and bury the rule in the surrounding
+prose, and it will not work out which side of the threshold the reading falls on.
 
-Measured, same question, same two situations:
+There are two ways to fix that and they work about equally well. Measured on the
+same question, five runs per cell, asking whether the laundry is finished but still
+in the machine, at 1.2 W and at 1450 W:
 
-| What the state said | idle | running | separation |
+| | idle | running | separation |
 |---|---|---|---|
-| `1.2 W`, plus "this machine draws under 5 W when idle" | 0.39 | 0.33 | +0.06 |
-| "drawing almost no power, which means it is idle" | 0.60 | 0.12 | +0.48 |
+| the readings alone | 0.47 | 0.26 | +0.21 |
+| the rule in a `background:` field | 0.70 | 0.10 | +0.60 |
+| the comparison done in the template | 0.74 | 0.06 | +0.69 |
+| both | 0.72 | 0.04 | +0.68 |
 
-So do the comparison in Jinja, where it is exact and free, and hand over the
-conclusion in words:
+Either one roughly triples the separation, and they do not stack, so do one.
+
+The `background:` field is the one that needs no Jinja:
+
+```yaml
+- action: jev.noul
+  target:
+    entity_id: sensor.washing_machine_power
+  data:
+    instructions: Is the laundry finished but still sitting in the machine?
+    background: >-
+      This machine draws under 5 W when idle and over 300 W while a programme runs.
+```
+
+It travels with the question, not with the readings. That placement is the part
+that matters: the same sentence added to the state instead measured +0.33, roughly
+half of what it is worth in the question.
+
+Pass an object rather than a sentence and your own key names are kept, which is
+worth doing because the model reads them:
+
+```yaml
+    background:
+      how_to_read_the_power: Under 5 W means idle, over 300 W means a programme is running.
+      what_counts_as_emptied: The door sensor opening after the programme ended.
+```
+
+The other route is to do the comparison in Jinja, where it is exact and free, and
+hand over the conclusion in words:
 
 ```yaml
 state: >-
@@ -315,12 +345,11 @@ state: >-
   {% else %}
   drawing {{ states('sensor.washing_machine_power') }} W, so a programme is running
   {% endif %}.
-  A programme was started 40 minutes ago and nobody has entered the room since.
 ```
 
-The same rule decides when a bare target is enough. Entities alone give readings,
-and readings are numbers. If your question turns on what a number means, say what it
-means yourself.
+A note on the numbers above: they are means of five runs, and repeated runs of the
+same cell on different days wander by around 0.15. The ordering held across every
+run; treat the gaps as the finding, not the digits.
 
 ## What this will not do
 

@@ -131,3 +131,19 @@ async def test_yesterdays_total_does_not_count_against_today(hass, mock_client, 
     ):
         await setup_with_context(hass, config_entry)
     assert hass.states.get("sensor.jev_calls_today").state == "1"
+
+
+async def test_a_yaml_question_takes_background_too(hass, mock_client, config_entry):
+    context = {
+        **CONTEXT,
+        "questions": [
+            {
+                **CONTEXT["questions"][0],
+                "background": "This machine draws under 5 W when idle.",
+            }
+        ],
+    }
+    await setup_with_context(hass, config_entry, context)
+    sent = mock_client.ask.await_args.args[1]
+    question = next(iter(sent.values()))
+    assert question.instructions["background"] == "This machine draws under 5 W when idle."
