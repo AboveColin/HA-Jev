@@ -1,7 +1,7 @@
 """The four actions, including what they refuse."""
 
 import pytest
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from custom_components.jev.const import DOMAIN
@@ -139,3 +139,58 @@ async def test_an_unrendered_template_is_rendered(hass, loaded_entry, mock_clien
         "instructions": "Is it idle?",
     })
     assert mock_client.ask.await_args.args[0] == "Power is 1.2 W"
+
+
+async def test_without_background_the_question_stays_a_plain_string(
+    hass, loaded_entry, mock_client
+):
+    await call(hass, "noul", {"state": "x", "instructions": "Is it idle?"})
+    assert mock_client.ask.await_args.args[1]["answer"].instructions == "Is it idle?"
+
+
+async def test_background_travels_with_the_question_not_the_state(
+    hass, loaded_entry, mock_client
+):
+    """Standing facts belong to the question. Measured: readings alone separated two
+    situations by 0.21, the same rule written into the question by 0.60."""
+    await call(hass, "noul", {
+        "state": "Power: 1.2 W",
+        "instructions": "Is it idle?",
+        "background": "This machine draws under 5 W when idle.",
+    })
+    state, questions = mock_client.ask.await_args.args
+    assert questions["answer"].instructions == {
+        "question": "Is it idle?",
+        "background": "This machine draws under 5 W when idle.",
+    }
+    # and it did not end up in the state, where it measured worse
+    assert state == "Power: 1.2 W"
+
+
+async def test_a_mapping_background_keeps_the_authors_own_key_names(
+    hass, loaded_entry, mock_client
+):
+    """The model reads the key, and only the author knows what to call it."""
+    mock_client.ask.return_value = build_response(
+        answer=ScoreAnswer(score=1.0, legend={"0": "No", "1": "Yes"},
+                           probabilities={"0": 0.0, "1": 1.0}, confidence=1.0)
+    )
+    await call(hass, "score", {
+        "state": "x",
+        "instructions": "How urgent?",
+        "levels": ["No", "Yes"],
+        "background": {"how_to_read_the_power": "Under 5 W means idle."},
+    })
+    assert mock_client.ask.await_args.args[1]["answer"].instructions == {
+        "question": "How urgent?",
+        "how_to_read_the_power": "Under 5 W means idle.",
+    }
+
+
+async def test_an_answer_of_the_wrong_type_says_so(hass, loaded_entry, mock_client):
+    """Schema-guaranteed output is still somebody else's guarantee."""
+    mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.5))
+    with pytest.raises(HomeAssistantError, match="which the API should not do"):
+        await call(hass, "choice", {
+            "state": "x", "instructions": "y", "options": ["a", "b"],
+        })

@@ -75,6 +75,10 @@
         "include_attributes": {
           "name": "Alle attributen meesturen",
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
+        },
+        "background": {
+          "name": "Achtergrond",
+          "description": "Optioneel. Vaste feiten over hoe je dit moet lezen, bijvoorbeeld wat een meetwaarde betekent voor jouw apparaat. Dit reist mee met de vraag in plaats van met de meetwaarden, en dat werkt aantoonbaar beter. Geef je een object in plaats van een zin, dan blijven je eigen sleutelnamen staan, en het model leest die sleutels."
         }
       }
     },
@@ -105,6 +109,10 @@
         "include_attributes": {
           "name": "Alle attributen meesturen",
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
+        },
+        "background": {
+          "name": "Achtergrond",
+          "description": "Optioneel. Vaste feiten over hoe je dit moet lezen, bijvoorbeeld wat een meetwaarde betekent voor jouw apparaat. Dit reist mee met de vraag in plaats van met de meetwaarden, en dat werkt aantoonbaar beter. Geef je een object in plaats van een zin, dan blijven je eigen sleutelnamen staan, en het model leest die sleutels."
         }
       }
     },
@@ -131,6 +139,10 @@
         "include_attributes": {
           "name": "Alle attributen meesturen",
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
+        },
+        "background": {
+          "name": "Achtergrond",
+          "description": "Optioneel. Vaste feiten over hoe je dit moet lezen, bijvoorbeeld wat een meetwaarde betekent voor jouw apparaat. Dit reist mee met de vraag in plaats van met de meetwaarden, en dat werkt aantoonbaar beter. Geef je een object in plaats van een zin, dan blijven je eigen sleutelnamen staan, en het model leest die sleutels."
         }
       }
     },

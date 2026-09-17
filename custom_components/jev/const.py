@@ -67,3 +67,5 @@ MAX_TARGET_ENTITIES: Final = 250
 
 CONF_INCLUDE_ATTRIBUTES: Final = "include_attributes"
 CONF_ENTITIES: Final = "entities"
+
+CONF_BACKGROUND: Final = "background"

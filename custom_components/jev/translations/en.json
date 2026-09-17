@@ -75,6 +75,10 @@
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
+        },
+        "background": {
+          "name": "Background",
+          "description": "Optional. Standing facts about how to read this, such as what a reading means for your particular device. It travels with the question rather than the readings, which measurably works better than putting it in the state. An object rather than a sentence keeps your own key names, and the model reads those keys."
         }
       }
     },
@@ -105,6 +109,10 @@
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
+        },
+        "background": {
+          "name": "Background",
+          "description": "Optional. Standing facts about how to read this, such as what a reading means for your particular device. It travels with the question rather than the readings, which measurably works better than putting it in the state. An object rather than a sentence keeps your own key names, and the model reads those keys."
         }
       }
     },
@@ -131,6 +139,10 @@
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
+        },
+        "background": {
+          "name": "Background",
+          "description": "Optional. Standing facts about how to read this, such as what a reading means for your particular device. It travels with the question rather than the readings, which measurably works better than putting it in the state. An object rather than a sentence keeps your own key names, and the model reads those keys."
         }
       }
     },

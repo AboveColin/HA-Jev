@@ -44,6 +44,7 @@ from .const import (
     ATTR_LATENCY_MS,
     ATTR_QUESTIONS,
     ATTR_USAGE,
+    CONF_BACKGROUND,
     CONF_FALSE_MEANS,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
@@ -62,6 +63,7 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
+from .models import compose_instructions
 from .statebuilder import async_build_state
 
 # instructions and criteria values accept a string, an object or an array.
@@ -72,6 +74,7 @@ TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
 
 _BASE = {
     vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+    vol.Optional(CONF_BACKGROUND): ENTRY,
     vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
     vol.Required(CONF_INSTRUCTIONS): ENTRY,
@@ -128,6 +131,26 @@ def _render(hass: HomeAssistant, value: Any) -> Any:
         return Template(value, hass).async_render(parse_result=False)
     except TemplateError as err:
         raise ServiceValidationError(f"the state template failed: {err}") from err
+
+
+def _typed(answer: Any, expected: type, question_type: str) -> Any:
+    """The API is schema-guaranteed, so this only fires if that guarantee breaks.
+
+    A bare assert would say nothing about what arrived, and disappears entirely
+    under python -O.
+    """
+    if not isinstance(answer, expected):
+        raise HomeAssistantError(
+            f"asked a {question_type} question and got a "
+            f"{type(answer).__name__} back, which the API should not do"
+        )
+    return answer
+
+
+def _instructions(call: ServiceCall) -> Any:
+    return compose_instructions(
+        call.data[CONF_INSTRUCTIONS], call.data.get(CONF_BACKGROUND)
+    )
 
 
 def _entry(hass: HomeAssistant, call: ServiceCall) -> Any:
@@ -217,13 +240,12 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def _noul(call: ServiceCall) -> ServiceResponse:
         question = Noul(
-            call.data[CONF_INSTRUCTIONS],
+            _instructions(call),
             true=call.data.get(CONF_TRUE_MEANS),
             false=call.data.get(CONF_FALSE_MEANS),
         )
         response = await _ask(hass, call, {"answer": question})
-        answer = response.answers["answer"]
-        assert isinstance(answer, NoulAnswer)
+        answer = _typed(response.answers["answer"], NoulAnswer, TYPE_NOUL)
         threshold = call.data[CONF_THRESHOLD]
         return {
             "noul": answer.noul,
@@ -241,12 +263,11 @@ def async_register_services(hass: HomeAssistant) -> None:
             option: descriptions.get(option) for option in call.data[CONF_OPTIONS]
         }
         try:
-            question = Choice(call.data[CONF_INSTRUCTIONS], criteria)
+            question = Choice(_instructions(call), criteria)
         except ValueError as err:
             raise ServiceValidationError(str(err)) from err
         response = await _ask(hass, call, {"answer": question})
-        answer = response.answers["answer"]
-        assert isinstance(answer, ChoiceAnswer)
+        answer = _typed(response.answers["answer"], ChoiceAnswer, TYPE_CHOICE)
         return {
             "choice": answer.choice,
             "confidence": answer.confidence,
@@ -256,12 +277,11 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def _score(call: ServiceCall) -> ServiceResponse:
         try:
-            question = Score(call.data[CONF_INSTRUCTIONS], call.data[CONF_LEVELS])
+            question = Score(_instructions(call), call.data[CONF_LEVELS])
         except ValueError as err:
             raise ServiceValidationError(str(err)) from err
         response = await _ask(hass, call, {"answer": question})
-        answer = response.answers["answer"]
-        assert isinstance(answer, ScoreAnswer)
+        answer = _typed(response.answers["answer"], ScoreAnswer, TYPE_SCORE)
         return {
             "score": answer.score,
             # Two rubrics of different lengths are not comparable until each is
