@@ -1,0 +1,321 @@
+# A voice command router, after TypeSafe's own smart home demo.
+# https://docs.typesafe.ai/demos/smart-home
+#
+# One request carries every question the router could need, including several it
+# will throw away. That is the point. TypeSafe's demo asks 12 questions in 185 ms,
+# and asking only the three that turn out to matter would have meant three round
+# trips gated on each other, which is slower and costs more.
+#
+# This version differs from the demo in one way worth having. The device and room
+# options are built from your actual entity registry, so the answer to "which
+# device" is a real entity_id and there is no mapping table to keep in step.
+#
+# The three paths:
+#   a plain command      -> answered by Jev alone, one call, no LLM
+#   several commands     -> an LLM splits them, then each half runs the same logic
+#   a general question   -> an LLM answers, because that is not a decision
+#
+# Needs an ai_task entity for the second and third paths. Set up Google Generative
+# AI, OpenAI, Anthropic or a local Ollama and point entity_id at what it creates.
+
+script:
+  jev_voice_command:
+    alias: Route a spoken command with Jev
+    mode: queued
+    fields:
+      command:
+        required: true
+        example: turn off the kitchen lights and lock the office door
+        selector:
+          text:
+    sequence:
+      - variables:
+          # The catalogue the model chooses from. Everything here is a real entity,
+          # so whatever comes back can be acted on without translation.
+          controllable: >-
+            {{ (states.light | map(attribute='entity_id') | list)
+             + (states.switch | map(attribute='entity_id') | list)
+             + (states.lock | map(attribute='entity_id') | list)
+             + (states.fan | map(attribute='entity_id') | list)
+             + (states.media_player | map(attribute='entity_id') | list)
+             + (states.climate | map(attribute='entity_id') | list)
+             + ['none_of_these'] }}
+          rooms: >-
+            {{ (areas() | map('area_name') | list) + ['none_of_these'] }}
+          # Each entity_id mapped to what it is and where, which is what lets the
+          # model tell a kitchen light from an office one.
+          device_criteria: >-
+            {% set ns = namespace(d={}) %}
+            {% for e in controllable if e != 'none_of_these' %}
+              {% set ns.d = ns.d | combine({
+                  e: (state_attr(e, 'friendly_name') or e)
+                     ~ ', in the ' ~ (area_name(e) or 'unassigned area')}) %}
+            {% endfor %}
+            {{ ns.d | combine({
+                'none_of_these': 'The command is not about one particular device'}) }}
+          # Names and states, so a question about what is currently on can be
+          # answered from the same request.
+          catalogue: >-
+            {% set ns = namespace(rows=[]) %}
+            {% for e in controllable if e != 'none_of_these' %}
+              {% set ns.rows = ns.rows + [{
+                  'entity_id': e,
+                  'name': state_attr(e, 'friendly_name') or e,
+                  'area': area_name(e) or 'unassigned',
+                  'state': states(e)}] %}
+            {% endfor %}
+            {{ ns.rows }}
+
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state:
+            command: "{{ command }}"
+            devices: "{{ catalogue }}"
+            time: "{{ now().strftime('%H:%M on %A') }}"
+          questions:
+            # Asked first in the trace, and the only one whose answer is always read.
+            category:
+              type: choice
+              instructions: What kind of request is this?
+              criteria:
+                command: An instruction to change something in the house
+                query: A question about the current state of a device
+                information: >-
+                  A general request for information unrelated to the house, the kind
+                  of thing someone would search the internet for
+
+            compound:
+              type: noul
+              instructions: Does this request contain more than one distinct command?
+              true_means: Two or more things are being asked for at once
+              false_means: A single instruction, however it is phrased
+
+            scope:
+              type: choice
+              instructions: How much of the house does this command cover?
+              criteria:
+                one_device: A single named device
+                one_room: Everything of a kind in one room
+                whole_house: Everything of a kind, everywhere
+
+            device_kind:
+              type: choice
+              instructions: What kind of device is being targeted?
+              criteria:
+                light: Lamps, ceiling lights, anything that illuminates
+                lock: Door locks and bolts
+                media_player: Speakers, televisions, anything that plays audio
+                switch: Sockets, appliances, anything switched on or off
+                fan: Fans and extractors
+                climate: Thermostats, heating and cooling
+                none_of_these: Nothing in the house is being targeted
+
+            room:
+              type: choice
+              instructions: Which room is the user referring to?
+              criteria: "{{ dict.fromkeys(rooms) }}"
+
+            device:
+              type: choice
+              instructions: Which specific device should receive the command?
+              # Each option is a real entity_id and its description is the name and
+              # room, so the answer needs no lookup table to act on.
+              criteria: "{{ device_criteria }}"
+
+            # The speculative half. Five of these six are discarded on any given
+            # request, and asking them costs tokens rather than time. When the
+            # command does turn out to be about locks, the answer is already here.
+            lights_action:
+              type: choice
+              instructions: If this command is about lights, what should happen to them?
+              criteria: { turn_on: null, turn_off: null, dim: null }
+            locks_action:
+              type: choice
+              instructions: If this command is about locks, what should happen to them?
+              criteria: { lock: null, unlock: null }
+            media_action:
+              type: choice
+              instructions: If this command is about speakers, what should happen to them?
+              criteria: { turn_on: null, turn_off: null, volume_down: null }
+            switch_action:
+              type: choice
+              instructions: If this command is about appliances or sockets, what should happen?
+              criteria: { turn_on: null, turn_off: null }
+            fan_action:
+              type: choice
+              instructions: If this command is about fans, what should happen to them?
+              criteria: { turn_on: null, turn_off: null }
+            climate_action:
+              type: choice
+              instructions: If this command is about heating or cooling, what should happen?
+              criteria: { heat_on: null, cool_on: null, turn_off: null }
+
+      - choose:
+          # Several commands in one sentence. Jev cannot split text, and does not
+          # pretend to: it says so, and the LLM does the splitting.
+          - conditions: "{{ jev.answers.compound.noul > 0.8 }}"
+            sequence:
+              - action: ai_task.generate_data
+                response_variable: split
+                data:
+                  task_name: split a compound command
+                  entity_id: ai_task.assistant
+                  instructions: >-
+                    Split this into separate instructions, one per line, each one
+                    complete on its own and nothing else in the output:
+                    {{ command }}
+                  structure:
+                    commands:
+                      description: The separate instructions, one per item
+                      required: true
+                      selector:
+                        object:
+              - repeat:
+                  for_each: "{{ split.data.commands }}"
+                  sequence:
+                    # Each half goes through this same script, which is why the
+                    # compound check has to come before anything acts.
+                    - action: script.jev_voice_command
+                      data:
+                        command: "{{ repeat.item }}"
+
+          # Not about the house at all. Jev is the doorman here, at about 300 ms
+          # and a fraction of a cent, so the expensive model only sees what it
+          # should answer.
+          - conditions: "{{ jev.answers.category.choice == 'information' }}"
+            sequence:
+              - action: ai_task.generate_data
+                response_variable: answer
+                data:
+                  task_name: answer a general question
+                  entity_id: ai_task.assistant
+                  instructions: "Answer in one or two sentences: {{ command }}"
+              - action: tts.speak
+                target:
+                  entity_id: tts.piper
+                data:
+                  cache: false
+                  media_player_entity_id: media_player.kitchen
+                  message: "{{ answer.data }}"
+
+          # A question about the house, answered from the state we already sent.
+          - conditions: "{{ jev.answers.category.choice == 'query' }}"
+            sequence:
+              - variables:
+                  target: "{{ jev.answers.device.choice }}"
+              - action: tts.speak
+                target:
+                  entity_id: tts.piper
+                data:
+                  cache: false
+                  media_player_entity_id: media_player.kitchen
+                  message: >-
+                    {{ state_attr(target, 'friendly_name') or target }} is
+                    {{ states(target) }}.
+
+          # A command, and the one path that never calls an LLM.
+          - conditions: >-
+              {{ jev.answers.category.choice == 'command'
+                 and jev.answers.device_kind.choice != 'none_of_these' }}
+            sequence:
+              - variables:
+                  kind: "{{ jev.answers.device_kind.choice }}"
+                  # Only now does the code read the action for the kind it settled
+                  # on. The other five answers are simply never looked at.
+                  wanted: >-
+                    {{ {'light': jev.answers.lights_action.choice,
+                        'lock': jev.answers.locks_action.choice,
+                        'media_player': jev.answers.media_action.choice,
+                        'switch': jev.answers.switch_action.choice,
+                        'fan': jev.answers.fan_action.choice,
+                        'climate': jev.answers.climate_action.choice}[kind] }}
+                  # How wide to go is a branch in code, and which answer to trust
+                  # is decided by confidence rather than by asking again.
+                  #
+                  # This ordering is not arbitrary. On "turn on the kitchen lights"
+                  # the scope answer was one_room at 0.41 while the device answer
+                  # was light.kitchen_lights at 1.00. Branching on scope first threw
+                  # away the certain answer in favour of the uncertain one.
+                  targets: >-
+                    {% set device = jev.answers.device.choice %}
+                    {% if device != 'none_of_these'
+                          and jev.answers.device.confidence > 0.8 %}
+                      {{ [device] }}
+                    {% elif jev.answers.scope.choice == 'one_room' %}
+                      {{ catalogue
+                         | selectattr('area', 'eq', jev.answers.room.choice)
+                         | selectattr('entity_id', 'match', kind ~ '\\.')
+                         | map(attribute='entity_id') | list }}
+                    {% else %}
+                      {{ catalogue
+                         | selectattr('entity_id', 'match', kind ~ '\\.')
+                         | map(attribute='entity_id') | list }}
+                    {% endif %}
+              # A bare condition here would stop the script with no trace at all,
+              # which is the worst way for an automation to do nothing.
+              - if: "{{ targets | reject('eq', 'none_of_these') | list | count == 0 }}"
+                then:
+                  - action: logbook.log
+                    data:
+                      name: Jev
+                      message: >-
+                        Understood "{{ command }}" as {{ wanted }} on {{ kind }},
+                        but found no matching entity.
+                  - stop: nothing to act on
+              # One entity at a time, each allowed to fail on its own. A single
+              # call carrying the whole list fails as a whole the moment one
+              # entity refuses, so "shut off all the music" left everything
+              # playing because one player does not support turn_off. Acting per
+              # entity costs a few more service calls and loses only the entity
+              # that actually refused.
+              - repeat:
+                  for_each: "{{ targets | reject('eq', 'none_of_these') | list }}"
+                  sequence:
+                    - choose:
+                        - conditions: "{{ wanted in ['turn_on', 'turn_off'] }}"
+                          sequence:
+                            - action: "homeassistant.{{ wanted }}"
+                              continue_on_error: true
+                              target:
+                                entity_id: "{{ repeat.item }}"
+                        - conditions: "{{ wanted in ['lock', 'unlock'] }}"
+                          sequence:
+                            - action: "lock.{{ wanted }}"
+                              continue_on_error: true
+                              target:
+                                entity_id: "{{ repeat.item }}"
+                        - conditions: "{{ wanted == 'dim' }}"
+                          sequence:
+                            - action: light.turn_on
+                              continue_on_error: true
+                              target:
+                                entity_id: "{{ repeat.item }}"
+                              data:
+                                brightness_pct: 30
+                        - conditions: "{{ wanted in ['heat_on', 'cool_on'] }}"
+                          sequence:
+                            - action: climate.set_hvac_mode
+                              continue_on_error: true
+                              target:
+                                entity_id: "{{ repeat.item }}"
+                              data:
+                                hvac_mode: "{{ 'heat' if wanted == 'heat_on' else 'cool' }}"
+                        - conditions: "{{ wanted == 'volume_down' }}"
+                          sequence:
+                            - action: media_player.volume_down
+                              continue_on_error: true
+                              target:
+                                entity_id: "{{ repeat.item }}"
+
+        # Nothing matched with enough confidence to act on.
+        default:
+          - action: logbook.log
+            data:
+              name: Jev
+              message: >-
+                Did nothing with "{{ command }}".
+                category={{ jev.answers.category.choice }}
+                ({{ jev.answers.category.confidence }})
+                kind={{ jev.answers.device_kind.choice }}
+                ({{ jev.answers.device_kind.confidence }})
