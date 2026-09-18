@@ -7,3 +7,13 @@ pyyaml
 # The same version manifest.json pins, which is what Home Assistant installs for a
 # user. tests/test_manifest.py fails if these two ever disagree.
 jevclient==1.1.0
+
+# The conversation component's own requirements. Home Assistant installs these for a
+# user the moment a conversation agent exists; a test environment gets nothing
+# unless it is asked, and the failure is an ImportError at collection rather than a
+# failing assertion. The versions are exactly what
+# homeassistant/components/conversation/manifest.json pins, so the suite runs against
+# what a user runs. tests/test_manifest.py fails if they ever drift apart.
+gazetteer-matcher==1.1.0
+hassil==3.12.0
+home-assistant-intents==2026.8.28
