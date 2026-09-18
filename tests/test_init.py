@@ -129,6 +129,28 @@ async def test_usage_survives_a_reload(hass, mock_client, config_entry):
     assert tokens >= 321, "the day's usage reset when the entry reloaded"
 
 
+async def test_unloading_writes_the_totals_out_first(
+    hass, mock_client, config_entry, hass_storage
+):
+    """The delayed write is a timer holding the only copy of the day's spend.
+
+    `async_delay_save` arms a 15 second timer. Unload did not cancel or flush it, so
+    a shutdown inside that window dropped the day's usage and the budget started
+    over, and it left a timer armed against an unloaded entry. It surfaced as a
+    flaky lingering-timer teardown error in an unrelated config flow test, on CI
+    only, rather than anywhere near the code that caused it.
+    """
+    await setup_with_context(hass, config_entry)
+    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    key = f"{DOMAIN}.{config_entry.entry_id}.usage"
+    assert key in hass_storage, "unload left the day's usage in a pending timer"
+    assert hass_storage[key]["data"]["input_tokens"] == 321
+
+
 async def test_yesterdays_total_does_not_count_against_today(
     hass, mock_client, config_entry
 ):

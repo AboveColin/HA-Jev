@@ -274,4 +274,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool
     if unloaded:
         for coordinator in entry.runtime_data.coordinators.values():
             coordinator.async_shutdown_triggers()
+        await entry.runtime_data.usage.async_flush()
     return unloaded
