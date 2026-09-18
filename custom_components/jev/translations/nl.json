@@ -240,6 +240,17 @@
     },
     "score_levels_out_of_range": {
       "message": "Een score neemt {min} tot {max} niveaus, laagste eerst, en deze heeft er {count}."
+    },
+    "unreadable_answer": {
+      "message": "TypeSafe gaf een antwoord van type {kind} terug dat deze versie niet kan lezen. Werk de integratie bij."
     }
+  },
+  "common": {
+    "not_understood": "Sorry, dat begreep ik niet.",
+    "whole_house": "Dat zou het hele huis raken. Zeg welke kamer of welk apparaat je bedoelt.",
+    "which_kind": "Wat voor soort apparaat bedoel je? Zeg de lampen, of de schakelaars, of noem een kamer.",
+    "intent_failed": "Sorry, dat is niet gelukt.",
+    "already_on": "{name} staat al aan.",
+    "already_off": "{name} staat al uit."
   }
 }

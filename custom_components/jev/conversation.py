@@ -33,6 +33,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent as ha_intent
+from homeassistant.helpers import translation
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from jevclient import JevAuthError, JevError
 
@@ -50,6 +51,22 @@ from .interpret import build_questions, interpret
 from .snapshot import async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
+
+# Used when a translation is missing, so a missing key is still a sentence rather
+# than a blank reply. Kept in step with strings.json by a test.
+_FALLBACK = {
+    "not_understood": "Sorry, I did not understand that.",
+    "whole_house": (
+        "That would affect the whole house. Say which room or which device you mean."
+    ),
+    "which_kind": (
+        "Which kind of thing do you mean? Say the lights, or the switches, or name "
+        "a room."
+    ),
+    "intent_failed": "Sorry, that did not work.",
+    "already_on": "{name} is already on.",
+    "already_off": "{name} is already off.",
+}
 
 PARALLEL_UPDATES = 0
 
@@ -157,8 +174,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             }
         )
 
-        if decision.already_satisfied:
-            return self._speak(user_input, decision.already_satisfied)
+        if decision.already_satisfied is not None:
+            name, settled = decision.already_satisfied
+            return await self._speak(user_input, f"already_{settled}", name=name)
 
         if decision.should_fall_back:
             return await self._fall_back(user_input, decision.reason)
@@ -169,19 +187,11 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         # because its worst case is a dark house; anything else asks first.
         if decision.targets_everything:
             if not self._allow_whole_home and decision.action != "turn_off":
-                return self._speak(
-                    user_input,
-                    "That would affect the whole house. Say which room or which "
-                    "device you mean.",
-                )
+                return await self._speak(user_input, "whole_house")
             # Home Assistant refuses "all" with no kind of device beside it, and an
             # unbounded command is not something to infer from one sentence anyway.
             if "domain" not in decision.slots:
-                return self._speak(
-                    user_input,
-                    "Which kind of thing do you mean? Say the lights, or the "
-                    "switches, or name a room.",
-                )
+                return await self._speak(user_input, "which_kind")
 
         assert decision.intent_type is not None
         try:
@@ -205,7 +215,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             return await self._fall_back(user_input, "the named target was not found")
         except ha_intent.IntentError as err:
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
-            return self._speak(user_input, "Sorry, that did not work.")
+            return await self._speak(user_input, "intent_failed")
 
         _speak_the_answer(intent_response)
         return conversation.ConversationResult(
@@ -221,7 +231,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         agent = self._fallback_agent
         _LOGGER.debug("falling back to %s because %s", agent or "nobody", why)
         if agent is None:
-            return self._speak(user_input, "Sorry, I did not understand that.")
+            return await self._speak(user_input, "not_understood")
         result = await conversation.async_converse(
             self.hass,
             user_input.text,
@@ -235,11 +245,25 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
         return result
 
-    def _speak(
-        self, user_input: conversation.ConversationInput, text: str
+    async def _speak(
+        self,
+        user_input: conversation.ConversationInput,
+        key: str,
+        **placeholders: str,
     ) -> conversation.ConversationResult:
+        """Say one of our own lines, in the language the pipeline is speaking.
+
+        The intent layer localises its own replies, so anything this agent says
+        itself has to be localised here or a Dutch pipeline answers in English.
+        The English text is the fallback, so a missing key is still a sentence.
+        """
+        language = user_input.language or self.hass.config.language
+        strings = await translation.async_get_translations(
+            self.hass, language, "common", [DOMAIN]
+        )
+        text = strings.get(f"component.{DOMAIN}.common.{key}", _FALLBACK[key])
         response = ha_intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(text)
+        response.async_set_speech(text.format(**placeholders))
         return conversation.ConversationResult(
             response=response, conversation_id=user_input.conversation_id
         )

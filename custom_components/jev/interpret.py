@@ -66,8 +66,8 @@ class Interpretation:
     fallback: bool
     targets_everything: bool = False
     action_probabilities: dict[str, float] = field(default_factory=dict)
-    # Set when the command is understood and there is nothing left to do.
-    already_satisfied: str | None = None
+    # (entity name, the state it is already in) when there is nothing left to do.
+    already_satisfied: tuple[str, str] | None = None
 
     @property
     def should_fall_back(self) -> bool:
@@ -281,8 +281,8 @@ def _already_done(
     entity: ChoiceAnswer | None,
     snapshot: HomeSnapshot,
     min_confidence: float,
-) -> str | None:
-    """The sentence a user should hear when their command changes nothing.
+) -> tuple[str, str] | None:
+    """What is already true, when a command would change nothing.
 
     Reads the top option rather than the winning one, because a redundant command
     spreads its probability without moving the ranking.
@@ -298,4 +298,4 @@ def _already_done(
     described = snapshot.by_id(entity.choice)
     if described is None or described.state != wanted:
         return None
-    return f"{described.name} is already {wanted}."
+    return described.name, wanted
