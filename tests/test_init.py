@@ -134,11 +134,9 @@ async def test_unloading_writes_the_totals_out_first(
 ):
     """The delayed write is a timer holding the only copy of the day's spend.
 
-    `async_delay_save` arms a 15 second timer. Unload did not cancel or flush it, so
-    a shutdown inside that window dropped the day's usage and the budget started
-    over, and it left a timer armed against an unloaded entry. It surfaced as a
-    flaky lingering-timer teardown error in an unrelated config flow test, on CI
-    only, rather than anywhere near the code that caused it.
+    `async_delay_save` arms a 15 second timer. Unload stopped the coordinator
+    triggers and left that timer armed, so a reload or a shutdown inside the window
+    dropped whatever had been recorded and the daily budget started the day over.
     """
     await setup_with_context(hass, config_entry)
     assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
