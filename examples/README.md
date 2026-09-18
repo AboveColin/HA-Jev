@@ -19,6 +19,7 @@ self-contained and uses invented entity ids, so change those and nothing else.
 | [12_energy_window.yaml](12_energy_window.yaml) | where to keep the arithmetic and where to ask |
 | [13_voice_commands.yaml](13_voice_commands.yaml) | a voice command router: 12 questions in one request, most of them thrown away |
 | [14_conversation_agent.yaml](14_conversation_agent.yaml) | the built-in conversation agent: what to watch, and routing text that never reached Assist |
+| [15_doorbell_triage_ui.yaml](15_doorbell_triage_ui.yaml) | the one in the README screenshots: six questions, entity targets, three branches |
 
 ## Three rules that change the answers
 

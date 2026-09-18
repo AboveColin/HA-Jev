@@ -29,7 +29,7 @@ Not affiliated with TypeSafe. The API client is
   and counted against the same budget.
 - Reports what it spends: calls, input tokens and estimated cost per day, plus a
   daily token budget that halts evaluation when it trips.
-- Fourteen worked [examples](examples/), four of them pairing Jev with an LLM.
+- Fifteen worked [examples](examples/), four of them pairing Jev with an LLM.
 
 ```yaml
 automation:
@@ -105,6 +105,19 @@ Use Reconfigure to replace the key later, which keeps your entities and history.
     - action: notify.mobile_app
       data: { message: The washing is done and still in the machine. }
 ```
+
+The same thing in the automation editor, and what a run of it looks like:
+
+| | |
+|---|---|
+| ![A question becomes a binary sensor you trigger on](docs/images/auto-simple.png) | ![Six questions in one request, then three branches](docs/images/auto-advanced.png) |
+
+The right-hand one is [example 15](examples/15_doorbell_triage_ui.yaml). Six questions
+go in one request and five are thrown away, the action targets entities instead of
+building a template, and nothing acts until the confidence clears a bar. Its trace on
+a real instance, API call included:
+
+![The trace of one run, 0.31 seconds end to end](docs/images/auto-trace.png)
 
 | Action | You give it | You get back |
 |---|---|---|
@@ -255,7 +268,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-151 tests run the integration inside a real Home Assistant with the API client
+153 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 
