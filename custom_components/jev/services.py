@@ -260,7 +260,13 @@ def answer_as_dict(answer: Any) -> dict[str, Any]:
             "probabilities": answer.probabilities,
             "confidence": answer.confidence,
         }
-    raise HomeAssistantError(f"unreadable answer of type {type(answer).__name__}")
+    # Reached only if the client grows a fourth answer type, which a user meets as
+    # a library upgrade rather than as a bug in their configuration.
+    raise HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="unreadable_answer",
+        translation_placeholders={"kind": type(answer).__name__},
+    )
 
 
 def async_register_services(hass: HomeAssistant) -> None:

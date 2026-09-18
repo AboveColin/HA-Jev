@@ -81,7 +81,7 @@ rules:
   reauthentication-flow: done
   test-coverage:
     status: done
-    comment: 96% measured across 147 tests, enforced in CI.
+    comment: 96% measured across 151 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -122,13 +122,16 @@ rules:
       per-context latency sensor, whose context name travels as a placeholder. A
       question sensor is named by the user's own question text, which is theirs to
       write and cannot be translated by anyone else. The conversation agent takes the
-      device name, which is what every conversation agent in core does.
+      device name, which is what every conversation agent in core does, and the six
+      sentences it speaks itself go through the common translation category, so a
+      Dutch pipeline answers in Dutch.
   exception-translations:
     status: done
     comment: >-
-      Thirteen keys, including the library's own limit errors, which are re-raised
+      Fourteen keys, including the library's own limit errors, which are re-raised
       with the real numbers as placeholders rather than passed through in English.
-      A test asserts every key raised in code exists in every language file.
+      A test asserts every key raised in code exists in every language file, and a
+      check asserts no raise anywhere carries a bare string.
   icon-translations:
     status: done
     comment: >-
