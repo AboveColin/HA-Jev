@@ -302,7 +302,7 @@ async def test_a_structured_state_is_passed_through_untouched(
 async def test_a_list_state_survives_too(hass, loaded_entry, mock_client):
     """Arrays suit a sequence of messages or records, per the API docs."""
     state = [
-        {"from": "colin", "text": "is the washing done"},
+        {"from": "a housemate", "text": "is the washing done"},
         {"from": "sensor", "text": "1.2 W"},
     ]
     await call(

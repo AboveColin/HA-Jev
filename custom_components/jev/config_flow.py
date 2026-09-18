@@ -18,6 +18,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from jevclient import (
     USD_PER_MILLION_INPUT_TOKENS,
@@ -27,7 +28,15 @@ from jevclient import (
     Noul,
 )
 
-from .const import CONF_DAILY_TOKEN_BUDGET, CONF_PRICE_PER_MILLION, DOMAIN
+from .const import (
+    CONF_ALLOW_WHOLE_HOME,
+    CONF_DAILY_TOKEN_BUDGET,
+    CONF_FALLBACK_AGENT,
+    CONF_MIN_CONFIDENCE,
+    CONF_PRICE_PER_MILLION,
+    DEFAULT_MIN_CONFIDENCE,
+    DOMAIN,
+)
 
 STEP_USER_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): str})
 
@@ -108,7 +117,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class JevOptionsFlow(OptionsFlow):
-    """Spending limits.
+    """Spending limits and how the conversation agent should behave.
 
     The budget is a tripwire, not a quota to run against: put it past anything a
     working configuration would ever use, so only a runaway touches it.
@@ -132,6 +141,20 @@ class JevOptionsFlow(OptionsFlow):
                         CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
                     ),
                 ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+                vol.Optional(
+                    CONF_FALLBACK_AGENT,
+                    description={"suggested_value": options.get(CONF_FALLBACK_AGENT)},
+                ): selector.ConversationAgentSelector(
+                    selector.ConversationAgentSelectorConfig()
+                ),
+                vol.Optional(
+                    CONF_MIN_CONFIDENCE,
+                    default=options.get(CONF_MIN_CONFIDENCE, DEFAULT_MIN_CONFIDENCE),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
+                vol.Optional(
+                    CONF_ALLOW_WHOLE_HOME,
+                    default=options.get(CONF_ALLOW_WHOLE_HOME, False),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

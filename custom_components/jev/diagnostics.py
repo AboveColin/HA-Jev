@@ -34,6 +34,10 @@ async def async_get_config_entry_diagnostics(
             "budget_exceeded": usage.budget_exceeded,
             "estimated_cost_usd": round(usage.estimated_cost, 6),
         },
+        # The sentences the conversation agent routed, and what it made of each
+        # one. These are what was actually said to the house, so read a diagnostics
+        # file before pasting it into a public issue.
+        "conversation_traces": list(runtime.conversation_traces),
         "contexts": [
             {
                 "name": coordinator.context_config.name,
