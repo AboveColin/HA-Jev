@@ -251,7 +251,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-141 tests run the integration inside a real Home Assistant with the API client
+142 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 
