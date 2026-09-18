@@ -157,6 +157,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             }
         )
 
+        if decision.already_satisfied:
+            return self._speak(user_input, decision.already_satisfied)
+
         if decision.should_fall_back:
             return await self._fall_back(user_input, decision.reason)
 
@@ -164,12 +167,20 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         # harmless one. "Turn everything on" at 3am, from a sentence the model was
         # only somewhat sure about, is not something to do silently. Off is allowed
         # because its worst case is a dark house; anything else asks first.
-        if decision.targets_everything and not self._allow_whole_home:
-            if decision.action != "turn_off":
+        if decision.targets_everything:
+            if not self._allow_whole_home and decision.action != "turn_off":
                 return self._speak(
                     user_input,
                     "That would affect the whole house. Say which room or which "
                     "device you mean.",
+                )
+            # Home Assistant refuses "all" with no kind of device beside it, and an
+            # unbounded command is not something to infer from one sentence anyway.
+            if "domain" not in decision.slots:
+                return self._speak(
+                    user_input,
+                    "Which kind of thing do you mean? Say the lights, or the "
+                    "switches, or name a room.",
                 )
 
         assert decision.intent_type is not None

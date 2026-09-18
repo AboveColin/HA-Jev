@@ -14,7 +14,7 @@ alternative, a chain of calls each waiting on the last, is slower and costs more
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.helpers import intent as ha_intent
@@ -65,6 +65,9 @@ class Interpretation:
     reason: str
     fallback: bool
     targets_everything: bool = False
+    action_probabilities: dict[str, float] = field(default_factory=dict)
+    # Set when the command is understood and there is nothing left to do.
+    already_satisfied: str | None = None
 
     @property
     def should_fall_back(self) -> bool:
@@ -163,7 +166,16 @@ def interpret(
         return answer.noul if isinstance(answer, NoulAnswer) else 0.0
 
     def out(reason: str) -> Interpretation:
-        return Interpretation(None, {}, "", 0.0, reason, fallback=True)
+        action = response.answers.get("action")
+        return Interpretation(
+            None,
+            {},
+            "",
+            0.0,
+            reason,
+            fallback=True,
+            action_probabilities=dict(getattr(action, "probabilities", {}) or {}),
+        )
 
     if noul("compound") > 0.8:
         return out("several commands in one sentence")
@@ -171,16 +183,35 @@ def interpret(
         return out("needs text written or looked up")
 
     action = choice("action")
+    entity = choice("entity")
     if action is None or action.choice == NONE:
         return out("not a house command")
     if action.confidence < min_confidence:
+        # A command that is already done reads as a low-confidence one.
+        #
+        # Measured on a real instance, three runs per starting state: "could you put
+        # the desk lamp on please" scored the action at 1.00 with the lamp off and
+        # 0.25 to 0.31 with it on. turn_on stayed the top option at 0.39 to 0.48 and
+        # the rest went to get_state, because with the lamp already on the sentence
+        # really could be either. Refusing that as not understood is the wrong
+        # answer to a sentence the model read correctly.
+        if settled := _already_done(action, entity, snapshot, min_confidence):
+            return Interpretation(
+                None,
+                {},
+                action.choice,
+                action.confidence,
+                "already satisfied",
+                fallback=False,
+                already_satisfied=settled,
+                action_probabilities=dict(action.probabilities or {}),
+            )
         return out(
             f"action confidence {action.confidence:.2f} below {min_confidence:.2f}"
         )
 
     intent_type = ACTIONS[action.choice]
     target = choice("target_type")
-    entity = choice("entity")
     area = choice("area")
     slots: dict[str, Any] = {}
     targets_everything = False
@@ -202,6 +233,15 @@ def interpret(
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
     elif target is not None and target.choice == "everything":
+        # Home Assistant requires one of name, area or floor, and reads the literal
+        # name "all" as every entity, clearing it after the check. Sending no target
+        # at all failed that check on a real instance: "turn everything off"
+        # answered "Sorry, that did not work" while the model had it right at 0.99.
+        #
+        # "all" still needs a domain beside it. Home Assistant refuses a bare one
+        # with "Service handler cannot target all devices", and it is right to: an
+        # unbounded off is not something to infer from one ambiguous sentence.
+        slots["name"] = {"value": "all"}
         targets_everything = True
     else:
         return out("no target named with enough confidence")
@@ -230,3 +270,32 @@ def interpret(
         fallback=False,
         targets_everything=targets_everything,
     )
+
+
+# What "already done" looks like for each action the check covers.
+_SETTLED = {"turn_on": "on", "turn_off": "off"}
+
+
+def _already_done(
+    action: ChoiceAnswer,
+    entity: ChoiceAnswer | None,
+    snapshot: HomeSnapshot,
+    min_confidence: float,
+) -> str | None:
+    """The sentence a user should hear when their command changes nothing.
+
+    Reads the top option rather than the winning one, because a redundant command
+    spreads its probability without moving the ranking.
+    """
+    if entity is None or entity.choice == NONE or entity.confidence < min_confidence:
+        return None
+    if not action.probabilities:
+        return None
+    top = max(action.probabilities, key=lambda k: action.probabilities[k])
+    wanted = _SETTLED.get(top)
+    if wanted is None:
+        return None
+    described = snapshot.by_id(entity.choice)
+    if described is None or described.state != wanted:
+        return None
+    return f"{described.name} is already {wanted}."
