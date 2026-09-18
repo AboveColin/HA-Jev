@@ -15,6 +15,8 @@ answer into an entity you can automate on.
 Not affiliated with TypeSafe. The API client is
 [jevclient](https://github.com/AboveColin/jevclient).
 
+![Every question becomes an entity, with the day's spend beside it](docs/images/entities.png)
+
 ## What it does
 
 - Questions in `configuration.yaml` become sensors: a probability, one of your
@@ -155,6 +157,8 @@ A context is one request, so keep related questions together. It is evaluated on
 
 The integration adds a conversation agent. Settings, Voice assistants, pick your
 pipeline, set Conversation agent to **Jev**.
+
+![Assist answering through Jev](docs/images/assist.png)
 
 It sends one request per sentence, describing only the entities you exposed to
 Assist, and runs Home Assistant's own intents with what comes back. It turns things
