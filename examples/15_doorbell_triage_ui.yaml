@@ -1,0 +1,117 @@
+# The automation in the README screenshots, exactly as it runs.
+#
+# Six questions in one request. Five of them are discarded on any given call, and
+# that is the point: three questions measured 712 ms against 714 for a hundred, so
+# asking the ones that turn out not to matter costs tokens rather than time.
+#
+# Two things here are worth copying. The action targets entities rather than
+# building a template, so the lights and the appliance arrive as readings beside
+# the transcript and a question can read them. And nothing acts until the
+# confidence clears a bar, with a third branch that says so out loud rather than
+# guessing, because an automation that silently does nothing is the hardest kind
+# to debug.
+#
+# Measured on a real instance: the whole automation, API call included, finished in
+# 0.31 seconds.
+
+automation:
+  - id: jev_advanced_doorbell
+    alias: Doorbell triage
+    description: >-
+      Five questions in one request, then act, ask, or stay quiet depending on how
+      sure the answers were. Adding a question costs tokens, not time, so the ones
+      that turn out not to matter are free to ask.
+    triggers:
+      - trigger: state
+        entity_id: input_text.doorbell_transcript
+    conditions: []
+    actions:
+      - alias: Ask everything the router could need, in one request
+        action: jev.ask
+        response_variable: jev
+        target:
+          entity_id:
+            - light.test_kitchen_kitchen_ceiling
+            - light.test_kitchen_counter_strip
+            - light.test_office_desk_lamp
+            - light.test_bedroom_bedroom_lamp
+            - switch.test_kitchen_coffee_machine
+        data:
+          state:
+            transcript: "{{ states('input_text.doorbell_transcript') }}"
+            time: "{{ now().strftime('%H:%M on %A') }}"
+          questions:
+            caller:
+              type: choice
+              instructions: Who is at the door?
+              criteria:
+                delivery: A courier dropping off or collecting a parcel
+                visitor: Someone the household knows
+                sales: An unsolicited caller selling or canvassing
+                unclear: Not enough in the transcript to tell
+            answer_now:
+              type: noul
+              instructions: Does someone need to go to the door right now?
+              true_means: Waiting will cost something, a missed parcel or a missed guest
+              false_means: It can be dealt with later or ignored
+            urgency:
+              type: score
+              instructions: How quickly does this need a person?
+              criteria: [Never, Whenever, Within the hour, Right now]
+            leaves_parcel:
+              type: noul
+              instructions: Is the caller saying they will leave the parcel somewhere?
+            wants_signature:
+              type: noul
+              instructions: Does the caller need someone to sign or open the door?
+            anyone_up:
+              type: noul
+              instructions: Does the house look like someone is awake and about?
+              background: >-
+                The readings beside the transcript are the lights and the appliances.
+                Several on means someone is up, all off means the house is asleep.
+
+      - alias: Read the answers once, so every branch agrees on them
+        variables:
+          who: "{{ jev.answers.caller.choice }}"
+          sure: "{{ jev.answers.caller.confidence }}"
+          act: "{{ jev.answers.answer_now.noul }}"
+          level: "{{ jev.answers.urgency.nearest_level }}"
+
+      - choose:
+          - alias: Confident and urgent, so light the hall and say so
+            conditions:
+              - condition: template
+                value_template: "{{ sure > 0.8 and act > 0.7 }}"
+            sequence:
+              - action: light.turn_on
+                target:
+                  entity_id: light.test_kitchen_kitchen_ceiling
+                data:
+                  brightness_pct: 100
+              - action: persistent_notification.create
+                data:
+                  title: "Door: {{ who }}"
+                  message: >-
+                    {{ level }}. {{ states('input_text.doorbell_transcript') }}
+
+          - alias: Confident it can wait, so queue it without interrupting
+            conditions:
+              - condition: template
+                value_template: "{{ sure > 0.8 and act <= 0.7 }}"
+            sequence:
+              - action: logbook.log
+                data:
+                  name: Doorbell
+                  message: "{{ who }}, {{ level | lower }}, no answer needed"
+
+        default:
+          - alias: Not sure enough to act on, so say that rather than guess
+            action: persistent_notification.create
+            data:
+              title: Door, unsure
+              message: >-
+                Read it as {{ who }} at {{ sure }} confidence, which is below the bar
+                this automation acts on. Transcript:
+                {{ states('input_text.doorbell_transcript') }}
+    mode: single
