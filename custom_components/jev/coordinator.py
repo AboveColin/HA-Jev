@@ -105,6 +105,21 @@ class UsageAccount:
         self.input_tokens += input_tokens
         self._save()
 
+    async def async_flush(self) -> None:
+        """Write the totals now, rather than 15 seconds from now.
+
+        A delayed write is a timer holding the only copy of the day's spend. Unload
+        does not cancel it, so a reload or a shutdown inside that window drops
+        whatever was recorded and the daily budget starts the day over. A budget
+        that forgets what it has spent is not a budget.
+
+        async_save also cancels the pending delayed write, which is the other half:
+        a timer left armed against an unloaded entry is a lingering timer, and Home
+        Assistant's own test harness fails a test that leaves one.
+        """
+        if self.store is not None:
+            await self.store.async_save(self.as_stored())
+
     @property
     def estimated_cost(self) -> float:
         return self.input_tokens / 1_000_000 * self.price_per_million
