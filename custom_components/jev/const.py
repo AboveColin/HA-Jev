@@ -69,3 +69,31 @@ CONF_INCLUDE_ATTRIBUTES: Final = "include_attributes"
 CONF_ENTITIES: Final = "entities"
 
 CONF_BACKGROUND: Final = "background"
+
+# --- Conversation agent ---
+
+CONF_FALLBACK_AGENT: Final = "fallback_agent"
+CONF_MIN_CONFIDENCE: Final = "min_confidence"
+CONF_ALLOW_WHOLE_HOME: Final = "allow_whole_home"
+
+# Below this, the router hands the sentence to the fallback agent rather than
+# guessing. 0.6 is a starting point and not a calibrated figure: TypeSafe publishes
+# no calibration evidence for confidence, so treat it as an ordering and measure it
+# on your own phrasing before moving it.
+DEFAULT_MIN_CONFIDENCE: Final = 0.6
+
+# How many exposed entities one spoken command may describe.
+#
+# Measured locally on the payload this builds: an entity adds 114 bytes to the
+# state and 76 bytes to the options, 190 in total, because it appears both as a
+# reading and as something to choose between. Against the 65.8 input tokens per
+# entity record measured on the live API for a state-only record, that scales to
+# about 110 tokens per entity per command, so this cap is roughly 16,500 input
+# tokens or $0.0007. It also stays under the 255 option ceiling a Choice question
+# has. A house past it should narrow what is exposed to Assist, which is the list
+# a voice assistant should have been given anyway.
+MAX_CONVERSATION_ENTITIES: Final = 150
+
+# How many routed sentences are kept for diagnostics. Enough to see a pattern in
+# what is being misread, small enough that it cannot grow into a leak.
+CONVERSATION_TRACE_LENGTH: Final = 20

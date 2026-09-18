@@ -37,10 +37,13 @@
     "step": {
       "init": {
         "title": "Spending limits",
-        "description": "Input tokens are what you pay for, and question text counts as input. Set the budget past anything a working setup would use, so only a runaway reaches it. Zero means no limit.",
+        "description": "Input tokens are what you pay for, and question text counts as input. Set the budget past anything a working setup would use, so only a runaway reaches it. Zero means no limit.\n\nThe conversation agent sends anything it is unsure about to the fallback agent, whole and with nothing done first. Leave it empty and it will say it did not understand. Whole-house commands are refused unless you allow them, except for turning everything off, which is always allowed.",
         "data": {
           "daily_token_budget": "Daily input token budget (0 = no limit)",
-          "price_per_million": "Price per million input tokens, in USD"
+          "price_per_million": "Price per million input tokens, in USD",
+          "fallback_agent": "Fall back to this agent",
+          "min_confidence": "Act only above this confidence (0 to 1)",
+          "allow_whole_home": "Allow commands that name no room or device"
         }
       }
     }

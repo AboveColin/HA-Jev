@@ -81,7 +81,7 @@ rules:
   reauthentication-flow: done
   test-coverage:
     status: done
-    comment: 96% measured across 99 tests, enforced in CI.
+    comment: 95% measured across 140 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -97,7 +97,9 @@ rules:
   docs-data-update: done
   docs-examples:
     status: done
-    comment: Twelve worked examples in examples/, each checked by the test suite.
+    comment: >-
+      Fourteen worked examples in examples/, each checked by the test suite. One of
+      them is the conversation agent, which is configured rather than scripted.
   docs-known-limitations: done
   docs-supported-devices:
     status: exempt
@@ -119,7 +121,8 @@ rules:
       Every entity the integration names itself uses a translation key, including the
       per-context latency sensor, whose context name travels as a placeholder. A
       question sensor is named by the user's own question text, which is theirs to
-      write and cannot be translated by anyone else.
+      write and cannot be translated by anyone else. The conversation agent takes the
+      device name, which is what every conversation agent in core does.
   exception-translations:
     status: done
     comment: >-
@@ -128,7 +131,10 @@ rules:
       A test asserts every key raised in code exists in every language file.
   icon-translations:
     status: done
-    comment: icons.json covers every translated entity and all four actions. A test asserts that.
+    comment: >-
+      icons.json covers every translated entity and all four actions, and a test
+      asserts that. The conversation entity takes the conversation domain's own icon,
+      as core's agents do.
   reconfiguration-flow:
     status: done
     comment: The API key can be replaced without losing entities or their history.

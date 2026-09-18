@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -33,6 +34,7 @@ from jevclient import (
 )
 
 from .const import (
+    CONVERSATION_TRACE_LENGTH,
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
@@ -124,6 +126,11 @@ class JevRuntimeData:
     usage: UsageAccount
     coordinators: dict[str, JevCoordinator] = field(default_factory=dict)
     model_version: str | None = None
+    # What the conversation agent decided, most recent first. Bounded, because a
+    # satellite that mishears a wake word all night must not grow this without end.
+    conversation_traces: deque[dict[str, Any]] = field(
+        default_factory=lambda: deque(maxlen=CONVERSATION_TRACE_LENGTH)
+    )
 
 
 class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
