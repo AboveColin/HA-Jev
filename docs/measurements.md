@@ -131,3 +131,53 @@ Jev judges and does not calculate, which is why "set the lamp to 40 percent" has
 number pulled out by a regex rather than by a question. The same finding that gave
 0.06 separation on a raw threshold and 0.69 on a pre-computed comparison applies here.
 A regex is exact, free, and cannot be wrong about what 40 means.
+
+## Live on a real instance
+
+Measured against a real Home Assistant with a real API key, five exposed entities in
+three rooms, all of them in-memory fixtures.
+
+Sixteen sentences, one request each: 257 to 455 ms warm, 512 to 753 ms on the first
+call after a restart. That matches the 250 to 580 ms warm figure measured from the
+same country earlier.
+
+Input tokens sat between 1,329 and 1,371 per command, against 1,365 for the shortest
+sentence in the set. So with a small house the seven questions dominate and the
+sentence itself is noise. Thirty commands cost $0.0017 in total, or $0.000057 each.
+
+That corrects the estimate derived from the per-entity figure. Entity records scale at
+about 110 tokens each, but the fixed question text is roughly 1,300 tokens, so a house
+with 5 exposed entities pays mostly for the questions and one with 150 pays mostly for
+the entities.
+
+## A command that is already done reads as a low-confidence one
+
+Three runs per starting state, one sentence, one entity, nothing else changed:
+
+| desk lamp starts | action confidence |
+|---|---|
+| off | 1.00, 1.00, 1.00 |
+| on | 0.25, 0.28, 0.31 |
+
+The distribution with the lamp already on stayed ranked the same way, at turn_on 0.39
+to 0.48, get_state 0.30 to 0.35, none_of_these 0.22 to 0.30. With the lamp on, the
+sentence really could be either a command or a question, and the model says so by
+spreading the probability rather than by moving the ranking.
+
+Reading only the winning answer made a redundant command look unintelligible. Reading
+the top option and comparing it against the current state answers "Desk lamp is
+already on" instead.
+
+## Two failures a unit test would not have found
+
+The area options were built from every area in the registry, including rooms holding
+nothing exposed. On a real instance "kill the lights in the kitchen" came back as that
+room at 0.98, which was the right answer to the question asked and named somewhere the
+agent could not act. The rooms offered are now only those holding an exposed entity.
+
+A whole-house command sent no target at all. Home Assistant requires one of name, area
+or floor, so "turn everything off" answered "Sorry, that did not work" with the model
+right at 0.99. It now sends the literal name "all", which Home Assistant reads as every
+entity, and it needs a domain beside it: a bare "all" is refused with "Service handler
+cannot target all devices", so a whole-house command with no kind of device now asks
+which kind.

@@ -510,3 +510,132 @@ async def test_a_name_the_intent_layer_cannot_match_acts_on_nothing(
 
     assert calls == []
     assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
+async def test_a_room_holding_nothing_exposed_is_not_offered(hass, house, mock_client):
+    """Offering a room the agent cannot act in turns a right answer into a fallback.
+
+    Measured on a real instance: the registry held rooms belonging to devices that
+    were not exposed, and "kill the lights in the kitchen" came back as that room at
+    0.98. The answer was right for the question asked and named somewhere holding
+    nothing the agent could touch, so the intent matched nothing.
+    """
+    areas = ar.async_get(hass)
+    areas.async_get_or_create("Utility room")
+    mock_client.ask.return_value = build_response(**answer_set())
+    mock_client.ask.reset_mock()
+
+    await converse(hass, "kitchen light on")
+
+    offered = mock_client.ask.call_args.args[1]["area"].criteria
+    assert "Utility room" not in offered
+    assert set(offered) == {"Kitchen", "Office", "none_of_these"}
+    # The state carries the same list, so the model is never shown a room twice.
+    assert mock_client.ask.call_args.args[0]["areas"] == ["Kitchen", "Office"]
+
+
+async def test_a_whole_house_command_names_a_target_the_intent_accepts(
+    hass, house, mock_client
+):
+    """Home Assistant requires one of name, area or floor, and reads "all" as every
+    entity. Sending no target at all failed the slot check on a real instance:
+    "turn everything off" answered "Sorry, that did not work" with the model right
+    at 0.99.
+    """
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(
+                choice="everything", probabilities={}, confidence=0.95
+            ),
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+            # The kind is what makes "all" actionable, so this case supplies one.
+            domain=ChoiceAnswer(choice="light", probabilities={}, confidence=0.93),
+        )
+    )
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    calls = []
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn everything off")
+    await hass.async_block_till_done()
+
+    assert house.runtime_data.conversation_traces[0]["slots"]["name"]["value"] == "all"
+    assert calls, "a whole-house command reached no entity"
+    assert "did not work" not in (
+        result.response.speech.get("plain", {}).get("speech", "")
+    )
+
+
+async def test_a_whole_house_command_with_no_kind_asks_which(hass, house, mock_client):
+    """Home Assistant refuses "all" with no domain beside it, and so does this."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(
+                choice="everything", probabilities={}, confidence=0.95
+            ),
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+            domain=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.4),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn everything off")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert "Which kind of thing" in result.response.speech["plain"]["speech"]
+
+
+async def test_a_command_that_is_already_done_says_so(hass, house, mock_client):
+    """A redundant command reads as a low-confidence one, and is not one.
+
+    Measured on a real instance, three runs per starting state: the action scored
+    1.00 with the light off and 0.25 to 0.31 with it on, while turn_on stayed the
+    top option at 0.39 to 0.48. Refusing that as not understood answers the wrong
+    thing to a sentence the model read correctly.
+    """
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="turn_on",
+                probabilities={"turn_on": 0.44, "get_state": 0.31, "none_of_these": 0.25},
+                confidence=0.28,
+            )
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "could you put the kitchen light on please")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.response.speech["plain"]["speech"] == "Kitchen light is already on."
+
+
+async def test_a_low_confidence_command_that_is_not_done_still_falls_back(
+    hass, house, mock_client
+):
+    """The already-done path must not become a way around the confidence floor."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="turn_on",
+                probabilities={"turn_on": 0.44, "get_state": 0.31, "none_of_these": 0.25},
+                confidence=0.28,
+            )
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    # light.kitchen is off, so the command has something to do and is still unsure.
+    result = await converse(hass, "mmh the kitchen thing")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert "did not understand" in result.response.speech["plain"]["speech"]
