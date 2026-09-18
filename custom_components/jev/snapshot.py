@@ -97,38 +97,63 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     areas = ar.async_get(hass)
     floors = fr.async_get(hass)
 
-    def area_of(entity_id: str) -> str | None:
+    def area_id_of(entity_id: str) -> str | None:
         entry = entities.async_get(entity_id)
         if entry is None:
             return None
-        area_id = entry.area_id
-        if area_id is None and entry.device_id:
+        if entry.area_id is not None:
+            return entry.area_id
+        if entry.device_id:
             device = devices.async_get(entry.device_id)
-            area_id = device.area_id if device else None
-        if area_id is None:
-            return None
-        area = areas.async_get_area(area_id)
-        return area.name if area else None
+            return device.area_id if device else None
+        return None
 
     found: list[ExposedEntity] = []
+    used_area_ids: set[str] = set()
     for state in hass.states.async_all(CONTROLLABLE):
         if not async_should_expose(hass, CONVERSATION_DOMAIN, state.entity_id):
             continue
+        area_id = area_id_of(state.entity_id)
+        area = areas.async_get_area(area_id) if area_id else None
+        if area is not None:
+            used_area_ids.add(area.id)
         found.append(
             ExposedEntity(
                 entity_id=state.entity_id,
                 name=state.name,
                 domain=state.domain,
-                area=area_of(state.entity_id),
+                area=area.name if area else None,
                 state=state.state,
             )
         )
     # Sorted so the option list is stable between requests, which makes a trace
     # readable when the same command is tried twice.
     found.sort(key=lambda e: e.entity_id)
+    found = found[:limit]
+    # Recount after the cap, so a room that only had entities past the limit is not
+    # offered as somewhere the command could go.
+    used_area_ids &= {
+        area.id
+        for e in found
+        if (area_id := area_id_of(e.entity_id))
+        and (area := areas.async_get_area(area_id)) is not None
+    }
+
+    # Only rooms that hold something the agent may act on.
+    #
+    # Measured on a test instance: the registry held Kitchen, Bedroom and Living Room from
+    # real devices alongside the three test rooms. Offering all six let "kill the
+    # lights in the kitchen" come back as area=Kitchen at 0.98 confidence, which was
+    # the right answer to the question asked and named a room holding nothing
+    # exposed. The intent then matched nothing and the sentence fell back. A room
+    # the agent cannot act in is not an option, it is a trap.
+    used_areas = [areas.async_get_area(a) for a in used_area_ids]
+    used_floor_ids = {a.floor_id for a in used_areas if a and a.floor_id}
 
     return HomeSnapshot(
-        entities=found[:limit],
-        areas=sorted({a.name for a in areas.async_list_areas()}),
-        floors=sorted({f.name for f in floors.async_list_floors()}),
+        entities=found,
+        areas=sorted(a.name for a in used_areas if a),
+        floors=sorted(
+            f.name for f in floors.async_list_floors() if f.floor_id in used_floor_ids
+        ),
     )
