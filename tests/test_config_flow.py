@@ -105,6 +105,12 @@ async def test_reauth_replaces_the_key(hass, mock_client, config_entry):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert config_entry.data[CONF_API_KEY] == "a-working-key"
+    # A successful reauth reloads the entry, which creates the entities and writes
+    # the registries. Without waiting, that lands during teardown, and if it lands
+    # after shutdown has consumed the stores' one-shot final-write listeners their
+    # timers survive and the harness fails the test on a lingering timer. It failed
+    # that way on CI only, naming core.entity_registry rather than anything here.
+    await hass.async_block_till_done()
 
 
 async def test_options_flow_stores_the_budget(hass, loaded_entry):
