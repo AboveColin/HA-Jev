@@ -101,3 +101,33 @@ answer in favour of the uncertain one and turned on every light in the house.
 Confidence itself has no published calibration evidence, and TypeSafe's own docs call
 it a convenient default. Treat 0.9 as higher than 0.6 rather than as right nine times
 in ten, until you have measured it on your own questions.
+
+## What one spoken command carries
+
+Measured locally on the payload the conversation agent builds, with no API call, so
+these are sizes rather than tokens:
+
+| exposed entities | questions | state bytes | question bytes | total |
+|---|---|---|---|---|
+| 5 | 7 | 714 | 2,428 | 3,142 |
+| 10 | 7 | 1,267 | 2,791 | 4,058 |
+| 20 | 7 | 2,403 | 3,547 | 5,950 |
+| 50 | 7 | 5,787 | 5,791 | 11,578 |
+| 150 | 7 | 17,187 | 13,391 | 30,578 |
+
+The question count does not move, which is the point: every question the router could
+need goes in one request. An entity adds 114 bytes to the state and 76 to the options,
+because it appears once as a reading and once as something to choose between.
+
+Against the 65.8 input tokens per state-only entity record measured above, that scales
+to roughly 110 input tokens per entity per command. A house with 20 entities exposed to
+Assist is then about 2,200 tokens, and the 150 entity cap is about 16,500, or $0.0007
+at the published price. These are derived from a measured figure, not measured
+end to end: nobody has run a token count against the live API for this payload yet.
+
+## Where the numbers are read, and where they are asked for
+
+Jev judges and does not calculate, which is why "set the lamp to 40 percent" has its
+number pulled out by a regex rather than by a question. The same finding that gave
+0.06 separation on a raw threshold and 0.69 on a pre-computed comparison applies here.
+A regex is exact, free, and cannot be wrong about what 40 means.

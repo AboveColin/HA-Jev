@@ -23,9 +23,11 @@ Not affiliated with TypeSafe. The API client is
   `jev.noul`, `jev.choice`, `jev.score` and `jev.ask`.
 - Point a question at entities, devices, areas, floors or labels in the normal
   picker and the state is built for you, so no template is needed.
+- A conversation agent for Assist, so spoken commands are routed by the same model
+  and counted against the same budget.
 - Reports what it spends: calls, input tokens and estimated cost per day, plus a
   daily token budget that halts evaluation when it trips.
-- Thirteen worked [examples](examples/), four of them pairing Jev with an LLM.
+- Fourteen worked [examples](examples/), four of them pairing Jev with an LLM.
 
 ```yaml
 automation:
@@ -78,6 +80,9 @@ is the only thing it asks for, and it is checked before the entry is created.
 | API key | config flow | none | Your TypeSafe key |
 | Daily input token budget | options | 0 | Stops evaluating for the day once spent. 0 means no limit |
 | Price per million input tokens | options | 0.042 | Only affects the estimated cost sensor |
+| Fall back to this agent | options | none | Where unrouted sentences go. Empty means the agent says it did not understand |
+| Act only above this confidence | options | 0.6 | Below it, the sentence goes to the fallback instead |
+| Allow whole-house commands | options | off | Commands naming no room or device. Turning everything off is always allowed |
 
 Use Reconfigure to replace the key later, which keeps your entities and history.
 
@@ -146,6 +151,31 @@ A context is one request, so keep related questions together. It is evaluated on
 `scan_interval`, or when an entity it watches changes, debounced by 5 seconds. Adding
 `threshold:` to a noul also creates a binary sensor to trigger on.
 
+### Voice
+
+The integration adds a conversation agent. Settings, Voice assistants, pick your
+pipeline, set Conversation agent to **Jev**.
+
+It sends one request per sentence, describing only the entities you exposed to
+Assist, and runs Home Assistant's own intents with what comes back. It turns things
+on and off, toggles them, sets a light's brightness and answers what something is
+set to. Anything else, anything phrased as two commands, and anything it is not
+confident about goes to the fallback agent whole, with nothing done first.
+
+Against the built-in sentence matcher, it understands a command phrased a way
+nobody wrote a template for, and it returns a confidence the router can refuse to
+act on. Against an LLM agent, it is cheaper and it stops on its own: a command works
+out at about $0.0001 with 20 entities exposed and $0.0007 at the 150 entity cap,
+derived from the measured token cost per entity, and every one counts against the
+same daily budget as the sensors. A satellite that mishears a wake word all night
+trips that budget instead of running up a bill.
+
+Brightness comes out of a regex, not out of a question, because Jev judges and does
+not calculate. `40 percent`, `40%` and `40 procent` all work.
+
+Commands naming no room and no device are refused unless you allow them, except
+turning everything off, whose worst case is a dark house.
+
 ## Examples
 
 | | |
@@ -163,6 +193,7 @@ A context is one request, so keep related questions together. It is evaluated on
 | [11 post and parcels](examples/11_post_and_parcels.yaml) | one attention queue across several channels |
 | [12 energy window](examples/12_energy_window.yaml) | where to keep arithmetic and where to ask |
 | [13 voice commands](examples/13_voice_commands.yaml) | a command router, 12 questions per request |
+| [14 conversation agent](examples/14_conversation_agent.yaml) | watching what the agent spends, and routing text Assist never saw |
 
 The LLM examples use `ai_task.generate_data`, so they work with Google Generative AI,
 OpenAI, Anthropic or a local Ollama. The voice command router follows TypeSafe's own
@@ -184,6 +215,11 @@ Europe against the published figure, and the two findings that changed this code
   for a tight loop.
 - Not for safety decisions. A probability with no explanation should not hold a lock,
   a heater or a smoke alarm.
+- The conversation agent handles on, off, toggle, brightness and state questions.
+  Media, covers, climate setpoints and anything needing words written go to the
+  fallback agent.
+- Diagnostics include the last 20 sentences the agent routed. Read the file before
+  pasting it into a public issue.
 
 ## Troubleshooting
 
@@ -202,6 +238,8 @@ logger:
 | Entities unavailable, budget sensor on | The daily budget stopped evaluation |
 | Entities unavailable, budget sensor off | Look for one line saying TypeSafe is not answering |
 | Setup fails with "TypeSafe did not answer" | Connectivity, not configuration. Home Assistant retries |
+| Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
+| Voice acts on the wrong device | The names and areas in the entity registry are what the model reads |
 | An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
 
 ## Contributing
@@ -213,7 +251,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-103 tests run the integration inside a real Home Assistant with the API client
+140 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 

@@ -1,0 +1,117 @@
+# The conversation agent, and the automations worth hanging off it.
+#
+# The agent itself is not configured in YAML. Settings, Voice assistants, pick your
+# pipeline, set Conversation agent to Jev. The options that shape it live in
+# Settings, Devices and services, Jev, Configure:
+#
+#   Fall back to this agent          anything Jev is unsure about goes here whole
+#   Act only above this confidence   default 0.6
+#   Allow whole-house commands       default off, except turning everything off
+#
+# Point the fallback at Home Assistant's built-in agent and you get sentence
+# matching for what it already knows and Jev for the rest. Point it at an LLM agent
+# and the LLM only sees what Jev could not route, which is the cheap arrangement:
+# a routed command costs about a tenth of a cent, an LLM turn costs more.
+#
+# What the agent handles on its own: turning things on and off, toggling, setting a
+# light's brightness, and answering what something is set to. Everything else, and
+# anything it is not sure about, goes to the fallback.
+
+# --- What the agent spends, watched like anything else ---
+
+automation:
+  - alias: Voice is costing more than it should
+    description: >-
+      The agent counts against the same daily budget as the sensors. A satellite
+      that mishears a wake word overnight shows up here before it shows up on a bill.
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.jev_calls_today
+        above: 400
+    actions:
+      - action: notify.mobile_app
+        data:
+          title: Jev has been busy
+          message: >-
+            {{ states('sensor.jev_calls_today') }} calls today, about
+            ${{ states('sensor.jev_estimated_cost_today') }}. If that was not you,
+            check which satellite is triggering.
+
+  - alias: The budget stopped the voice agent
+    description: >-
+      When the budget trips, the agent hands every sentence to the fallback instead
+      of acting. Worth knowing, because the house stops responding the way it did.
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.jev_daily_budget_exceeded
+        to: "on"
+    actions:
+      - action: notify.mobile_app
+        data:
+          message: >-
+            Jev's daily token budget is spent. Voice commands are going to the
+            fallback agent until midnight.
+
+# --- Asking the same question the agent asks, from an automation ---
+#
+# The agent routes a sentence. This does the same judging on text that arrived some
+# other way, which is what the agent cannot reach: an SMS, a note in a webhook, a
+# transcript from somewhere that is not Assist.
+
+  - alias: Act on a text message about the house
+    triggers:
+      - trigger: event
+        event_type: telegram_text
+    actions:
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state:
+            message: "{{ trigger.event.data.text }}"
+          questions:
+            about_the_house:
+              type: noul
+              instructions: Is this message asking for something in the house to change?
+              true_means: A request to change the state of something
+              false_means: Conversation, a question, or anything else
+            urgency:
+              type: score
+              instructions: How quickly does this need attention?
+              criteria: [Whenever, Today, Now]
+      - if: >-
+          {{ jev.answers.about_the_house.noul > 0.7
+             and jev.answers.about_the_house.confidence > 0.6 }}
+        then:
+          # conversation.process runs the same agent the voice pipeline runs, so a
+          # message and a spoken sentence take exactly one path through the house.
+          - action: conversation.process
+            data:
+              agent_id: conversation.jev
+              text: "{{ trigger.event.data.text }}"
+        else:
+          - action: notify.mobile_app
+            data:
+              message: >-
+                Message that was not a command
+                (urgency {{ jev.answers.urgency.score }}):
+                {{ trigger.event.data.text }}
+
+# --- A sensor for what the agent is doing ---
+#
+# The agent's own decisions are in its diagnostics. This is the other half: whether
+# the house is in a state where a voice command would even make sense.
+
+jev:
+  - name: Voice context
+    scan_interval: 900
+    entities:
+      - binary_sensor.jev_daily_budget_exceeded
+    questions:
+      - name: Voice commands are working
+        type: noul
+        instructions: >-
+          Is the Jev conversation agent able to act on commands right now?
+        background: >-
+          The agent hands every sentence to the fallback agent instead of acting
+          when the daily token budget is spent, which is what this sensor reports.
+        threshold: 0.5

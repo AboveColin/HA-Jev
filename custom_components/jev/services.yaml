@@ -158,7 +158,7 @@ ask:
       required: false
       example: |
         Front door: {{ states('binary_sensor.front_door') }}
-        Nobody home since: {{ relative_time(states.person.colin.last_changed) }}
+        Nobody home since: {{ relative_time(states.person.home_owner.last_changed) }}
         Outside: {{ states('sensor.outside_temperature') }} degrees
       selector:
         template:

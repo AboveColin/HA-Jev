@@ -37,10 +37,13 @@
     "step": {
       "init": {
         "title": "Uitgavelimieten",
-        "description": "Je betaalt voor invoertokens, en de tekst van je vragen telt mee als invoer. Zet de limiet ruim boven wat een werkende opstelling gebruikt, zodat alleen een op hol geslagen configuratie hem raakt. Nul betekent geen limiet.",
+        "description": "Je betaalt voor invoertokens, en de tekst van je vragen telt mee als invoer. Zet de limiet ruim boven wat een werkende opstelling gebruikt, zodat alleen een op hol geslagen configuratie hem raakt. Nul betekent geen limiet.\n\nDe gespreksagent stuurt alles waar hij niet zeker van is in zijn geheel door naar de terugvalagent, zonder eerst iets te doen. Laat je dat leeg, dan zegt hij dat hij het niet begreep. Opdrachten voor het hele huis worden geweigerd tenzij je ze toestaat, behalve alles uitschakelen: dat mag altijd.",
         "data": {
           "daily_token_budget": "Daglimiet invoertokens (0 = geen limiet)",
-          "price_per_million": "Prijs per miljoen invoertokens, in USD"
+          "price_per_million": "Prijs per miljoen invoertokens, in USD",
+          "fallback_agent": "Val terug op deze agent",
+          "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
+          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen"
         }
       }
     }
