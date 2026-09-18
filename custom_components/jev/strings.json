@@ -240,6 +240,17 @@
     },
     "score_levels_out_of_range": {
       "message": "A score takes {min} to {max} levels, lowest first, and this one has {count}."
+    },
+    "unreadable_answer": {
+      "message": "TypeSafe returned an answer of type {kind}, which this version cannot read. Update the integration."
     }
+  },
+  "common": {
+    "not_understood": "Sorry, I did not understand that.",
+    "whole_house": "That would affect the whole house. Say which room or which device you mean.",
+    "which_kind": "Which kind of thing do you mean? Say the lights, or the switches, or name a room.",
+    "intent_failed": "Sorry, that did not work.",
+    "already_on": "{name} is already on.",
+    "already_off": "{name} is already off."
   }
 }

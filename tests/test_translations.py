@@ -54,3 +54,24 @@ def test_every_translated_entity_has_an_icon():
     for platform, entities in STRINGS["entity"].items():
         for key in entities:
             assert key in icons.get(platform, {}), f"{platform}.{key} has no icon"
+
+
+def test_the_speech_fallbacks_match_the_english_strings():
+    """A fallback that drifts from strings.json is a second wording nobody edits."""
+    from custom_components.jev.conversation import _FALLBACK
+
+    strings = json.loads((COMPONENT / "strings.json").read_text())["common"]
+    assert strings == _FALLBACK
+
+
+def test_every_language_carries_the_agent_speech():
+    """A Dutch pipeline that answers in English is only half translated."""
+    english = json.loads((COMPONENT / "strings.json").read_text())["common"]
+    for path in sorted((COMPONENT / "translations").glob("*.json")):
+        speech = json.loads(path.read_text()).get("common")
+        assert speech is not None, f"{path.name} has no conversation speech"
+        assert set(speech) == set(english), f"{path.name} keys differ from strings.json"
+        for key, text in speech.items():
+            assert "{name}" in text if "{name}" in english[key] else True, (
+                f"{path.name}:{key} dropped the name placeholder"
+            )

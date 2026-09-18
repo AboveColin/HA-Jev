@@ -639,3 +639,35 @@ async def test_a_low_confidence_command_that_is_not_done_still_falls_back(
 
     assert calls == []
     assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
+async def test_the_agent_answers_in_the_pipeline_language(hass, house, mock_client):
+    """The intent layer localises its own replies. Ours have to be localised too."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(compound=NoulAnswer(noul=0.97))
+    )
+
+    result = await conversation.async_converse(
+        hass, "doe twee dingen tegelijk", None, Context(), language="nl", agent_id=AGENT
+    )
+
+    assert result.response.speech["plain"]["speech"] == "Sorry, dat begreep ik niet."
+
+
+async def test_the_already_done_reply_is_translated_too(hass, house, mock_client):
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="turn_on",
+                probabilities={"turn_on": 0.44, "get_state": 0.31},
+                confidence=0.28,
+            )
+        )
+    )
+
+    result = await conversation.async_converse(
+        hass, "doe de keukenlamp aan", None, Context(), language="nl", agent_id=AGENT
+    )
+
+    assert result.response.speech["plain"]["speech"] == "Kitchen light staat al aan."
