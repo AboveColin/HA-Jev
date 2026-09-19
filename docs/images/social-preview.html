@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 640px; }
+  body {
+    font-family: "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0b0f14;
+    color: #e6edf3;
+    overflow: hidden;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  .glow-a { position: absolute; width: 1000px; height: 1000px; right: -330px; top: -390px;
+            background: radial-gradient(circle, rgba(3,169,244,.22) 0%, rgba(3,169,244,0) 62%); }
+  .glow-b { position: absolute; width: 820px; height: 820px; left: -340px; bottom: -430px;
+            background: radial-gradient(circle, rgba(3,169,244,.10) 0%, rgba(3,169,244,0) 65%); }
+  .wrap { position: relative; display: flex; align-items: center; gap: 52px;
+          height: 100%; padding: 0 72px; }
+  .left { flex: 1 1 0; min-width: 0; }
+
+  .brand { display: flex; align-items: baseline; gap: 18px; margin-bottom: 38px; }
+  .brand b { font-size: 31px; font-weight: 700; letter-spacing: -.02em; }
+  .brand span { font-size: 20px; color: #798696;
+                border-left: 1px solid #263140; padding-left: 18px; }
+
+  h1 { font-size: 51px; line-height: 1.1; letter-spacing: -.03em; font-weight: 700;
+       white-space: nowrap; }
+  h1 em { font-style: normal; color: #2ab0f5; }
+  .sub { margin-top: 24px; font-size: 24px; line-height: 1.42; color: #96a3b2;
+         letter-spacing: -.008em; }
+  .feat { margin-top: 40px; display: flex; align-items: center; gap: 15px;
+          font-size: 19px; color: #8e9bab; font-weight: 500; }
+  .feat i { width: 4px; height: 4px; border-radius: 50%; background: #3a4655; }
+  .repo { margin-top: 20px; font-size: 19px; color: #8894a4; }
+
+  .card { flex: 0 0 404px; background: #11181f; border: 1px solid #1e2836;
+          border-radius: 18px; padding: 28px 30px 24px; }
+  .chead { display: flex; justify-content: space-between; align-items: baseline;
+           padding-bottom: 19px; border-bottom: 1px solid #1c2430; }
+  .chead b { font-size: 23px; font-weight: 600; letter-spacing: -.01em; }
+  .chead span { font-size: 17px; color: #6f7c8c; font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 14px; margin-top: 19px; }
+  .row .lab { width: 96px; font-size: 20px; color: #aebbca; }
+  .row .bar { flex: 1; height: 11px; border-radius: 6px; background: #1a222c; overflow: hidden; }
+  .row .bar i { display: block; height: 100%; border-radius: 6px; background: #2ab0f5; }
+  .row .val { width: 48px; text-align: right; font-size: 20px;
+              font-variant-numeric: tabular-nums; color: #7f8c9b; }
+  .row.win .lab { color: #ffffff; font-weight: 600; }
+  .row.win .val { color: #e6edf3; font-weight: 600; }
+  .cfoot { margin-top: 24px; padding-top: 19px; border-top: 1px solid #1c2430;
+           font-size: 16px; color: #66727f; font-variant-numeric: tabular-nums; }
+</style>
+<div class="glow-a"></div>
+<div class="glow-b"></div>
+<div class="wrap">
+  <div class="left">
+    <div class="brand"><b>Jev</b><span>for Home Assistant</span></div>
+    <h1>Give your automations<br>something to <em>judge</em> with.</h1>
+    <p class="sub">Jev reads the entities you choose and answers with<br>a probability, one of your options, or a score.</p>
+    <div class="feat">Question sensors<i></i>Automation actions<i></i>Assist agent</div>
+    <div class="repo">github.com/AboveColin/HA-Jev</div>
+  </div>
+  <div class="card">
+    <div class="chead"><b>Connection state</b><span>confidence 0.46</span></div>
+    <div class="row win"><span class="lab">degraded</span><span class="bar"><i style="width:59%"></i></span><span class="val">0.59</span></div>
+    <div class="row"><span class="lab">marginal</span><span class="bar"><i style="width:40%"></i></span><span class="val">0.40</span></div>
+    <div class="row"><span class="lab">healthy</span><span class="bar"><i style="width:1%"></i></span><span class="val">0.01</span></div>
+    <div class="row"><span class="lab">down</span><span class="bar"><i style="width:0%"></i></span><span class="val">0.00</span></div>
+    <div class="cfoot">740 input tokens &middot; $0.000031 &middot; 267 ms</div>
+  </div>
+</div>
