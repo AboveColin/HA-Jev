@@ -157,6 +157,27 @@ look at the same thing on the same schedule are sent as one call, because the AP
 takes one state per request. You never declare that grouping, and this is where you
 see it.
 
+#### Two worked examples
+
+A washing machine that has finished but not been emptied. The readings are 1.4 W,
+the door shut, and 14 minutes since the programme ended, and the `background` field
+says what those numbers mean:
+
+![The laundry question answering 0.86](docs/images/example-laundry.png)
+
+A cable modem where one reading sits near its limit. Downstream SNR of 31.2 dB is
+under the healthy 33, upstream power of 50.4 dBmV is near the 51 ceiling, and there
+are 1,184 uncorrected errors:
+
+![The connection question answering degraded](docs/images/example-connection.png)
+
+Worth reading that second one closely. It answers `degraded` at 0.59 with `marginal`
+right behind at 0.40, and a confidence of 0.46. That is the model saying the data is
+genuinely ambiguous rather than pretending otherwise, and it is why the actions
+return confidence at all: an automation can require 0.8 before it wakes anyone.
+
+Both are sample data on a throwaway instance, not a real house.
+
 ### Questions in YAML
 
 The same thing in a file, which keeps working and is not deprecated:
@@ -297,7 +318,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-181 tests run the integration inside a real Home Assistant with the API client
+186 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 

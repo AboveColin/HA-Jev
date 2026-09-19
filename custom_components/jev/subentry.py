@@ -16,6 +16,7 @@ grouping is computed from those fields at setup, which keeps the measured saving
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import date
 from typing import Any
 
@@ -228,7 +229,8 @@ async def build_preview(hass: HomeAssistant, data: dict[str, Any]) -> tuple[str,
         try:
             template_text = Template(str(raw), hass).async_render(parse_result=False)
         except TemplateError as err:
-            return f"The template does not render: {err}", None
+            say = await _translator(hass)
+            return say("preview_template_error", reason=str(err)), None
     try:
         state = async_build_state(
             hass,
@@ -275,6 +277,58 @@ async def _readable(hass: HomeAssistant, err: Exception) -> str:
     return str(err)
 
 
+# Shown when a translation is missing, so a missing key is still a sentence
+# rather than a blank line. A test keeps this in step with strings.json.
+_PREVIEW_FALLBACK = {
+    "preview_alone": "Sent as its own request.",
+    "preview_grouped": "Sent in one request together with: {others}.",
+    "preview_cost": (
+        "Asked once for this preview: {tokens} input tokens, about ${cost}, {ms} ms."
+    ),
+    "preview_threshold_over": (
+        "That is above your threshold of {threshold}, so the binary "
+        "sensor would be **on** right now."
+    ),
+    "preview_threshold_under": (
+        "That is below your threshold of {threshold}, so the binary "
+        "sensor would be **off** right now."
+    ),
+    "preview_winner": "Winner **{choice}**, confidence {confidence}.",
+    "preview_score": (
+        "Score **{score}**, nearest level **{level}**, confidence {confidence}."
+    ),
+    "preview_undrawable": "The answer came back in a shape this version cannot draw.",
+    "preview_unbuildable": "That question cannot be built yet: {reason}",
+    "preview_rejected": "TypeSafe rejected the API key, so there is no trial answer.",
+    "preview_failed": "No trial answer: {reason}",
+    "preview_mismatched": "The API answered, but not to the question that was asked.",
+    "preview_template_error": "The template does not render: {reason}",
+}
+
+
+async def _translator(hass: HomeAssistant) -> Callable[..., str]:
+    """Load this integration's sentences once, then format them by key.
+
+    Everything the preview puts on screen goes through here. _PREVIEW_FALLBACK is
+    the last resort, so a missing key is still a sentence rather than a blank
+    line, and a test keeps the two in step.
+    """
+    strings = await translation.async_get_translations(
+        hass, hass.config.language, "common", [DOMAIN]
+    )
+
+    def say(key: str, **placeholders: str) -> str:
+        template = strings.get(
+            f"component.{DOMAIN}.common.{key}", _PREVIEW_FALLBACK.get(key, key)
+        )
+        try:
+            return template.format(**placeholders)
+        except (KeyError, IndexError):
+            return template
+
+    return say
+
+
 BAR_WIDTH = 18
 
 
@@ -288,17 +342,20 @@ def _bar(fraction: float) -> str:
     return "\u2588" * filled + "\u2591" * (BAR_WIDTH - filled)
 
 
-def render_answer(answer: Answer, threshold: float | None) -> str:
-    """The trial answer, drawn rather than dumped."""
+def render_answer(
+    answer: Answer, threshold: float | None, say: Callable[..., str]
+) -> str:
+    """The trial answer, drawn rather than dumped.
+
+    `say` resolves a key against the loaded catalogue. Everything here is a
+    sentence someone reads, so none of it can be a literal.
+    """
     if isinstance(answer, NoulAnswer):
         lines = [f"`{_bar(answer.noul)}`  **{answer.noul:.2f}**"]
         if threshold is not None:
-            verdict = "above" if answer.noul >= threshold else "below"
-            lines.append(
-                f"\nThat is {verdict} your threshold of {threshold:g}, so the binary "
-                f"sensor would be **{'on' if answer.noul >= threshold else 'off'}** "
-                f"right now."
-            )
+            over = answer.noul >= threshold
+            key = "preview_threshold_over" if over else "preview_threshold_under"
+            lines.append("\n" + say(key, threshold=f"{threshold:g}"))
         return "\n".join(lines)
 
     if isinstance(answer, ChoiceAnswer):
@@ -309,7 +366,13 @@ def render_answer(answer: Answer, threshold: float | None) -> str:
             for name, p in rows
         )
         return (
-            f"{drawn}\n\nWinner **{answer.choice}**, confidence {answer.confidence:.2f}."
+            drawn
+            + "\n\n"
+            + say(
+                "preview_winner",
+                choice=answer.choice,
+                confidence=f"{answer.confidence:.2f}",
+            )
         )
 
     if isinstance(answer, ScoreAnswer):
@@ -318,10 +381,16 @@ def render_answer(answer: Answer, threshold: float | None) -> str:
             f"`{_bar(p)}` {p:.2f}  {answer.legend.get(level, level)}" for level, p in rows
         )
         return (
-            f"{drawn}\n\nScore **{answer.score:.2f}**, nearest level "
-            f"**{answer.nearest_level}**, confidence {answer.confidence:.2f}."
+            drawn
+            + "\n\n"
+            + say(
+                "preview_score",
+                score=f"{answer.score:.2f}",
+                level=str(answer.nearest_level),
+                confidence=f"{answer.confidence:.2f}",
+            )
         )
-    return "The answer came back in a shape this version cannot draw."
+    return say("preview_undrawable")
 
 
 async def try_answer(
@@ -334,16 +403,17 @@ async def try_answer(
     0.5 is the common disappointment. One call costs a few hundred input tokens,
     so the answer is worth more than the fraction of a cent it costs.
     """
+    say = await _translator(hass)
     try:
         question = build_question(_as_raw_question(data))
     except (KeyError, ValueError) as err:
-        return f"That question cannot be built yet: {err}"
+        return say("preview_unbuildable", reason=str(err))
     try:
         response = await entry.runtime_data.client.ask(state, {"preview": question})
     except JevAuthError:
-        return "TypeSafe rejected the API key, so there is no trial answer."
+        return say("preview_rejected")
     except JevError as err:
-        return f"No trial answer: {err}"
+        return say("preview_failed", reason=str(err))
 
     usage = entry.runtime_data.usage
     usage.roll_over(date.today())
@@ -352,17 +422,23 @@ async def try_answer(
 
     answer = response.answers.get("preview")
     if answer is None:
-        return "The API answered, but not to the question that was asked."
-    drawn = render_answer(answer, data.get(CONF_THRESHOLD))
+        return say("preview_mismatched")
+    drawn = render_answer(answer, data.get(CONF_THRESHOLD), say)
     cost = response.usage.input_tokens / 1_000_000 * usage.price_per_million
-    return (
-        f"{drawn}\n\n_Asked once for this preview: {response.usage.input_tokens} "
-        f"input tokens, about ${cost:.6f}, {response.latency_ms:.0f} ms._"
+    footer = say(
+        "preview_cost",
+        tokens=str(response.usage.input_tokens),
+        cost=f"{cost:.6f}",
+        ms=f"{response.latency_ms:.0f}",
     )
+    return f"{drawn}\n\n_{footer}_"
 
 
-def describe_grouping(
-    entry: ConfigEntry, data: dict[str, Any], editing: str | None
+async def describe_grouping(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    data: dict[str, Any],
+    editing: str | None,
 ) -> str:
     """Which other questions this one will share its request with.
 
@@ -378,10 +454,10 @@ def describe_grouping(
         and s.subentry_id != editing
         and _call_key(dict(s.data)) == key
     ]
+    say = await _translator(hass)
     if not others:
-        return "Sent as its own request."
-    joined = ", ".join(sorted(others))
-    return f"Sent in one request together with: {joined}."
+        return say("preview_alone")
+    return say("preview_grouped", others=", ".join(sorted(others)))
 
 
 class JevQuestionSubentryFlow(ConfigSubentryFlow):
@@ -481,7 +557,9 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
                 data_schema=vol.Schema({}),
                 description_placeholders={
                     "state": shown,
-                    "grouping": describe_grouping(entry, self._pending, self._editing),
+                    "grouping": await describe_grouping(
+                        self.hass, entry, self._pending, self._editing
+                    ),
                     "answer": answer,
                 },
             )
