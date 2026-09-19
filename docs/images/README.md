@@ -17,15 +17,5 @@ The house in them is fake on purpose: a small integration creates four lights an
 switch that hold their state in memory, so a screenshot session cannot touch
 hardware and nothing personal appears in a public repository.
 
-`social-preview.png` is 1280x640 at 2x. Render it from `social-preview.html` with
-
-```sh
-chrome --headless=new --disable-gpu --hide-scrollbars \
-  --force-device-scale-factor=2 --window-size=1280,640 \
-  --screenshot=docs/images/social-preview.png docs/images/social-preview.html
-```
-
-The card in it is the `jev.choice` answer from `example-connection.png`, so the
-distribution, the confidence, the token count, the cost and the 267 ms are one real
-run rather than an illustration. GitHub has no API for the social preview, so it is
-set by hand under Settings, General, Social preview.
+`social-preview.png` is 1280x640 at 2x. GitHub has no API for the social preview, so
+it is set by hand under Settings, General, Social preview.
