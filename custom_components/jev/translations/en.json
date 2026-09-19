@@ -265,7 +265,9 @@
     "preview_failed": "No trial answer: {reason}",
     "preview_mismatched": "The API answered, but not to the question that was asked.",
     "preview_template_error": "The template does not render: {reason}",
-    "query_not_found": "I could not find that."
+    "query_not_found": "I could not find that.",
+    "preview_over_budget": "The daily token budget is spent, so there is no trial answer. The question still saves.",
+    "preview_nothing_yet": "No trial answer: there is nothing to ask about yet."
   },
   "config_subentries": {
     "question": {
@@ -311,7 +313,7 @@
             "false_means": "Optional.",
             "threshold": "Leave empty for the probability sensor only.",
             "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change rather than on the clock. Debounced by 5 seconds."
+            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
           },
           "sections": {
             "advanced": {
@@ -344,7 +346,7 @@
             "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "options": "Sent to the API as `criteria`. One per line, as `name: what it means`. The description is optional.",
             "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change rather than on the clock. Debounced by 5 seconds."
+            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
           },
           "sections": {
             "advanced": {
@@ -377,7 +379,7 @@
             "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "levels": "Sent to the API as `criteria`. One per line, lowest first. Between 2 and 10 of them.",
             "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change rather than on the clock. Debounced by 5 seconds."
+            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
           },
           "sections": {
             "advanced": {
@@ -418,7 +420,7 @@
             "options": "Sent to the API as `criteria`. One per line, as `name: what it means`. The description is optional.",
             "levels": "Sent to the API as `criteria`. One per line, lowest first. Between 2 and 10 of them.",
             "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change rather than on the clock. Debounced by 5 seconds."
+            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
           },
           "sections": {
             "advanced": {
@@ -435,7 +437,9 @@
       "error": {
         "nothing_to_judge": "Pick something to look at, or write a note or template. A question needs a state.",
         "choice_options_out_of_range": "A choice takes between 2 and 255 options.",
-        "score_levels_out_of_range": "A score takes between 2 and 10 levels."
+        "score_levels_out_of_range": "A score takes between 2 and 10 levels.",
+        "option_name_empty": "Every option needs a name before the colon.",
+        "option_name_duplicate": "Two options share a name, so one of them would be silently dropped."
       },
       "abort": {
         "reconfigure_successful": "Question updated"
