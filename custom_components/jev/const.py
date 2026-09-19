@@ -97,3 +97,13 @@ MAX_CONVERSATION_ENTITIES: Final = 150
 # How many routed sentences are kept for diagnostics. Enough to see a pattern in
 # what is being misread, small enough that it cannot grow into a leak.
 CONVERSATION_TRACE_LENGTH: Final = 20
+
+# --- Questions configured in the UI ---
+
+# One subentry is one question. The grouping into API calls is derived rather
+# than declared: see subentry.py.
+SUBENTRY_QUESTION: Final = "question"
+
+CONF_TARGET: Final = "target"
+CONF_LEVELS_TEXT: Final = "levels"
+CONF_OPTIONS_TEXT: Final = "options"

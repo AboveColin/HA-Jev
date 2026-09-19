@@ -1,7 +1,8 @@
 # Images
 
-`entities.png`, `assist.png`, `auto-simple.png`, `auto-advanced.png` and
-`auto-trace.png` are real screenshots of a throwaway Home Assistant,
+`entities.png`, `assist.png`, `auto-simple.png`, `auto-advanced.png`,
+`auto-trace.png`, `flow-menu.png`, `flow-form.png` and `flow-preview.png` are real
+screenshots of a throwaway Home Assistant,
 not mockups. Both were taken against the live TypeSafe API, so the numbers in them
 are answers the model actually gave.
 
