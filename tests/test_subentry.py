@@ -292,8 +292,12 @@ async def test_questions_added_in_the_same_second_keep_separate_entities(
     entry = entry_with(question("First"), question("Second"), question("Third"))
     await setup(hass, entry)
 
-    prefixes = {s.subentry_id[:8] for s in entry.subentries.values()}
-    assert len(prefixes) == 1, "this test is pointless unless the prefixes do collide"
+    # Deliberately checked rather than hoped for: these are ULIDs, so three
+    # subentries created together share their timestamp prefix. The key is built
+    # from the whole id now, but the collision this guards against is real and
+    # the test has to reproduce it to mean anything.
+    prefixes = {s.subentry_id[:10] for s in entry.subentries.values()}
+    assert len(prefixes) == 1, "the prefixes did not collide, so this proves nothing"
 
     [context] = entry.runtime_data.coordinators.values()
     keys = [q.key for q in context.context_config.questions]
@@ -638,3 +642,105 @@ def test_a_score_draws_every_level_in_order():
     assert drawn.index("Not at all") < drawn.index("Worth a glance")
     assert "nearest level **Look today**" in drawn
     assert "confidence 0.88" in drawn
+
+
+# --- what the review found ---
+
+
+def test_a_renamed_question_keeps_its_entity():
+    """A key is an identity, not a label.
+
+    It used to be the subentry id plus the slugified title, which read nicely
+    and moved when the title did. Renaming a question changed its key, which
+    changed its unique_id, which orphaned the entity and threw away its history.
+    """
+    from custom_components.jev.subentry import _question_key
+
+    class Fake:
+        subentry_id = "01M2ABCDEFGHJKMNPQRSTVWXYZ"
+
+        def __init__(self, title):
+            self.title = title
+
+    assert _question_key(Fake("Before")) == _question_key(Fake("After"))
+
+
+def test_a_repeated_option_name_is_refused():
+    """Two lines named the same parse into one option, losing the other."""
+    from custom_components.jev.subentry import option_problem, parse_options
+
+    assert parse_options("a: one\na: two") == {"a": "two"}, "still lossy by itself"
+    assert option_problem("a: one\na: two") == "option_name_duplicate"
+
+
+def test_an_empty_option_name_is_refused():
+    from custom_components.jev.subentry import option_problem
+
+    assert option_problem(": nothing\nb: fine") == "option_name_empty"
+    assert option_problem("a: one\nb: two") is None
+
+
+def test_the_same_entities_in_any_order_share_one_request():
+    """The picker returns lists, and a list has an order the user did not choose."""
+    from custom_components.jev.subentry import _call_key
+
+    forwards = {"target": {"entity_id": ["sensor.a", "sensor.b"]}, "scan_interval": 300}
+    backwards = {"target": {"entity_id": ["sensor.b", "sensor.a"]}, "scan_interval": 300}
+    assert _call_key(forwards) == _call_key(backwards)
+
+
+def test_what_a_high_number_means_reaches_the_payload():
+    """The form collected these two and the payload dropped them.
+
+    The UI calls them true_means and false_means. build_question reads true and
+    false, which is what YAML has always used. Without the mapping, filling in
+    "what a high number means" did nothing whatsoever.
+    """
+    from custom_components.jev.models import build_question
+    from custom_components.jev.subentry import _as_raw_question
+
+    payload = build_question(
+        _as_raw_question(
+            {
+                "name": "x",
+                "type": "noul",
+                "instructions": "Is it?",
+                "true_means": "HIGH MEANS THIS",
+                "false_means": "LOW MEANS THAT",
+            }
+        )
+    ).as_payload()
+    assert payload["criteria"]["true"] == "HIGH MEANS THIS"
+    assert payload["criteria"]["false"] == "LOW MEANS THAT"
+
+
+async def test_the_preview_does_not_spend_past_the_budget(hass, mock_client, entry_with):
+    """A tripwire the preview can walk past is not a tripwire."""
+    entry = entry_with(question("First"))
+    await setup(hass, entry)
+    hass.config_entries.async_update_entry(entry, options={"daily_token_budget": 10})
+    await hass.async_block_till_done()
+    entry.runtime_data.usage.input_tokens = 9_999
+    mock_client.ask.reset_mock()
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_QUESTION), context={"source": "user"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"next_step_id": "noul"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Costly",
+            "instructions": "Is it?",
+            "target": {"entity_id": ["sensor.washer_power"]},
+            "advanced": {"scan_interval": 300, "include_attributes": False},
+        },
+    )
+    assert mock_client.ask.await_count == 0, "it asked anyway"
+    assert "budget" in result["description_placeholders"]["answer"]
+
+    # Saving still works. The preview is a convenience, not a gate.
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.CREATE_ENTRY

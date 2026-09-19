@@ -75,7 +75,8 @@ def test_every_language_carries_the_agent_speech():
         assert speech is not None, f"{path.name} has no common strings"
         missing = set(english) - set(speech)
         assert not missing, f"{path.name} is missing {sorted(missing)}"
-        for key, text in speech.items():
-            assert "{name}" in text if "{name}" in english[key] else True, (
-                f"{path.name}:{key} dropped the name placeholder"
-            )
+        for key, text in english.items():
+            if "{name}" in text:
+                assert "{name}" in speech[key], (
+                    f"{path.name}:{key} dropped the name placeholder"
+                )

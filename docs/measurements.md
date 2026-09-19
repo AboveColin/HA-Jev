@@ -63,8 +63,7 @@ thousands of tokens on every evaluation, which is why it is off by default.
 
 ## Batching
 
-Three questions took 712 ms and a hundred took 714, a difference of 24 ms for 97 more
-questions. Four hundred questions took 1.3 s. Adding a question costs tokens, not
+Three questions took 712 ms and a hundred took 714, so 97 more questions cost 2 ms. Four hundred questions took 1.3 s. Adding a question costs tokens, not
 time.
 
 Question text is billed as input at roughly 38 tokens for a short one, so a hundred

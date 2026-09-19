@@ -265,7 +265,9 @@
     "preview_failed": "Geen proefantwoord: {reason}",
     "preview_mismatched": "De API antwoordde, maar niet op de vraag die gesteld is.",
     "preview_template_error": "De template rendert niet: {reason}",
-    "query_not_found": "Dat kon ik niet vinden."
+    "query_not_found": "Dat kon ik niet vinden.",
+    "preview_over_budget": "Het daglimiet voor tokens is op, dus er is geen proefantwoord. De vraag wordt wel opgeslagen.",
+    "preview_nothing_yet": "Geen proefantwoord: er is nog niets om over te vragen."
   },
   "config_subentries": {
     "question": {
@@ -311,7 +313,7 @@
             "false_means": "Optioneel.",
             "threshold": "Laat leeg voor alleen de kans-sensor.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
           },
           "sections": {
             "advanced": {
@@ -344,7 +346,7 @@
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
           },
           "sections": {
             "advanced": {
@@ -377,7 +379,7 @@
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
           },
           "sections": {
             "advanced": {
@@ -418,7 +420,7 @@
             "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
             "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
           },
           "sections": {
             "advanced": {
@@ -435,7 +437,9 @@
       "error": {
         "nothing_to_judge": "Kies iets om naar te kijken, of schrijf een notitie of template. Een vraag heeft een staat nodig.",
         "choice_options_out_of_range": "Een keuze neemt tussen de 2 en 255 opties.",
-        "score_levels_out_of_range": "Een score neemt tussen de 2 en 10 niveaus."
+        "score_levels_out_of_range": "Een score neemt tussen de 2 en 10 niveaus.",
+        "option_name_empty": "Elke optie heeft een naam nodig voor de dubbele punt.",
+        "option_name_duplicate": "Twee opties delen een naam, dus een ervan zou stilletjes verdwijnen."
       },
       "abort": {
         "reconfigure_successful": "Vraag bijgewerkt"
