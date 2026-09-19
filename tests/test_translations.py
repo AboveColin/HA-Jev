@@ -61,7 +61,10 @@ def test_the_speech_fallbacks_match_the_english_strings():
     from custom_components.jev.conversation import _FALLBACK
 
     strings = json.loads((COMPONENT / "strings.json").read_text())["common"]
-    assert strings == _FALLBACK
+    # common carries the question preview's sentences too now, so the agent
+    # checks its own keys rather than the whole section.
+    for key, text in _FALLBACK.items():
+        assert strings[key] == text, f"{key} drifted from strings.json"
 
 
 def test_every_language_carries_the_agent_speech():
@@ -69,8 +72,9 @@ def test_every_language_carries_the_agent_speech():
     english = json.loads((COMPONENT / "strings.json").read_text())["common"]
     for path in sorted((COMPONENT / "translations").glob("*.json")):
         speech = json.loads(path.read_text()).get("common")
-        assert speech is not None, f"{path.name} has no conversation speech"
-        assert set(speech) == set(english), f"{path.name} keys differ from strings.json"
+        assert speech is not None, f"{path.name} has no common strings"
+        missing = set(english) - set(speech)
+        assert not missing, f"{path.name} is missing {sorted(missing)}"
         for key, text in speech.items():
             assert "{name}" in text if "{name}" in english[key] else True, (
                 f"{path.name}:{key} dropped the name placeholder"

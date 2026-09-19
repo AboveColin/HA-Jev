@@ -4,7 +4,7 @@ import pytest
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import FlowResultType
-from jevclient import Choice, ChoiceAnswer, NoulAnswer, Score
+from jevclient import Choice, ChoiceAnswer, NoulAnswer, Score, ScoreAnswer
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import DOMAIN, SUBENTRY_QUESTION
@@ -402,12 +402,16 @@ async def test_the_preview_names_what_it_will_be_grouped_with(
     entry = entry_with(question("First"), question("Second"))
     await setup(hass, entry)
 
-    alone = describe_grouping(
-        entry, {"target": {"entity_id": ["sensor.door"]}, "scan_interval": 300}, None
+    alone = await describe_grouping(
+        hass,
+        entry,
+        {"target": {"entity_id": ["sensor.door"]}, "scan_interval": 300},
+        None,
     )
     assert alone == "Sent as its own request."
 
-    together = describe_grouping(
+    together = await describe_grouping(
+        hass,
         entry,
         {
             "target": {"entity_id": ["sensor.washer_power"]},
@@ -425,7 +429,7 @@ async def test_the_preview_names_what_it_will_be_grouped_with(
 def test_a_probability_is_drawn_as_a_bar():
     from custom_components.jev.subentry import render_answer
 
-    drawn = render_answer(NoulAnswer(noul=0.81), None)
+    drawn = render_answer(NoulAnswer(noul=0.81), None, _say)
     assert "0.81" in drawn
     assert drawn.count("█") == 15, "18 blocks scaled by 0.81"
     assert drawn.count("░") == 3
@@ -434,8 +438,8 @@ def test_a_probability_is_drawn_as_a_bar():
 def test_a_threshold_says_which_way_the_binary_sensor_would_go():
     from custom_components.jev.subentry import render_answer
 
-    assert "would be **on**" in render_answer(NoulAnswer(noul=0.81), 0.7)
-    assert "would be **off**" in render_answer(NoulAnswer(noul=0.42), 0.7)
+    assert "would be **on**" in render_answer(NoulAnswer(noul=0.81), 0.7, _say)
+    assert "would be **off**" in render_answer(NoulAnswer(noul=0.42), 0.7, _say)
 
 
 def test_a_choice_draws_every_option_with_the_winner_marked():
@@ -448,6 +452,7 @@ def test_a_choice_draws_every_option_with_the_winner_marked():
             confidence=0.92,
         ),
         None,
+        _say,
     )
     assert "**delivery**" in drawn
     assert "visitor" in drawn and "**visitor**" not in drawn
@@ -517,3 +522,119 @@ async def test_a_failed_trial_answer_does_not_block_saving(
 
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+def _say(key, **placeholders):
+    """Stand in for the catalogue lookup, using the same fallback text."""
+    from custom_components.jev.subentry import _PREVIEW_FALLBACK
+
+    return _PREVIEW_FALLBACK[key].format(**placeholders)
+
+
+def test_the_preview_fallbacks_match_the_english_catalogue():
+    """Two wordings for the same sentence means one of them is never edited."""
+    import json
+    import pathlib
+
+    from custom_components.jev.subentry import _PREVIEW_FALLBACK
+
+    root = pathlib.Path(__file__).parent.parent / "custom_components/jev"
+    common = json.loads((root / "strings.json").read_text())["common"]
+    for key, text in _PREVIEW_FALLBACK.items():
+        assert common[key] == text, f"{key} drifted from strings.json"
+
+
+def test_every_preview_sentence_is_translated():
+    """A Dutch dialog answering in English is the half a user notices."""
+    import json
+    import pathlib
+
+    from custom_components.jev.subentry import _PREVIEW_FALLBACK
+
+    root = pathlib.Path(__file__).parent.parent / "custom_components/jev"
+    for path in sorted((root / "translations").glob("*.json")):
+        common = json.loads(path.read_text()).get("common", {})
+        missing = set(_PREVIEW_FALLBACK) - set(common)
+        assert not missing, f"{path.name} is missing {sorted(missing)}"
+
+
+# --- editing a question that already exists ---
+
+
+async def test_a_question_can_be_edited_in_the_ui(hass, mock_client, entry_with):
+    """reconfiguration-flow is a claimed quality rule, so it needs a test."""
+    entry = entry_with(question("Before", kind="score", levels="Low\nHigh"))
+    await setup(hass, entry)
+    [subentry] = entry.subentries.values()
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_QUESTION),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    mock_client.ask.return_value = build_response(preview=NoulAnswer(noul=0.5))
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "After",
+            "instructions": "Changed my mind about the wording",
+            "target": {"entity_id": ["sensor.washer_power"]},
+            "levels": "Low\nMedium\nHigh",
+            "advanced": {"scan_interval": 600, "include_attributes": False},
+        },
+    )
+    assert result["step_id"] == "preview", "editing shows the preview too"
+
+    result = await hass.config_entries.subentries.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+
+    [updated] = entry.subentries.values()
+    assert updated.title == "After"
+    assert updated.data["levels"] == "Low\nMedium\nHigh"
+    assert updated.data["type"] == "score", "the type is kept, not re-asked"
+    assert len(entry.subentries) == 1, "editing must not create a second question"
+
+
+async def test_editing_rejects_a_change_that_breaks_the_limits(
+    hass, mock_client, entry_with
+):
+    entry = entry_with(question("Levels", kind="score", levels="Low\nHigh"))
+    await setup(hass, entry)
+    [subentry] = entry.subentries.values()
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_QUESTION),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Levels",
+            "instructions": "Is it?",
+            "target": {"entity_id": ["sensor.washer_power"]},
+            "levels": "OnlyOne",
+            "advanced": {"scan_interval": 600, "include_attributes": False},
+        },
+    )
+    assert result["errors"] == {"levels": "score_levels_out_of_range"}
+
+
+def test_a_score_draws_every_level_in_order():
+    from custom_components.jev.subentry import render_answer
+
+    drawn = render_answer(
+        ScoreAnswer(
+            score=2.4,
+            legend={"0": "Not at all", "1": "Worth a glance", "2": "Look today"},
+            probabilities={"0": 0.1, "1": 0.3, "2": 0.6},
+            confidence=0.88,
+        ),
+        None,
+        _say,
+    )
+    # Lowest level first, because that is the order Score reads them.
+    assert drawn.index("Not at all") < drawn.index("Worth a glance")
+    assert "nearest level **Look today**" in drawn
+    assert "confidence 0.88" in drawn

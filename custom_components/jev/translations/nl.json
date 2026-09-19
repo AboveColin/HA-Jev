@@ -251,7 +251,21 @@
     "which_kind": "Wat voor soort apparaat bedoel je? Zeg de lampen, of de schakelaars, of noem een kamer.",
     "intent_failed": "Sorry, dat is niet gelukt.",
     "already_on": "{name} staat al aan.",
-    "already_off": "{name} staat al uit."
+    "already_off": "{name} staat al uit.",
+    "preview_alone": "Gaat als eigen verzoek.",
+    "preview_grouped": "Gaat in een verzoek samen met: {others}.",
+    "preview_cost": "Een keer gevraagd voor deze controle: {tokens} invoertokens, ongeveer ${cost}, {ms} ms.",
+    "preview_threshold_over": "Dat ligt boven je drempel van {threshold}, dus de binaire sensor zou nu **aan** staan.",
+    "preview_threshold_under": "Dat ligt onder je drempel van {threshold}, dus de binaire sensor zou nu **uit** staan.",
+    "preview_winner": "Winnaar **{choice}**, vertrouwen {confidence}.",
+    "preview_score": "Score **{score}**, dichtstbijzijnde niveau **{level}**, vertrouwen {confidence}.",
+    "preview_undrawable": "Het antwoord kwam terug in een vorm die deze versie niet kan tekenen.",
+    "preview_unbuildable": "Die vraag kan nog niet gebouwd worden: {reason}",
+    "preview_rejected": "TypeSafe weigerde de API-sleutel, dus er is geen proefantwoord.",
+    "preview_failed": "Geen proefantwoord: {reason}",
+    "preview_mismatched": "De API antwoordde, maar niet op de vraag die gesteld is.",
+    "preview_template_error": "De template rendert niet: {reason}",
+    "query_not_found": "Dat kon ik niet vinden."
   },
   "config_subentries": {
     "question": {
@@ -264,13 +278,13 @@
         "user": {
           "title": "Wat voor antwoord wil je terug?",
           "menu_options": {
-            "noul": "Kans. Een getal van 0 tot 1",
-            "choice": "Keuze. Een van je 2 tot 255 opties",
-            "score": "Score. Een cijfer tegen 2 tot 10 niveaus"
+            "noul": "Noul, een kans. Een getal van 0 tot 1",
+            "choice": "Choice, een van je opties. Met de hele verdeling",
+            "score": "Score, een cijfer. Tegen niveaus die jij beschrijft"
           }
         },
         "noul": {
-          "title": "Een ja of nee vraag",
+          "title": "Noul: een ja of nee vraag",
           "data": {
             "name": "Naam",
             "instructions": "De vraag",
@@ -287,10 +301,10 @@
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
-            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "instructions": "Gaat als `instructions` naar de API.",
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
-            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
             "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
@@ -307,7 +321,7 @@
           }
         },
         "choice": {
-          "title": "Kies een van je opties",
+          "title": "Choice: kies een van je opties",
           "data": {
             "name": "Naam",
             "instructions": "De vraag",
@@ -322,13 +336,13 @@
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
-            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "instructions": "Gaat als `instructions` naar de API.",
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
-            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
             "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
-            "options": "Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
+            "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
             "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
           },
@@ -340,7 +354,7 @@
           }
         },
         "score": {
-          "title": "Een cijfer tegen niveaus die jij beschrijft",
+          "title": "Score: een cijfer tegen jouw niveaus",
           "data": {
             "name": "Naam",
             "instructions": "De vraag",
@@ -355,13 +369,13 @@
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
-            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "instructions": "Gaat als `instructions` naar de API.",
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
-            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
             "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
-            "levels": "Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
+            "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
             "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
           },
@@ -392,17 +406,17 @@
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
-            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "instructions": "Gaat als `instructions` naar de API.",
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
-            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
             "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
             "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
             "false_means": "Optioneel.",
             "threshold": "Laat leeg voor alleen de kans-sensor.",
-            "options": "Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
-            "levels": "Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
+            "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
+            "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
             "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
             "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
           },
