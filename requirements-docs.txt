@@ -1,0 +1,3 @@
+# The documentation site. Kept separate from requirements-test.txt so a test run
+# does not install a static site generator it never uses.
+mkdocs-material==9.7.7
