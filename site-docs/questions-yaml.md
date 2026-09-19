@@ -44,7 +44,7 @@ jev:
 | `instructions` | yes | The question. Takes a string, an object or a list |
 | `criteria` | for choice and score | A mapping for choice, an ordered list for score |
 | `background` | no | Standing facts, folded into the question |
-| `true_means` / `false_means` | no | Noul only |
+| `"true"` / `"false"` | no | Noul only. Quote them: unquoted YAML reads them as booleans |
 | `threshold` | no | Noul only. Also creates a binary sensor |
 
 ## One context is one call

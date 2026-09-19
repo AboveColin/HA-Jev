@@ -25,7 +25,7 @@ works out at roughly 16,500 tokens or **$0.0007** per evaluation.
 | 100 | 714 ms |
 | 400 | 1.3 s |
 
-97 extra questions cost 24 ms. A second request costs a whole extra round trip.
+97 extra questions cost 2 ms. A second request costs a whole extra round trip.
 
 So the shape to reach for is one request with everything you might need, discarding
 what you do not use. That is what `jev.ask` is for, and what the UI's derived
