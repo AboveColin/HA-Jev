@@ -49,6 +49,7 @@ from jevclient import (
 from .const import (
     CONF_BACKGROUND,
     CONF_CRITERIA,
+    CONF_FALSE,
     CONF_FALSE_MEANS,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
@@ -58,6 +59,7 @@ from .const import (
     CONF_TARGET,
     CONF_THRESHOLD,
     CONF_TRIGGER_ENTITIES,
+    CONF_TRUE,
     CONF_TRUE_MEANS,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
@@ -90,6 +92,22 @@ def parse_options(text: str) -> dict[str, Any]:
             description.strip() if sep and description.strip() else None
         )
     return options
+
+
+def option_problem(text: str) -> str | None:
+    """Why this option list cannot be used, or None.
+
+    An empty name and a repeated name both parse into a dictionary without
+    complaint, and both lose an option on the way: two lines reading `a: one`
+    and `a: two` arrive as one option. Silently asking a different question than
+    the one on screen is worse than refusing to save.
+    """
+    names = [line.partition(":")[0].strip() for line in text.splitlines() if line.strip()]
+    if any(not name for name in names):
+        return "option_name_empty"
+    if len(set(names)) != len(names):
+        return "option_name_duplicate"
+    return None
 
 
 def parse_levels(text: str) -> list[str]:
@@ -303,6 +321,11 @@ _PREVIEW_FALLBACK = {
     "preview_failed": "No trial answer: {reason}",
     "preview_mismatched": "The API answered, but not to the question that was asked.",
     "preview_template_error": "The template does not render: {reason}",
+    "preview_over_budget": (
+        "The daily token budget is spent, so there is no trial answer. "
+        "The question still saves."
+    ),
+    "preview_nothing_yet": "No trial answer: there is nothing to ask about yet.",
 }
 
 
@@ -404,6 +427,12 @@ async def try_answer(
     so the answer is worth more than the fraction of a cent it costs.
     """
     say = await _translator(hass)
+    usage = entry.runtime_data.usage
+    usage.roll_over(date.today())
+    # The budget is a tripwire, and a preview that spends past it is a hole in
+    # the fence. The form still saves; it just does not get a trial answer.
+    if usage.would_exceed():
+        return say("preview_over_budget")
     try:
         question = build_question(_as_raw_question(data))
     except (KeyError, ValueError) as err:
@@ -415,8 +444,6 @@ async def try_answer(
     except JevError as err:
         return say("preview_failed", reason=str(err))
 
-    usage = entry.runtime_data.usage
-    usage.roll_over(date.today())
     usage.record(response.usage.input_tokens)
     usage.notify()
 
@@ -550,7 +577,7 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
             answer = (
                 await try_answer(self.hass, entry, self._pending, state)
                 if state is not None
-                else "No trial answer: there is nothing to ask about yet."
+                else (await _translator(self.hass))("preview_nothing_yet")
             )
             return self.async_show_form(
                 step_id="preview",
@@ -582,8 +609,10 @@ def _validate(kind: str, user_input: dict[str, Any]) -> dict[str, str]:
     if not user_input.get(CONF_TARGET) and not user_input.get(CONF_STATE_TEMPLATE):
         errors["base"] = "nothing_to_judge"
     if kind == TYPE_CHOICE:
-        options = parse_options(user_input.get(CONF_OPTIONS_TEXT, ""))
-        if not 2 <= len(options) <= 255:
+        text = user_input.get(CONF_OPTIONS_TEXT, "")
+        if problem := option_problem(text):
+            errors[CONF_OPTIONS_TEXT] = problem
+        elif not 2 <= len(parse_options(text)) <= 255:
             errors[CONF_OPTIONS_TEXT] = "choice_options_out_of_range"
     if kind == TYPE_SCORE:
         levels = parse_levels(user_input.get(CONF_LEVELS_TEXT, ""))
@@ -602,14 +631,19 @@ def _as_raw_question(data: dict[str, Any]) -> dict[str, Any]:
         "type": data["type"],
         CONF_INSTRUCTIONS: data[CONF_INSTRUCTIONS],
     }
-    for optional in (
-        CONF_BACKGROUND,
-        CONF_THRESHOLD,
-        CONF_TRUE_MEANS,
-        CONF_FALSE_MEANS,
-    ):
+    for optional in (CONF_BACKGROUND, CONF_THRESHOLD):
         if data.get(optional) not in (None, ""):
             raw[optional] = data[optional]
+    # The form calls these true_means and false_means. build_question reads true
+    # and false, which is what the YAML surface has always used. Without this
+    # mapping the two fields were collected, stored, and then dropped before the
+    # payload was built, so filling them in did nothing at all.
+    for form_field, api_field in (
+        (CONF_TRUE_MEANS, CONF_TRUE),
+        (CONF_FALSE_MEANS, CONF_FALSE),
+    ):
+        if data.get(form_field) not in (None, ""):
+            raw[api_field] = data[form_field]
     if data["type"] == TYPE_CHOICE:
         raw[CONF_CRITERIA] = parse_options(data[CONF_OPTIONS_TEXT])
     elif data["type"] == TYPE_SCORE:
@@ -620,12 +654,27 @@ def _as_raw_question(data: dict[str, Any]) -> dict[str, Any]:
 def _question_key(subentry: Any) -> str:
     """The stable key behind one question's entities.
 
-    The tail of the subentry id, not the head. These are ULIDs: the first ten
-    characters are a timestamp, so three questions added in the same second share
-    their prefix, and a key built from that prefix silently collapsed three
-    questions into one. The trailing characters are the random half.
+    The subentry id and nothing else. It was the id plus the slugified title,
+    which read nicely and moved when the title did: renaming a question changed
+    its key, which changed its unique_id, which orphaned the entity and threw
+    away its history. A key is an identity, not a label.
     """
-    return f"ui_{slugify(subentry.title)}_{subentry.subentry_id[-6:].lower()}"
+    return f"ui_{subentry.subentry_id.lower()}"
+
+
+def _canonical_target(target: Any) -> Any:
+    """A target in a fixed order, so two identical ones compare equal.
+
+    The picker returns lists, and two questions aimed at the same entities in a
+    different order produced different keys and so two API calls where one would
+    have done.
+    """
+    if not isinstance(target, dict):
+        return target or {}
+    return {
+        key: sorted(value) if isinstance(value, list) else value
+        for key, value in sorted(target.items())
+    }
 
 
 def _call_key(data: dict[str, Any]) -> str:
@@ -636,7 +685,7 @@ def _call_key(data: dict[str, Any]) -> str:
     """
     return json.dumps(
         [
-            data.get(CONF_TARGET) or {},
+            _canonical_target(data.get(CONF_TARGET)),
             data.get(CONF_STATE_TEMPLATE) or "",
             bool(data.get(CONF_INCLUDE_ATTRIBUTES)),
             sorted(data.get(CONF_TRIGGER_ENTITIES) or []),
