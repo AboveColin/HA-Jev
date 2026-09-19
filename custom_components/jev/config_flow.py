@@ -12,8 +12,10 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import (
+    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
 )
 from homeassistant.const import CONF_API_KEY
@@ -36,7 +38,9 @@ from .const import (
     CONF_PRICE_PER_MILLION,
     DEFAULT_MIN_CONFIDENCE,
     DOMAIN,
+    SUBENTRY_QUESTION,
 )
+from .subentry import JevQuestionSubentryFlow
 
 STEP_USER_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): str})
 
@@ -114,6 +118,14 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: Any) -> JevOptionsFlow:
         return JevOptionsFlow()
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Questions are added one at a time, in the UI, without a YAML file."""
+        return {SUBENTRY_QUESTION: JevQuestionSubentryFlow}
 
 
 class JevOptionsFlow(OptionsFlow):

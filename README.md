@@ -19,8 +19,9 @@ Not affiliated with TypeSafe. The API client is
 
 ## What it does
 
-- Questions in `configuration.yaml` become sensors: a probability, one of your
-  options with its distribution, or a number that can land between levels.
+- Questions become sensors: a probability, one of your options with its
+  distribution, or a number that can land between levels. Add them in the UI,
+  or in `configuration.yaml`, or both.
 - Four actions answer inside an automation and return a response variable:
   `jev.noul`, `jev.choice`, `jev.score` and `jev.ask`.
 - Point a question at entities, devices, areas, floors or labels in the normal
@@ -130,7 +131,35 @@ All four take a template in `state`, or an object, or a list. They also take
 `background:` for standing facts about how to read the state, which is
 [worth more attached to the question than to the state](docs/measurements.md).
 
-### Sensors
+### Questions
+
+Settings, Devices and services, **Jev**, then **Add question**. Pick what kind of
+answer you want back:
+
+![Three kinds of answer](docs/images/flow-menu.png)
+
+Name it, ask one thing, and say what it should look at. The schedule and the rest
+sit in a collapsed Advanced section, so a first question is four fields.
+
+![The form for a choice question](docs/images/flow-form.png)
+
+Before it saves, it shows you what it will send **and what that answers right now**:
+
+![The preview, with the trial answer](docs/images/flow-preview.png)
+
+That last screen is worth the click. A question that reads a perfect state and
+still answers 0.5 is the common disappointment, and this is where you find that out
+rather than after the sensor exists. The trial costs one request, which the footer
+reports: 350 input tokens and $0.000015 in the shot above.
+
+It also names which other questions it will share a request with. Questions that
+look at the same thing on the same schedule are sent as one call, because the API
+takes one state per request. You never declare that grouping, and this is where you
+see it.
+
+### Questions in YAML
+
+The same thing in a file, which keeps working and is not deprecated:
 
 ```yaml
 jev:
@@ -268,7 +297,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-153 tests run the integration inside a real Home Assistant with the API client
+181 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 
