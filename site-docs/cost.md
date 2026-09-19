@@ -1,0 +1,73 @@
+# What it costs
+
+You are billed for **input tokens**, and the text of your questions counts as input.
+
+## The numbers
+
+All measured against the live API from a consumer connection in the Netherlands.
+
+| Thing | Measured |
+|---|---|
+| One entity record in the state | 65.8 input tokens |
+| A short question | about 38 input tokens |
+| A spoken command, 5 entities exposed | 1,329 to 1,371 input tokens |
+| 30 spoken commands | $0.0017 in total, so $0.000057 each |
+| A question preview in the UI | 350 to 876 tokens depending on the target |
+
+At the published $0.042 per million input tokens, the 250 entity cap on a target
+works out at roughly 16,500 tokens or **$0.0007** per evaluation.
+
+## Adding questions is nearly free, adding calls is not
+
+| Questions in one request | Time |
+|---|---|
+| 3 | 712 ms |
+| 100 | 714 ms |
+| 400 | 1.3 s |
+
+97 extra questions cost 24 ms. A second request costs a whole extra round trip.
+
+So the shape to reach for is one request with everything you might need, discarding
+what you do not use. That is what `jev.ask` is for, and what the UI's derived
+grouping does for you automatically.
+
+## Where the money actually goes
+
+For a small house, the **questions** dominate. A spoken command with 5 entities
+exposed is about 1,350 tokens, of which the seven questions are most of it.
+
+For a large target, the **entities** dominate. At 150 entities you are paying
+roughly 110 tokens per entity per call.
+
+`include_attributes` sends every attribute as well. A weather forecast runs to
+thousands of tokens on every evaluation, which is why it is off by default.
+
+## The budget is a tripwire
+
+Set **Daily input token budget** in the integration options. When it trips:
+
+- evaluation stops for the day
+- existing answers are kept rather than cleared, because inventing a value would be
+  worse and clearing would hide the last real result
+- `binary_sensor.jev_daily_budget_exceeded` turns on
+- a repair issue explains it
+
+It resets at midnight, and the totals survive a restart or a reload, because a daily
+budget that either of those cleared would not be a daily budget.
+
+!!! tip "Size it past anything real"
+    A limit you can hit in normal use is the wrong limit. Put it where only a runaway
+    reaches it, then leave it alone. If legitimate use touches it, the budget is
+    wrong, not your configuration.
+
+## Watching it
+
+| Entity | What it holds |
+|---|---|
+| `sensor.jev_calls_today` | Requests made today |
+| `sensor.jev_input_tokens_today` | Input tokens reported by the API, not an estimate |
+| `sensor.jev_estimated_cost_today` | The tokens multiplied by your configured price |
+| `binary_sensor.jev_daily_budget_exceeded` | Whether the budget has stopped evaluation |
+
+The token count is what the API reported. The money is an estimate, because the price
+is a setting here and TypeSafe can change theirs.

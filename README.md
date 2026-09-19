@@ -12,6 +12,8 @@ back. Jev is a decision model rather than a chat model, so it answers a typed
 question with a probability, a choice or a score, and this integration turns each
 answer into an entity you can automate on.
 
+**[Full documentation](https://abovecolin.github.io/HA-Jev/)**
+
 Not affiliated with TypeSafe. The API client is
 [jevclient](https://github.com/AboveColin/jevclient).
 
