@@ -1,0 +1,608 @@
+"""Questions built in the UI, one subentry each.
+
+The YAML surface makes you declare a context: a named group of questions that
+share one API call. That grouping is not a preference, it is derivable. TypeSafe
+takes one state and N questions, so two questions can share a call exactly when
+they describe the same state, and cannot when they do not, whatever the user
+writes. A UI that asks for it would be asking the user to hand back an answer the
+integration already has.
+
+So a subentry is one question, carrying what it looks at and how often. The call
+grouping is computed from those fields at setup, which keeps the measured saving
+(three questions took 712 ms, a hundred took 714) without putting the word
+"context" in front of anyone.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import date
+from typing import Any
+
+import voluptuous as vol
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigSubentryFlow,
+    SubentryFlowResult,
+)
+from homeassistant.const import CONF_NAME, CONF_SCAN_INTERVAL
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import SectionConfig, section
+from homeassistant.exceptions import (
+    HomeAssistantError,
+    ServiceValidationError,
+    TemplateError,
+)
+from homeassistant.helpers import selector, translation
+from homeassistant.helpers.template import Template
+from homeassistant.util import slugify
+from jevclient import (
+    Answer,
+    ChoiceAnswer,
+    JevAuthError,
+    JevError,
+    NoulAnswer,
+    ScoreAnswer,
+)
+
+from .const import (
+    CONF_BACKGROUND,
+    CONF_CRITERIA,
+    CONF_FALSE_MEANS,
+    CONF_INCLUDE_ATTRIBUTES,
+    CONF_INSTRUCTIONS,
+    CONF_LEVELS_TEXT,
+    CONF_OPTIONS_TEXT,
+    CONF_STATE_TEMPLATE,
+    CONF_TARGET,
+    CONF_THRESHOLD,
+    CONF_TRIGGER_ENTITIES,
+    CONF_TRUE_MEANS,
+    DEFAULT_SCAN_INTERVAL_SECONDS,
+    DOMAIN,
+    MIN_UPDATE_INTERVAL_SECONDS,
+    SUBENTRY_QUESTION,
+    TYPE_CHOICE,
+    TYPE_NOUL,
+    TYPE_SCORE,
+)
+from .models import ContextConfig, build_question, build_question_config
+from .statebuilder import async_build_state
+
+# --- turning a text box into criteria ---
+
+
+def parse_options(text: str) -> dict[str, Any]:
+    """Read `option: what it means` lines into the criteria a Choice takes.
+
+    A text box rather than a repeating row editor, because the list is usually
+    three items long and a text box can be pasted into. The description after the
+    colon is optional; an option on its own is a bare option with no gloss.
+    """
+    options: dict[str, Any] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        name, sep, description = line.partition(":")
+        options[name.strip()] = (
+            description.strip() if sep and description.strip() else None
+        )
+    return options
+
+
+def parse_levels(text: str) -> list[str]:
+    """Read one level per line, lowest first, which is the order Score reads."""
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+# --- the forms ---
+
+# The form reads top to bottom in the order a question is actually thought out:
+# what it is called, what it asks, the shape of the answer, then what it looks at.
+# The plumbing goes in a collapsed section, because a schedule with a sensible
+# default is not a decision anyone should have to make to add their first question.
+
+_ASKS = {
+    vol.Required(CONF_NAME): selector.TextSelector(),
+    vol.Required(CONF_INSTRUCTIONS): selector.TextSelector(
+        selector.TextSelectorConfig(multiline=True)
+    ),
+}
+
+_LOOKS_AT = {
+    vol.Optional(CONF_TARGET): selector.TargetSelector(),
+    vol.Optional(CONF_STATE_TEMPLATE): selector.TemplateSelector(),
+    vol.Optional(CONF_BACKGROUND): selector.TextSelector(
+        selector.TextSelectorConfig(multiline=True)
+    ),
+}
+
+_ADVANCED = vol.Schema(
+    {
+        vol.Optional(CONF_TRIGGER_ENTITIES): selector.EntitySelector(
+            selector.EntitySelectorConfig(multiple=True)
+        ),
+        vol.Optional(
+            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_SECONDS
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=MIN_UPDATE_INTERVAL_SECONDS,
+                max=86400,
+                unit_of_measurement="seconds",
+                mode=selector.NumberSelectorMode.BOX,
+            )
+        ),
+        vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): selector.BooleanSelector(),
+    }
+)
+
+SECTION_ADVANCED = "advanced"
+
+
+def _schema(answer_shape: dict[Any, Any]) -> vol.Schema:
+    """One form: what it asks, the answer it wants, what it reads, then plumbing."""
+    return vol.Schema(
+        {
+            **_ASKS,
+            **answer_shape,
+            **_LOOKS_AT,
+            vol.Required(SECTION_ADVANCED): section(
+                _ADVANCED, SectionConfig(collapsed=True)
+            ),
+        }
+    )
+
+
+SCHEMAS: dict[str, vol.Schema] = {
+    TYPE_NOUL: _schema(
+        {
+            vol.Optional(CONF_TRUE_MEANS): selector.TextSelector(),
+            vol.Optional(CONF_FALSE_MEANS): selector.TextSelector(),
+            vol.Optional(CONF_THRESHOLD): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=1, step=0.01, mode=selector.NumberSelectorMode.BOX
+                )
+            ),
+        }
+    ),
+    TYPE_CHOICE: _schema(
+        {
+            vol.Required(CONF_OPTIONS_TEXT): selector.TextSelector(
+                selector.TextSelectorConfig(multiline=True)
+            ),
+        }
+    ),
+    TYPE_SCORE: _schema(
+        {
+            vol.Required(CONF_LEVELS_TEXT): selector.TextSelector(
+                selector.TextSelectorConfig(multiline=True)
+            ),
+        }
+    ),
+}
+
+
+def flatten(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Lift the collapsed section back up.
+
+    A section arrives nested under its own key. Storing it that way would put the
+    form's layout into the saved data, so every reader downstream would have to
+    know which fields happened to be collapsed on the day it was added.
+    """
+    merged = {k: v for k, v in user_input.items() if k != SECTION_ADVANCED}
+    merged.update(user_input.get(SECTION_ADVANCED) or {})
+    return merged
+
+
+_ADVANCED_KEYS = (CONF_TRIGGER_ENTITIES, CONF_SCAN_INTERVAL, CONF_INCLUDE_ATTRIBUTES)
+
+
+def nest(data: dict[str, Any]) -> dict[str, Any]:
+    """The inverse, for filling the form in again when editing."""
+    return {
+        **{k: v for k, v in data.items() if k not in _ADVANCED_KEYS},
+        SECTION_ADVANCED: {k: data[k] for k in _ADVANCED_KEYS if k in data},
+    }
+
+
+# A state longer than this is summarised instead of shown. The point of the
+# preview is to catch a state that does not say what you assumed, and nobody
+# reads 250 entity records looking for that.
+PREVIEW_CHARS = 1800
+
+
+async def build_preview(hass: HomeAssistant, data: dict[str, Any]) -> tuple[str, Any]:
+    """Exactly what this question will send, rendered now.
+
+    The main way a question disappoints is that the state did not say what its
+    author assumed. Today you find that out by turning on debug logging and
+    reading the next evaluation. Here it is on screen before the question exists.
+
+    Errors are shown rather than raised, because a target holding 300 entities or
+    a template with a typo is precisely what this screen is for.
+    """
+    template_text: str | None = None
+    raw = data.get(CONF_STATE_TEMPLATE)
+    if raw:
+        try:
+            template_text = Template(str(raw), hass).async_render(parse_result=False)
+        except TemplateError as err:
+            return f"The template does not render: {err}", None
+    try:
+        state = async_build_state(
+            hass,
+            template_text,
+            data.get(CONF_TARGET) or None,
+            bool(data.get(CONF_INCLUDE_ATTRIBUTES)),
+        )
+    except (ServiceValidationError, HomeAssistantError) as err:
+        return await _readable(hass, err), None
+
+    shown = state if isinstance(state, str) else json.dumps(state, indent=2, default=str)
+    if len(shown) <= PREVIEW_CHARS:
+        return shown, state
+    entities = (
+        len(state["entities"]) if isinstance(state, dict) and "entities" in state else 0
+    )
+    return (
+        f"{shown[:PREVIEW_CHARS]}\n\n... {len(shown) - PREVIEW_CHARS} more characters"
+        f"{f', {entities} entities in total' if entities else ''}.",
+        state,
+    )
+
+
+async def _readable(hass: HomeAssistant, err: Exception) -> str:
+    """The error as a sentence rather than as a key.
+
+    str() on one of these resolves the key too, but through a cache this does not
+    control, and an uncached lookup returns the bare key. "too_many_entities" on
+    screen is worse than the sentence it stands for, so the catalogue is read
+    directly and str() is only the fallback.
+    """
+    key = getattr(err, "translation_key", None)
+    if key:
+        strings = await translation.async_get_translations(
+            hass, hass.config.language, "exceptions", [DOMAIN]
+        )
+        message = strings.get(f"component.{DOMAIN}.exceptions.{key}.message")
+        if message:
+            placeholders = getattr(err, "translation_placeholders", None) or {}
+            try:
+                return message.format(**placeholders)
+            except (KeyError, IndexError):
+                return message
+    return str(err)
+
+
+BAR_WIDTH = 18
+
+
+def _bar(fraction: float) -> str:
+    """A probability as something readable at a glance.
+
+    Numbers in a column are hard to rank by eye. A bar next to them is not, and a
+    distribution is exactly the thing a user needs to rank rather than read.
+    """
+    filled = max(0, min(BAR_WIDTH, round(fraction * BAR_WIDTH)))
+    return "\u2588" * filled + "\u2591" * (BAR_WIDTH - filled)
+
+
+def render_answer(answer: Answer, threshold: float | None) -> str:
+    """The trial answer, drawn rather than dumped."""
+    if isinstance(answer, NoulAnswer):
+        lines = [f"`{_bar(answer.noul)}`  **{answer.noul:.2f}**"]
+        if threshold is not None:
+            verdict = "above" if answer.noul >= threshold else "below"
+            lines.append(
+                f"\nThat is {verdict} your threshold of {threshold:g}, so the binary "
+                f"sensor would be **{'on' if answer.noul >= threshold else 'off'}** "
+                f"right now."
+            )
+        return "\n".join(lines)
+
+    if isinstance(answer, ChoiceAnswer):
+        rows = sorted(answer.probabilities.items(), key=lambda kv: -kv[1])
+        drawn = "\n".join(
+            f"`{_bar(p)}` {p:.2f}  "
+            f"{'**' + name + '**' if name == answer.choice else name}"
+            for name, p in rows
+        )
+        return (
+            f"{drawn}\n\nWinner **{answer.choice}**, confidence {answer.confidence:.2f}."
+        )
+
+    if isinstance(answer, ScoreAnswer):
+        rows = sorted(answer.probabilities.items(), key=lambda kv: kv[0])
+        drawn = "\n".join(
+            f"`{_bar(p)}` {p:.2f}  {answer.legend.get(level, level)}" for level, p in rows
+        )
+        return (
+            f"{drawn}\n\nScore **{answer.score:.2f}**, nearest level "
+            f"**{answer.nearest_level}**, confidence {answer.confidence:.2f}."
+        )
+    return "The answer came back in a shape this version cannot draw."
+
+
+async def try_answer(
+    hass: HomeAssistant, entry: ConfigEntry, data: dict[str, Any], state: Any
+) -> str:
+    """Ask the question once, now, so the form can show what it answers.
+
+    A state preview says what the model will read. It does not say whether the
+    question works, and a question that reads a perfect state and still answers
+    0.5 is the common disappointment. One call costs a few hundred input tokens,
+    so the answer is worth more than the fraction of a cent it costs.
+    """
+    try:
+        question = build_question(_as_raw_question(data))
+    except (KeyError, ValueError) as err:
+        return f"That question cannot be built yet: {err}"
+    try:
+        response = await entry.runtime_data.client.ask(state, {"preview": question})
+    except JevAuthError:
+        return "TypeSafe rejected the API key, so there is no trial answer."
+    except JevError as err:
+        return f"No trial answer: {err}"
+
+    usage = entry.runtime_data.usage
+    usage.roll_over(date.today())
+    usage.record(response.usage.input_tokens)
+    usage.notify()
+
+    answer = response.answers.get("preview")
+    if answer is None:
+        return "The API answered, but not to the question that was asked."
+    drawn = render_answer(answer, data.get(CONF_THRESHOLD))
+    cost = response.usage.input_tokens / 1_000_000 * usage.price_per_million
+    return (
+        f"{drawn}\n\n_Asked once for this preview: {response.usage.input_tokens} "
+        f"input tokens, about ${cost:.6f}, {response.latency_ms:.0f} ms._"
+    )
+
+
+def describe_grouping(
+    entry: ConfigEntry, data: dict[str, Any], editing: str | None
+) -> str:
+    """Which other questions this one will share its request with.
+
+    The grouping is derived rather than declared, which is right and also
+    invisible. Saying it out loud here is what makes it something a user can
+    reason about instead of a surprise on the bill.
+    """
+    key = _call_key(data)
+    others = [
+        s.title
+        for s in entry.subentries.values()
+        if s.subentry_type == SUBENTRY_QUESTION
+        and s.subentry_id != editing
+        and _call_key(dict(s.data)) == key
+    ]
+    if not others:
+        return "Sent as its own request."
+    joined = ", ".join(sorted(others))
+    return f"Sent in one request together with: {joined}."
+
+
+class JevQuestionSubentryFlow(ConfigSubentryFlow):
+    """Add or edit one question without touching a file."""
+
+    _pending: dict[str, Any]
+    _pending_kind: str
+    _editing: str | None = None
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Pick what kind of answer you want back."""
+        return self.async_show_menu(
+            step_id="user", menu_options=[TYPE_NOUL, TYPE_CHOICE, TYPE_SCORE]
+        )
+
+    async def async_step_noul(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_type_step(TYPE_NOUL, user_input)
+
+    async def async_step_choice(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_type_step(TYPE_CHOICE, user_input)
+
+    async def async_step_score(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_type_step(TYPE_SCORE, user_input)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit an existing question, on the form for the type it already is."""
+        current = self._get_reconfigure_subentry()
+        kind = current.data["type"]
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self.add_suggested_values_to_schema(
+                    SCHEMAS[kind], nest(dict(current.data))
+                ),
+                description_placeholders={"type": kind},
+            )
+        user_input = flatten(user_input)
+        errors = _validate(kind, user_input)
+        if errors:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self.add_suggested_values_to_schema(
+                    SCHEMAS[kind], nest(user_input)
+                ),
+                errors=errors,
+                description_placeholders={"type": kind},
+            )
+        self._pending = {**user_input, "type": kind}
+        self._pending_kind = kind
+        self._editing = current.subentry_id
+        return await self.async_step_preview()
+
+    async def _async_type_step(
+        self, kind: str, user_input: dict[str, Any] | None
+    ) -> SubentryFlowResult:
+        if user_input is None:
+            return self.async_show_form(step_id=kind, data_schema=SCHEMAS[kind])
+        user_input = flatten(user_input)
+        errors = _validate(kind, user_input)
+        if errors:
+            return self.async_show_form(
+                step_id=kind,
+                data_schema=self.add_suggested_values_to_schema(
+                    SCHEMAS[kind], nest(user_input)
+                ),
+                errors=errors,
+            )
+        self._pending = {**user_input, "type": kind}
+        self._pending_kind = kind
+        self._editing = None
+        return await self.async_step_preview()
+
+    async def async_step_preview(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Show the state this question will send, then save it."""
+        if user_input is None:
+            entry = self._get_entry()
+            shown, state = await build_preview(self.hass, self._pending)
+            answer = (
+                await try_answer(self.hass, entry, self._pending, state)
+                if state is not None
+                else "No trial answer: there is nothing to ask about yet."
+            )
+            return self.async_show_form(
+                step_id="preview",
+                data_schema=vol.Schema({}),
+                description_placeholders={
+                    "state": shown,
+                    "grouping": describe_grouping(entry, self._pending, self._editing),
+                    "answer": answer,
+                },
+            )
+        title = self._pending[CONF_NAME]
+        if self._editing is None:
+            return self.async_create_entry(title=title, data=self._pending)
+        current = self._get_reconfigure_subentry()
+        return self.async_update_and_abort(
+            self._get_entry(), current, data=self._pending, title=title
+        )
+
+
+def _validate(kind: str, user_input: dict[str, Any]) -> dict[str, str]:
+    """Catch what a selector cannot, with the message naming the field.
+
+    The limits are the library's own, and an error that names the limit and the
+    ask is the one an automation author can act on.
+    """
+    errors: dict[str, str] = {}
+    if not user_input.get(CONF_TARGET) and not user_input.get(CONF_STATE_TEMPLATE):
+        errors["base"] = "nothing_to_judge"
+    if kind == TYPE_CHOICE:
+        options = parse_options(user_input.get(CONF_OPTIONS_TEXT, ""))
+        if not 2 <= len(options) <= 255:
+            errors[CONF_OPTIONS_TEXT] = "choice_options_out_of_range"
+    if kind == TYPE_SCORE:
+        levels = parse_levels(user_input.get(CONF_LEVELS_TEXT, ""))
+        if not 2 <= len(levels) <= 10:
+            errors[CONF_LEVELS_TEXT] = "score_levels_out_of_range"
+    return errors
+
+
+# --- turning subentries into the contexts the coordinator already runs ---
+
+
+def _as_raw_question(data: dict[str, Any]) -> dict[str, Any]:
+    """The subentry's fields in the shape build_question_config already reads."""
+    raw: dict[str, Any] = {
+        CONF_NAME: data[CONF_NAME],
+        "type": data["type"],
+        CONF_INSTRUCTIONS: data[CONF_INSTRUCTIONS],
+    }
+    for optional in (
+        CONF_BACKGROUND,
+        CONF_THRESHOLD,
+        CONF_TRUE_MEANS,
+        CONF_FALSE_MEANS,
+    ):
+        if data.get(optional) not in (None, ""):
+            raw[optional] = data[optional]
+    if data["type"] == TYPE_CHOICE:
+        raw[CONF_CRITERIA] = parse_options(data[CONF_OPTIONS_TEXT])
+    elif data["type"] == TYPE_SCORE:
+        raw[CONF_CRITERIA] = parse_levels(data[CONF_LEVELS_TEXT])
+    return raw
+
+
+def _question_key(subentry: Any) -> str:
+    """The stable key behind one question's entities.
+
+    The tail of the subentry id, not the head. These are ULIDs: the first ten
+    characters are a timestamp, so three questions added in the same second share
+    their prefix, and a key built from that prefix silently collapsed three
+    questions into one. The trailing characters are the random half.
+    """
+    return f"ui_{slugify(subentry.title)}_{subentry.subentry_id[-6:].lower()}"
+
+
+def _call_key(data: dict[str, Any]) -> str:
+    """What decides whether two questions can share a request.
+
+    Same readings, same note, same schedule. Anything else has to be its own call,
+    because the API takes one state per request.
+    """
+    return json.dumps(
+        [
+            data.get(CONF_TARGET) or {},
+            data.get(CONF_STATE_TEMPLATE) or "",
+            bool(data.get(CONF_INCLUDE_ATTRIBUTES)),
+            sorted(data.get(CONF_TRIGGER_ENTITIES) or []),
+            int(data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_SECONDS)),
+        ],
+        sort_keys=True,
+    )
+
+
+def async_contexts_from_subentries(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> list[ContextConfig]:
+    """Group the configured questions into as few API calls as they allow."""
+    grouped: dict[str, list[Any]] = {}
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_QUESTION:
+            continue
+        grouped.setdefault(_call_key(dict(subentry.data)), []).append(subentry)
+
+    contexts: list[ContextConfig] = []
+    for index, (_key, subentries) in enumerate(sorted(grouped.items())):
+        first = dict(subentries[0].data)
+        raw_template = first.get(CONF_STATE_TEMPLATE)
+        template = Template(raw_template, hass) if raw_template else None
+        # Named for the questions in it rather than by a number, so a log line and
+        # the latency sensor both say something a reader recognises.
+        name = subentries[0].title if len(subentries) == 1 else f"Group {index + 1}"
+        contexts.append(
+            ContextConfig(
+                key=f"ui_{slugify(name)}_{index}",
+                name=name,
+                template=template,
+                selector=first.get(CONF_TARGET) or None,
+                include_attributes=bool(first.get(CONF_INCLUDE_ATTRIBUTES)),
+                questions=[
+                    build_question_config(
+                        _as_raw_question(dict(s.data)), _question_key(s)
+                    )
+                    for s in subentries
+                ],
+                scan_interval=int(
+                    first.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_SECONDS)
+                ),
+                trigger_entities=list(first.get(CONF_TRIGGER_ENTITIES) or []),
+            )
+        )
+    return contexts

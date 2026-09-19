@@ -252,5 +252,180 @@
     "intent_failed": "Sorry, dat is niet gelukt.",
     "already_on": "{name} staat al aan.",
     "already_off": "{name} staat al uit."
+  },
+  "config_subentries": {
+    "question": {
+      "entry_type": "Vraag",
+      "initiate_flow": {
+        "user": "Vraag toevoegen",
+        "reconfigure": "Vraag bewerken"
+      },
+      "step": {
+        "user": {
+          "title": "Wat voor antwoord wil je terug?",
+          "menu_options": {
+            "noul": "Kans. Een getal van 0 tot 1",
+            "choice": "Keuze. Een van je 2 tot 255 opties",
+            "score": "Score. Een cijfer tegen 2 tot 10 niveaus"
+          }
+        },
+        "noul": {
+          "title": "Een ja of nee vraag",
+          "data": {
+            "name": "Naam",
+            "instructions": "De vraag",
+            "target": "Waar het naar kijkt",
+            "state": "Extra notitie of template",
+            "background": "Vaste feiten over de metingen",
+            "include_attributes": "Stuur ook elk attribuut mee",
+            "scan_interval": "Hoe vaak vragen",
+            "true_means": "Wat een hoog getal betekent",
+            "false_means": "Wat een laag getal betekent",
+            "threshold": "Maak ook een binaire sensor boven",
+            "advanced": "Geavanceerd",
+            "trigger_entities": "Wek hierop in plaats van het schema"
+          },
+          "data_description": {
+            "name": "Geeft de sensor die deze vraag maakt zijn naam.",
+            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
+            "state": "Tekst of een template, los of naast de metingen.",
+            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
+            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+            "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
+            "false_means": "Optioneel.",
+            "threshold": "Laat leeg voor alleen de kans-sensor.",
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Geavanceerd",
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+            }
+          }
+        },
+        "choice": {
+          "title": "Kies een van je opties",
+          "data": {
+            "name": "Naam",
+            "instructions": "De vraag",
+            "target": "Waar het naar kijkt",
+            "state": "Extra notitie of template",
+            "background": "Vaste feiten over de metingen",
+            "include_attributes": "Stuur ook elk attribuut mee",
+            "scan_interval": "Hoe vaak vragen",
+            "options": "Je opties, een per regel",
+            "advanced": "Geavanceerd",
+            "trigger_entities": "Wek hierop in plaats van het schema"
+          },
+          "data_description": {
+            "name": "Geeft de sensor die deze vraag maakt zijn naam.",
+            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
+            "state": "Tekst of een template, los of naast de metingen.",
+            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
+            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+            "options": "Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Geavanceerd",
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+            }
+          }
+        },
+        "score": {
+          "title": "Een cijfer tegen niveaus die jij beschrijft",
+          "data": {
+            "name": "Naam",
+            "instructions": "De vraag",
+            "target": "Waar het naar kijkt",
+            "state": "Extra notitie of template",
+            "background": "Vaste feiten over de metingen",
+            "include_attributes": "Stuur ook elk attribuut mee",
+            "scan_interval": "Hoe vaak vragen",
+            "levels": "Je niveaus, laagste eerst, een per regel",
+            "advanced": "Geavanceerd",
+            "trigger_entities": "Wek hierop in plaats van het schema"
+          },
+          "data_description": {
+            "name": "Geeft de sensor die deze vraag maakt zijn naam.",
+            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
+            "state": "Tekst of een template, los of naast de metingen.",
+            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
+            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+            "levels": "Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Geavanceerd",
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Deze vraag bewerken",
+          "data": {
+            "name": "Naam",
+            "instructions": "De vraag",
+            "target": "Waar het naar kijkt",
+            "state": "Extra notitie of template",
+            "background": "Vaste feiten over de metingen",
+            "include_attributes": "Stuur ook elk attribuut mee",
+            "scan_interval": "Hoe vaak vragen",
+            "true_means": "Wat een hoog getal betekent",
+            "false_means": "Wat een laag getal betekent",
+            "threshold": "Maak ook een binaire sensor boven",
+            "options": "Je opties, een per regel",
+            "levels": "Je niveaus, laagste eerst, een per regel",
+            "advanced": "Geavanceerd",
+            "trigger_entities": "Wek hierop in plaats van het schema"
+          },
+          "data_description": {
+            "name": "Geeft de sensor die deze vraag maakt zijn naam.",
+            "instructions": "Vraag een ding. Een vraag die twee dingen tegelijk meet antwoordt rond 0,5.",
+            "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
+            "state": "Tekst of een template, los of naast de metingen.",
+            "background": "Wat een meting betekent, bijvoorbeeld dat deze machine onder 5 W verbruikt als hij stilstaat. Gemeten: dezelfde zin is hier ongeveer twee keer zo veel waard als in de staat.",
+            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
+            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+            "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
+            "false_means": "Optioneel.",
+            "threshold": "Laat leeg voor alleen de kans-sensor.",
+            "options": "Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
+            "levels": "Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+            "trigger_entities": "Evalueer als deze veranderen in plaats van op de klok. Vijf seconden gedempt."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Geavanceerd",
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+            }
+          }
+        },
+        "preview": {
+          "title": "Controleer wat er verstuurd wordt",
+          "description": "Dit is waarover je vraag gesteld wordt, nu opgebouwd uit waar hij naar wijst.\n\n{grouping}\n\n### Wat het nu antwoordt\n\n{answer}\n\n### De staat die het leest\n\n```\n{state}\n```"
+        }
+      },
+      "error": {
+        "nothing_to_judge": "Kies iets om naar te kijken, of schrijf een notitie of template. Een vraag heeft een staat nodig.",
+        "choice_options_out_of_range": "Een keuze neemt tussen de 2 en 255 opties.",
+        "score_levels_out_of_range": "Een score neemt tussen de 2 en 10 niveaus."
+      },
+      "abort": {
+        "reconfigure_successful": "Vraag bijgewerkt"
+      }
+    }
   }
 }

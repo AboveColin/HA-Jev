@@ -54,6 +54,7 @@ from .const import (
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
 from .models import ContextConfig, build_question_config
 from .services import async_register_services
+from .subentry import async_contexts_from_subentries
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -248,7 +249,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     except JevError as err:
         raise ConfigEntryNotReady(f"TypeSafe did not answer: {err}") from err
 
-    for context in _build_contexts(hass):
+    contexts = _build_contexts(hass) + async_contexts_from_subentries(hass, entry)
+    for context in contexts:
         coordinator = JevCoordinator(hass, entry, runtime, context)
         runtime.coordinators[context.key] = coordinator
         # Deliberately not async_config_entry_first_refresh: that aborts setup when
