@@ -17,6 +17,9 @@ repo_url: "https://github.com/AboveColin/HA-Jev"
 edit_uri: "edit/main/site-docs/"
 docs_dir: "site-docs"
 
+exclude_docs: |
+  images/README.md
+
 theme:
   name: "material"
   language: "en"
