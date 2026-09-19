@@ -20,8 +20,8 @@ confidence.
     - name: Laundry forgotten
       type: noul
       instructions: Is the laundry finished but still sitting in the machine?
-      true_means: Finished, and nobody has taken it out
-      false_means: Still running, or already emptied
+      "true": Finished, and nobody has taken it out
+      "false": Still running, or already emptied
       threshold: 0.7
     ```
 
@@ -38,6 +38,12 @@ confidence.
     ```
 
     Returns `noul` and `is_true`.
+
+!!! warning "The key is spelled differently in YAML"
+    A `jev:` block takes `"true":` and `"false":`, quoted, because unquoted YAML
+    reads them as booleans and the schema never matches. The actions and the UI
+    form take `true_means` and `false_means`. That inconsistency is historical and
+    the docs say which is which rather than pretending otherwise.
 
 ## Choice
 
