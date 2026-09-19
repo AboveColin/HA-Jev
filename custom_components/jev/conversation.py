@@ -66,6 +66,7 @@ _FALLBACK = {
     "intent_failed": "Sorry, that did not work.",
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
+    "query_not_found": "I could not find that.",
 }
 
 PARALLEL_UPDATES = 0
@@ -217,7 +218,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
             return await self._speak(user_input, "intent_failed")
 
-        _speak_the_answer(intent_response)
+        _speak_the_answer(intent_response, await self._sentences(user_input))
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
         )
@@ -245,6 +246,19 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
         return result
 
+    async def _sentences(
+        self, user_input: conversation.ConversationInput
+    ) -> dict[str, str]:
+        """This agent's own lines, in the language the pipeline is speaking."""
+        language = user_input.language or self.hass.config.language
+        strings = await translation.async_get_translations(
+            self.hass, language, "common", [DOMAIN]
+        )
+        return {
+            key: strings.get(f"component.{DOMAIN}.common.{key}", fallback)
+            for key, fallback in _FALLBACK.items()
+        }
+
     async def _speak(
         self,
         user_input: conversation.ConversationInput,
@@ -269,7 +283,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
 
 
-def _speak_the_answer(response: ha_intent.IntentResponse) -> None:
+def _speak_the_answer(response: ha_intent.IntentResponse, say: dict[str, str]) -> None:
     """Say what a state question found.
 
     `HassGetState` fills in the matched states and stops. The spoken sentence is
@@ -283,7 +297,7 @@ def _speak_the_answer(response: ha_intent.IntentResponse) -> None:
         return
     matched = response.matched_states
     if not matched:
-        response.async_set_speech("I could not find that.")
+        response.async_set_speech(say["query_not_found"])
         return
     if len(matched) == 1:
         state = matched[0]
