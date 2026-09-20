@@ -442,7 +442,7 @@
         },
         "preview": {
           "title": "Sprawdź, co zostanie wysłane",
-          "description": "To jest materiał, którego będzie dotyczyć Twoje pytanie, zbudowany teraz z tego, na co ono wskazuje.\n\n{grouping}\n\n### Co odpowiada w tej chwili\n\n{answer}\n\n### Stan, który czyta\n\n```\n{state}\n```"
+          "description": "To jest materiał, którego będzie dotyczyć Twoje pytanie, zbudowany teraz z tego, na co ono wskazuje.\n\n{grouping}\n\n### Jaka jest teraz odpowiedź\n\n{answer}\n\n### Odczytywany stan\n\n```\n{state}\n```"
         }
       },
       "error": {
