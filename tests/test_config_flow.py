@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries
-from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.data_entry_flow import FlowResultType
-from jevclient import JevAuthError, JevConnectionError
+from jevclient import DEFAULT_BASE_URL, JevAuthError, JevConnectionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import (
@@ -31,7 +31,8 @@ async def test_user_flow_creates_entry(hass, mock_client):
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Jev"
-    assert result["data"] == {CONF_API_KEY: API_KEY}
+    # Nobody who leaves the address alone gets anything other than TypeSafe.
+    assert result["data"] == {CONF_API_KEY: API_KEY, CONF_URL: DEFAULT_BASE_URL}
     # Two short questions: the flow proves the key works before creating the entry,
     # then setup proves the service answers before any entity appears. Each is about
     # 40 input tokens.
@@ -244,3 +245,179 @@ async def test_a_swap_onto_another_entrys_key_is_refused(hass, mock_client, conf
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert config_entry.data[CONF_API_KEY] == API_KEY
+
+
+GATEWAY = "http://gateway.local:8093"
+
+
+async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
+    """The checking request has to go to the endpoint being configured.
+
+    Validating against TypeSafe and then talking to something else would pass a key
+    the endpoint has never seen.
+    """
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: GATEWAY}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_API_KEY: API_KEY, CONF_URL: GATEWAY}
+    assert mock_client.built_by_flow.call_args.kwargs["base_url"] == GATEWAY
+    assert mock_client.built_by_setup.call_args.kwargs["base_url"] == GATEWAY
+
+
+@pytest.mark.parametrize(
+    ("raw", "stored"),
+    [
+        ("http://gateway.local:8093/", GATEWAY),
+        ("HTTP://Gateway.Local:8093", GATEWAY),
+        ("  http://gateway.local:8093  ", GATEWAY),
+        # A path is a prefix, because the client appends /v1/systemone to it. That is
+        # what lets a reverse proxy mount the API somewhere other than the root.
+        ("http://gateway.local/jev/", "http://gateway.local/jev"),
+        ("", DEFAULT_BASE_URL),
+    ],
+)
+async def test_an_endpoint_is_normalised_before_it_is_stored(
+    hass, mock_client, raw, stored
+):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: raw}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_URL] == stored
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "gateway.local:8093",
+        "ftp://gateway.local",
+        "http://",
+        "http://gateway.local?model=jev-latest",
+        "http://gateway.local#systemone",
+        # Credentials here would be written straight into a diagnostics file, which
+        # redacts by key name and cannot see them.
+        "http://someone:hunter2@gateway.local",
+    ],
+)
+async def test_an_unusable_endpoint_is_refused_before_anything_is_asked(
+    hass, mock_client, raw
+):
+    """The address is checked locally, so a typo costs no request and no money."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: raw}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_URL: "invalid_url"}
+    assert mock_client.ask.await_count == 0
+
+    # The form is still usable, and the entry it then creates is a normal one.
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: GATEWAY}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_reconfigure_moves_the_endpoint_and_keeps_the_entities(
+    hass, mock_client, loaded_entry
+):
+    """Pointing an existing entry at a gateway must not mean starting over."""
+    before = set(hass.states.async_entity_ids())
+
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    assert result["step_id"] == "reconfigure"
+
+    # A bad address here is refused the same way it is on the way in, and the entry
+    # keeps the endpoint it already had.
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: "gateway.local:8093"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_URL: "invalid_url"}
+    assert CONF_URL not in loaded_entry.data
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: GATEWAY}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    await hass.async_block_till_done()
+
+    assert loaded_entry.data[CONF_URL] == GATEWAY
+    assert loaded_entry.data[CONF_API_KEY] == API_KEY
+    assert set(hass.states.async_entity_ids()) == before
+    assert mock_client.built_by_setup.call_args.kwargs["base_url"] == GATEWAY
+
+
+async def test_clearing_the_endpoint_goes_back_to_typesafe(hass, mock_client):
+    """Leaving the field empty is the way back, so it cannot be a one-way door."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: API_KEY, CONF_URL: GATEWAY},
+        unique_id=_key_id(API_KEY),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: API_KEY, CONF_URL: ""}
+    )
+    assert result["reason"] == "reconfigure_successful"
+    await hass.async_block_till_done()
+    assert entry.data[CONF_URL] == DEFAULT_BASE_URL
+
+
+async def test_reauth_leaves_the_endpoint_where_it_is(hass, mock_client):
+    """A rejected key is not a moved endpoint, and reauth must not silently move it."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: API_KEY, CONF_URL: GATEWAY},
+        unique_id=_key_id(API_KEY),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await entry.start_reauth_flow(hass)
+    assert CONF_URL not in result["data_schema"].schema
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "renewed-key"}
+    )
+    assert result["reason"] == "reauth_successful"
+    await hass.async_block_till_done()
+
+    assert entry.data[CONF_URL] == GATEWAY
+    # The key was checked against the gateway, not against TypeSafe.
+    assert mock_client.built_by_flow.call_args.kwargs["base_url"] == GATEWAY
+
+
+async def test_an_entry_from_before_this_option_still_means_typesafe(hass, mock_client):
+    """Entries in the wild carry no address at all, and must not change behaviour."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: API_KEY},
+        unique_id=_key_id(API_KEY),
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert mock_client.built_by_setup.call_args.kwargs["base_url"] == DEFAULT_BASE_URL
+
+    # And the address the reconfigure form offers is the one it has been using.
+    result = await entry.start_reconfigure_flow(hass)
+    marker = next(key for key in result["data_schema"].schema if key == CONF_URL)
+    assert marker.description["suggested_value"] == DEFAULT_BASE_URL

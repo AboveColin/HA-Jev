@@ -5,27 +5,38 @@
         "title": "Verbinden met TypeSafe",
         "description": "Plak een API-sleutel uit je TypeSafe-account. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
         "data": {
-          "api_key": "API-sleutel"
+          "api_key": "API-sleutel",
+          "url": "API-adres"
+        },
+        "data_description": {
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd.",
+          "url": "Laat dit staan, tenzij je zelf iets draait dat dezelfde API spreekt, zoals een proxy die de sleutel bewaart of antwoorden cachet. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn."
         }
       },
       "reauth_confirm": {
         "title": "Voer je API-sleutel opnieuw in",
-        "description": "TypeSafe weigert de opgeslagen sleutel. Plak een werkende sleutel.",
+        "description": "TypeSafe weigert de opgeslagen sleutel. Plak een werkende sleutel. Het API-adres blijft zoals het is; gebruik Herconfigureren om dat te wijzigen.",
         "data": {
           "api_key": "API-sleutel"
         }
       },
       "reconfigure": {
-        "title": "Vervang je API-sleutel",
-        "description": "Plak een andere TypeSafe API-sleutel. Je vragen en entiteiten blijven staan.",
+        "title": "Vervang je API-sleutel of adres",
+        "description": "Plak een andere TypeSafe API-sleutel, en wijzig het adres als de API elders dan bij TypeSafe wordt bereikt. Je vragen en entiteiten blijven staan.",
         "data": {
-          "api_key": "API-sleutel"
+          "api_key": "API-sleutel",
+          "url": "API-adres"
+        },
+        "data_description": {
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd.",
+          "url": "Maak dit veld leeg om terug te gaan naar de TypeSafe-API. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn."
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe weigert deze sleutel.",
-      "cannot_connect": "Home Assistant kan de TypeSafe-API niet bereiken."
+      "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
+      "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen query, fragment, gebruikersnaam of wachtwoord bevatten."
     },
     "abort": {
       "already_configured": "Deze API-sleutel is al ingesteld.",

@@ -47,7 +47,9 @@ rules:
   runtime-data: done
   test-before-configure:
     status: done
-    comment: The config flow asks one short question to prove the key works.
+    comment: >-
+      The config flow asks one short question to prove the key works, against the
+      address the entry will use, so it proves both.
   test-before-setup:
     status: done
     comment: >-
@@ -141,7 +143,9 @@ rules:
       as core's agents do.
   reconfiguration-flow:
     status: done
-    comment: The API key can be replaced without losing entities or their history.
+    comment: >-
+      The API key and the API address can both be replaced without losing entities
+      or their history.
   repair-issues:
     status: done
     comment: The daily budget raises a repair issue naming the budget and what was used.
