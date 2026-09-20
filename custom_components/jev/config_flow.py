@@ -45,6 +45,14 @@ from .subentry import JevQuestionSubentryFlow
 STEP_USER_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): str})
 
 
+def _key_id(api_key: str) -> str:
+    """The unique id for an entry holding this key.
+
+    The key itself is never the unique id: it would land in the registry.
+    """
+    return hashlib.sha256(api_key.encode()).hexdigest()[:16]
+
+
 class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     """Take an API key and prove it works."""
 
@@ -61,16 +69,35 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             return "cannot_connect"
         return None
 
+    async def _async_swap_key(
+        self, entry: ConfigEntry, user_input: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Store a validated key on an existing entry, unique id and all.
+
+        The unique id is the hash of the key, so a swap has to move it. Left
+        where it was, it went on guarding the retired key and stopped guarding
+        the one now in use: a second entry could then be added with the same key.
+
+        _abort_if_unique_id_configured is not the guard here, because it counts
+        this entry too and re-entering the same key is a legal no-op. Only
+        another entry already holding the new key is a collision.
+        """
+        new_id = _key_id(user_input[CONF_API_KEY])
+        for other in self._async_current_entries(include_ignore=True):
+            if other.entry_id != entry.entry_id and other.unique_id == new_id:
+                return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(new_id)
+        return self.async_update_reload_and_abort(
+            entry, unique_id=new_id, data_updates=user_input
+        )
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             api_key = user_input[CONF_API_KEY]
-            # The key itself is never a unique id: it would land in the registry.
-            await self.async_set_unique_id(
-                hashlib.sha256(api_key.encode()).hexdigest()[:16]
-            )
+            await self.async_set_unique_id(_key_id(api_key))
             self._abort_if_unique_id_configured()
             if error := await self._async_validate(api_key):
                 errors["base"] = error
@@ -91,9 +118,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             if error := await self._async_validate(user_input[CONF_API_KEY]):
                 errors["base"] = error
             else:
-                return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(), data_updates=user_input
-                )
+                return await self._async_swap_key(self._get_reauth_entry(), user_input)
         return self.async_show_form(
             step_id="reauth_confirm", data_schema=STEP_USER_SCHEMA, errors=errors
         )
@@ -107,8 +132,8 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             if error := await self._async_validate(user_input[CONF_API_KEY]):
                 errors["base"] = error
             else:
-                return self.async_update_reload_and_abort(
-                    self._get_reconfigure_entry(), data_updates=user_input
+                return await self._async_swap_key(
+                    self._get_reconfigure_entry(), user_input
                 )
         return self.async_show_form(
             step_id="reconfigure", data_schema=STEP_USER_SCHEMA, errors=errors

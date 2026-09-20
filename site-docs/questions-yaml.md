@@ -39,13 +39,21 @@ jev:
 
 | Key | Required | Description |
 |---|---|---|
-| `name` | yes | Names the entity |
+| `name` | yes | Names the entity. Must be unique within the context |
 | `type` | yes | `noul`, `choice` or `score` |
 | `instructions` | yes | The question. Takes a string, an object or a list |
 | `criteria` | for choice and score | A mapping for choice, an ordered list for score |
 | `background` | no | Standing facts, folded into the question |
 | `"true"` / `"false"` | no | Noul only. Quote them: unquoted YAML reads them as booleans |
-| `threshold` | no | Noul only. Also creates a binary sensor |
+| `threshold` | no | Noul only. Also creates a binary sensor. `0` means on for any answer |
+
+## Names have to be unique
+
+A name becomes a key: the context name keys the coordinator, and the question
+name keys both the API answer and the entity's unique id. Two names that slugify
+the same are one key, so `Laundry forgotten` and `laundry-forgotten` collide.
+Setup refuses the configuration and names both, rather than running one of them
+and dropping the other.
 
 ## One context is one call
 

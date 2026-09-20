@@ -17,6 +17,7 @@ from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL, Pla
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -45,6 +46,7 @@ from .const import (
     CONF_TRUE,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
+    ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
     STORAGE_VERSION,
     TYPE_CHOICE,
@@ -159,6 +161,56 @@ def _check_context_has_input(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _first_duplicate_slug(names: list[str]) -> tuple[str, str] | None:
+    """The first pair of names that slugify the same, in the order written.
+
+    Names become keys through slugify, so 'Laundry forgotten' and
+    'laundry-forgotten' are the same key even though they read as two questions.
+    """
+    seen: dict[str, str] = {}
+    for name in names:
+        key = slugify(name)
+        if key in seen:
+            return seen[key], name
+        seen[key] = name
+    return None
+
+
+def _check_question_names_unique(raw: dict[str, Any]) -> dict[str, Any]:
+    """Reject two questions in one context whose names give the same key.
+
+    The key is what the API answer is keyed by and what the entity's unique_id is
+    built from, so a collision sent one question instead of two and let Home
+    Assistant drop the second entity. The user paid for a question never asked.
+    """
+    pair = _first_duplicate_slug([q[CONF_NAME] for q in raw[CONF_QUESTIONS]])
+    if pair is not None:
+        raise vol.Invalid(
+            f"context {raw.get(CONF_NAME, '?')!r}: questions {pair[0]!r} and "
+            f"{pair[1]!r} both become the key {slugify(pair[1])!r}, so only one of "
+            f"them would be asked. Give them names that differ by more than "
+            f"punctuation or case"
+        )
+    return raw
+
+
+def _check_context_names_unique(contexts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reject two contexts whose names give the same key.
+
+    The second one replaced the first in the coordinator map. The first still had
+    a live trigger and a debouncer that unload never reached, because unload walks
+    that same map.
+    """
+    pair = _first_duplicate_slug([c[CONF_NAME] for c in contexts])
+    if pair is not None:
+        raise vol.Invalid(
+            f"contexts {pair[0]!r} and {pair[1]!r} both become the key "
+            f"{slugify(pair[1])!r}, so only the second one would run. Give them "
+            f"names that differ by more than punctuation or case"
+        )
+    return contexts
+
+
 CONTEXT_SCHEMA = vol.All(
     vol.Schema(
         {
@@ -176,10 +228,12 @@ CONTEXT_SCHEMA = vol.All(
         }
     ),
     _check_context_has_input,
+    _check_question_names_unique,
 )
 
 CONFIG_SCHEMA = vol.Schema(
-    {DOMAIN: vol.All(cv.ensure_list, [CONTEXT_SCHEMA])}, extra=vol.ALLOW_EXTRA
+    {DOMAIN: vol.All(cv.ensure_list, [CONTEXT_SCHEMA], _check_context_names_unique)},
+    extra=vol.ALLOW_EXTRA,
 )
 
 
@@ -233,8 +287,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
             CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
         ),
         store=store,
+        hass=hass,
+        entry_id=entry.entry_id,
     )
     usage.restore(await store.async_load())
+    # Before 1.10.0 every entry raised this warning under one shared id and
+    # nothing ever deleted it. Clear that one, once, on the way past.
+    ir.async_delete_issue(hass, DOMAIN, ISSUE_BUDGET_EXCEEDED)
+    # An options change reloads the entry, which builds this account fresh with
+    # the new budget and the flag clear. The repair issue lives in the registry
+    # and survives that, so setting it from the restored count here is what makes
+    # "raise the budget in the options" actually work. Clearing it outright would
+    # be wrong: the count is restored too, and the probe below can fail, which
+    # leaves an exhausted budget with nothing on screen to say so.
+    usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
     runtime = JevRuntimeData(client=client, usage=usage)
     entry.runtime_data = runtime
 

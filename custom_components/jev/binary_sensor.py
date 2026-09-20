@@ -53,7 +53,11 @@ class JevThresholdSensor(JevQuestionEntity, BinarySensorEntity):
         self, coordinator: JevCoordinator, entry_id: str, question: QuestionConfig
     ) -> None:
         super().__init__(coordinator, entry_id, question.key)
-        self._threshold = question.threshold or 0.5
+        # `or 0.5` rewrote a configured 0 into 0.5, because 0 is falsy. The picker
+        # allows 0, wants_binary_sensor accepts it, and the config-flow preview
+        # reported "above your threshold of 0" while the entity it created
+        # reported off. Only a missing threshold takes the default.
+        self._threshold = 0.5 if question.threshold is None else question.threshold
         self._attr_name = question.name
         self._attr_unique_id = f"{entry_id}_{question.key}_threshold"
 
