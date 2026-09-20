@@ -7,12 +7,13 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying seven questions: what should happen, is it
-compound, does it need text written, how is the target named, which entity, which
-room, which kind of device. A house with no areas is asked six, since there is no
-room to name.
+One sentence becomes one request carrying five to seven questions. Five are always
+there: what should happen, is it compound, does it need text written, how is the
+target named, which entity. Which room is added when you have rooms holding exposed
+entities, and which kind of device when the exposed entities span two domains or
+more. A one-domain house with no areas is asked five.
 
-Five or six of those answers are discarded on any given sentence. That is the cheap
+All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
 asking only the ones that turn out to matter would mean several round trips gated on
 each other.
