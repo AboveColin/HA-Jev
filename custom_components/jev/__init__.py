@@ -17,6 +17,7 @@ from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL, Pla
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -45,6 +46,7 @@ from .const import (
     CONF_TRUE,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
+    ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
     STORAGE_VERSION,
     TYPE_CHOICE,
@@ -286,13 +288,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         ),
         store=store,
         hass=hass,
+        entry_id=entry.entry_id,
     )
     usage.restore(await store.async_load())
+    # Before 1.10.0 every entry raised this warning under one shared id and
+    # nothing ever deleted it. Clear that one, once, on the way past.
+    ir.async_delete_issue(hass, DOMAIN, ISSUE_BUDGET_EXCEEDED)
     # An options change reloads the entry, which builds this account fresh with
     # the new budget and the flag clear. The repair issue lives in the registry
-    # and survives that, so clearing it here is what makes "raise the budget in
-    # the options" actually work.
-    usage.set_budget_exceeded(False)
+    # and survives that, so setting it from the restored count here is what makes
+    # "raise the budget in the options" actually work. Clearing it outright would
+    # be wrong: the count is restored too, and the probe below can fail, which
+    # leaves an exhausted budget with nothing on screen to say so.
+    usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
     runtime = JevRuntimeData(client=client, usage=usage)
     entry.runtime_data = runtime
 

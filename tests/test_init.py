@@ -5,11 +5,12 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-from jevclient import NoulAnswer
+from jevclient import JevError, NoulAnswer
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -19,6 +20,7 @@ from custom_components.jev.const import (
     CONF_DAILY_TOKEN_BUDGET,
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
+    STORAGE_VERSION,
 )
 
 from .conftest import build_response
@@ -190,7 +192,6 @@ async def test_an_unreachable_service_is_not_ready_rather_than_broken(
     hass, mock_client, config_entry
 ):
     """Setup must fail loudly, not leave a house full of entities that never fill."""
-    from homeassistant.config_entries import ConfigEntryState
     from jevclient import JevConnectionError
 
     mock_client.ask.side_effect = JevConnectionError("no route to host")
@@ -201,7 +202,6 @@ async def test_an_unreachable_service_is_not_ready_rather_than_broken(
 
 
 async def test_a_rejected_key_asks_for_a_new_one(hass, mock_client, config_entry):
-    from homeassistant.config_entries import ConfigEntryState
     from jevclient import JevAuthError
 
     mock_client.ask.side_effect = JevAuthError("key revoked")
@@ -548,12 +548,12 @@ async def test_the_budget_warning_goes_away_with_the_new_day(hass, mock_client):
     await hass.async_block_till_done()
 
     registry = ir.async_get(hass)
-    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is not None
-
     usage = entry.runtime_data.usage
+    assert registry.async_get_issue(DOMAIN, usage.issue_id) is not None
+
     usage.roll_over(usage.day + timedelta(days=1))
     assert usage.budget_exceeded is False
-    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None
+    assert registry.async_get_issue(DOMAIN, usage.issue_id) is None
 
 
 async def test_raising_the_budget_clears_the_warning(hass, mock_client):
@@ -574,10 +574,110 @@ async def test_raising_the_budget_clears_the_warning(hass, mock_client):
     await hass.async_block_till_done()
 
     registry = ir.async_get(hass)
-    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is not None
+    issue_id = entry.runtime_data.usage.issue_id
+    assert registry.async_get_issue(DOMAIN, issue_id) is not None
 
     hass.config_entries.async_update_entry(
         entry, options={CONF_DAILY_TOKEN_BUDGET: 1_000_000}
     )
     await hass.async_block_till_done()
-    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None
+    assert registry.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_each_entry_keeps_its_own_budget_warning(hass, mock_client):
+    """Two entries used to share one warning, so fixing one hid the other."""
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.8)
+    )
+    small = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev small",
+        data={CONF_API_KEY: "test-key-not-a-real-one"},
+        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        unique_id="0123456789abcdef",
+    )
+    large = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev large",
+        data={CONF_API_KEY: "another-key-not-a-real-one"},
+        options={CONF_DAILY_TOKEN_BUDGET: 200},
+        unique_id="fedcba9876543210",
+    )
+    await setup_with_context(hass, small)
+    large.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(large.entry_id)
+    await hass.async_block_till_done()
+    for entry in (small, large):
+        coordinator = next(iter(entry.runtime_data.coordinators.values()))
+        await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    ids = {e.entry_id: e.runtime_data.usage.issue_id for e in (small, large)}
+    assert ids[small.entry_id] != ids[large.entry_id]
+    # Each warning quotes its own budget. One shared issue quoted whichever
+    # entry raised it last, for both of them.
+    assert (
+        registry.async_get_issue(DOMAIN, ids[small.entry_id]).translation_placeholders[
+            "budget"
+        ]
+        == "100"
+    )
+    assert (
+        registry.async_get_issue(DOMAIN, ids[large.entry_id]).translation_placeholders[
+            "budget"
+        ]
+        == "200"
+    )
+
+    hass.config_entries.async_update_entry(
+        small, options={CONF_DAILY_TOKEN_BUDGET: 1_000_000}
+    )
+    await hass.async_block_till_done()
+    assert registry.async_get_issue(DOMAIN, ids[small.entry_id]) is None
+    assert registry.async_get_issue(DOMAIN, ids[large.entry_id]) is not None
+
+
+async def test_an_exhausted_budget_outlives_a_failed_setup(
+    hass, mock_client, hass_storage
+):
+    """The count is restored from disk, so the warning has to be too."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "test-key-not-a-real-one"},
+        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        unique_id="0123456789abcdef",
+    )
+    entry.add_to_hass(hass)
+    hass_storage[f"{DOMAIN}.{entry.entry_id}.usage"] = {
+        "version": STORAGE_VERSION,
+        "key": f"{DOMAIN}.{entry.entry_id}.usage",
+        "data": {"day": date.today().isoformat(), "calls": 3, "input_tokens": 500},
+    }
+    mock_client.ask.side_effect = JevError("no route to host")
+
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    # No coordinator ever ran, so nothing else can report the exhausted budget.
+    registry = ir.async_get(hass)
+    assert (
+        registry.async_get_issue(DOMAIN, f"{ISSUE_BUDGET_EXCEEDED}_{entry.entry_id}")
+        is not None
+    )
+
+
+async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config_entry):
+    """1.9.1 and earlier left this id behind with nothing to delete it."""
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_BUDGET_EXCEEDED,
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key=ISSUE_BUDGET_EXCEEDED,
+        translation_placeholders={"budget": "100", "used": "500"},
+    )
+    await setup_with_context(hass, config_entry)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None

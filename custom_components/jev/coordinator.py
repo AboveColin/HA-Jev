@@ -68,6 +68,21 @@ class UsageAccount:
     listeners: list[Any] = field(default_factory=list)
     store: Store[dict[str, Any]] | None = None
     hass: HomeAssistant | None = None
+    entry_id: str | None = None
+
+    @property
+    def issue_id(self) -> str:
+        """The repair issue this account owns, and no other account's.
+
+        Two config entries used to share the bare translation key as the id, so
+        they had one issue between them. The second one over budget overwrote
+        the first one's numbers, and the first one to be fixed deleted a warning
+        that was still true for the second: its flag was already set, so nothing
+        raised it again.
+        """
+        if self.entry_id is None:
+            return ISSUE_BUDGET_EXCEEDED
+        return f"{ISSUE_BUDGET_EXCEEDED}_{self.entry_id}"
 
     def set_budget_exceeded(self, exceeded: bool, used: int = 0) -> None:
         """Move the flag and the repair issue together.
@@ -84,7 +99,7 @@ class UsageAccount:
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
-                ISSUE_BUDGET_EXCEEDED,
+                self.issue_id,
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key=ISSUE_BUDGET_EXCEEDED,
@@ -94,7 +109,7 @@ class UsageAccount:
                 },
             )
         else:
-            ir.async_delete_issue(self.hass, DOMAIN, ISSUE_BUDGET_EXCEEDED)
+            ir.async_delete_issue(self.hass, DOMAIN, self.issue_id)
 
     def as_stored(self) -> dict[str, Any]:
         return {
