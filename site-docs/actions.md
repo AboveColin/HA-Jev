@@ -49,6 +49,12 @@ areas, floors or labels and the state is built for you:
 Up to 250 entities. Past that it refuses and tells you your number, because
 [every entity is billed on every evaluation](cost.md).
 
+The actions send whatever you target, whether or not it is exposed to Assist. An
+automation names its entities on purpose, so the Assist exposure list is not
+consulted here; it is consulted for the [conversation agent](conversation.md). Watch
+that with `include_attributes: true` on a `device_tracker`, which puts coordinates in
+the request.
+
 ## Ask several things at once
 
 `jev.ask` takes any mix under your own keys, in one request:

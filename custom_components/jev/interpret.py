@@ -88,15 +88,15 @@ def build_questions(
     }
     entity_options[NONE] = "The command does not name one particular device"
 
-    area_options: dict[str, Any] = dict.fromkeys(snapshot.areas)
-    area_options[NONE] = "No room is named"
-
     questions: dict[str, Question] = {
         "action": Choice(
             "What should happen?",
             {
-                "turn_on": "Switch something on, open it, start it, or unlock it",
-                "turn_off": "Switch something off, close it, stop it, or lock it",
+                # No lock wording here on purpose. The agent does not control
+                # locks, and Home Assistant's on/off convention for them runs the
+                # opposite way round from speech. See CONTROLLABLE in snapshot.py.
+                "turn_on": "Switch something on, open it, or start it",
+                "turn_off": "Switch something off, close it, or stop it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
@@ -139,8 +139,15 @@ def build_questions(
             },
             entity_options,
         ),
-        "area": Choice("Which room is meant?", area_options),
     }
+    # A house can have exposed entities and no areas at all, which left this one
+    # question holding nothing but none_of_these. jevclient rejects a one-option
+    # choice, so the whole command used to raise ValueError. Ask only when there is
+    # a room to name; interpret() already treats a missing area answer as no area.
+    if snapshot.areas:
+        area_options: dict[str, Any] = dict.fromkeys(snapshot.areas)
+        area_options[NONE] = "No room is named"
+        questions["area"] = Choice("Which room is meant?", area_options)
     if len(snapshot.domains) >= 2:
         questions["domain"] = Choice(
             "Which kind of device is meant?",

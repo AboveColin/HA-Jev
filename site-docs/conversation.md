@@ -9,7 +9,8 @@ Conversation agent to **Jev**.
 
 One sentence becomes one request carrying seven questions: what should happen, is it
 compound, does it need text written, how is the target named, which entity, which
-room, which kind of device.
+room, which kind of device. A house with no areas is asked six, since there is no
+room to name.
 
 Five or six of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -20,8 +21,17 @@ The options for "which device" come from your entity registry, so what comes bac
 an `entity_id` that exists. The model picks from a list rather than writing one.
 
 It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
-`HassLightSet` and `HassGetState`. Media players, covers and climate setpoints go to
-the fallback agent.
+`HassLightSet` and `HassGetState`. Lights, switches, fans, covers, media players,
+climate entities, vacuums, input booleans, scenes and scripts are turned on and off
+this way. Climate setpoints, and anything else, go to the fallback agent.
+
+Locks are not on that list and are never described to the model. Home Assistant reads
+turn_on on a lock as `lock.lock` and turn_off as `lock.unlock`, the opposite way
+round from how the command is spoken, and a probability with no reasoning should not
+be deciding whether a door opens. Lock sentences go to the fallback agent. To
+automate a lock with Jev, ask for it explicitly with `jev.choice` and call
+`lock.lock` yourself, as [example 13](https://github.com/AboveColin/HA-Jev/blob/main/examples/13_voice_commands.yaml)
+does.
 
 ## What it refuses
 
@@ -30,13 +40,15 @@ the fallback agent.
 | Below the confidence floor | The whole sentence goes to the fallback agent, nothing done first |
 | Two commands in one sentence | Fallback |
 | Needs words written or looked up | Fallback |
+| A lock, whatever the sentence | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt |
 
 !!! info "It only sees what Assist sees"
     The agent describes only entities you exposed to Assist. You already decided
     which entities a voice assistant may touch, and a question is not a reason to
-    widen that.
+    widen that. This is the voice path only. The [four actions](actions.md) send
+    whatever an automation targets, exposed or not.
 
 ## What it costs
 
