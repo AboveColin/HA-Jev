@@ -301,6 +301,10 @@ async def test_an_endpoint_is_normalised_before_it_is_stored(
         "http://",
         "http://gateway.local?model=jev-latest",
         "http://gateway.local#systemone",
+        # yarl reads the host here as " gateway.local", which is truthy. Without an
+        # explicit check the flow sends a request that can only fail.
+        "https:// gateway.local",
+        "https://gate way.local",
         # Credentials here would be written straight into a diagnostics file, which
         # redacts by key name and cannot see them.
         "http://someone:hunter2@gateway.local",

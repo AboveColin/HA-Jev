@@ -36,6 +36,9 @@ silently later.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
+An entry is identified by its API key, so the same key cannot be set up twice at two
+addresses. A second endpoint needs its own key.
+
 Use **Reconfigure** to replace the key or the address later. That keeps your entities
 and their history.
 
@@ -48,10 +51,11 @@ spent across more than Home Assistant.
 
 Whatever is behind it has to answer `POST /v1/systemone` the way TypeSafe does. A
 path is kept as a prefix, so `http://gateway.local:8093/jev` is asked at
-`http://gateway.local:8093/jev/v1/systemone`. A query, a fragment, or a username or
-password in the address are all refused: the first two cannot survive having that
-path appended, and the last would be written into a diagnostics file, which redacts
-secrets by name and would not recognise those. Clearing the field goes back to
+`http://gateway.local:8093/jev/v1/systemone`. A query, a fragment, a space, or a username
+or password in the address are all refused: the first two cannot survive having that
+path appended, a space is a typo rather than a host, and the last would be written
+into a diagnostics file, which redacts secrets by name and would not recognise
+those. Clearing the field goes back to
 TypeSafe.
 
 !!! warning "An http address sends the key in clear"

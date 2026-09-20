@@ -36,10 +36,10 @@
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
-      "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a query, a fragment, a username or a password."
+      "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password."
     },
     "abort": {
-      "already_configured": "This API key is already set up.",
+      "already_configured": "This API key is already set up. An entry is identified by its key, so a second address needs its own key.",
       "reauth_successful": "The new key works.",
       "reconfigure_successful": "Reconfigured successfully."
     }
