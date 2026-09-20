@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
-from homeassistant.core import Context
+from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
@@ -671,3 +671,114 @@ async def test_the_already_done_reply_is_translated_too(hass, house, mock_client
     )
 
     assert result.response.speech["plain"]["speech"] == "Kitchen light staat al aan."
+
+
+# One entity per controllable domain, and the service each one must end up calling.
+# Home Assistant does not map on and off to turn_on and turn_off everywhere: a cover
+# opens and closes, and a lock locks on turn_on, which is why lock is not a domain
+# this agent offers at all. Without a case per domain the suite only ever exercised
+# light, and the lock wording stayed wrong through five releases.
+DOMAIN_CASES = [
+    ("light.kitchen", "off", "turn_on", "turn_off"),
+    ("switch.boiler", "off", "turn_on", "turn_off"),
+    ("fan.bedroom", "off", "turn_on", "turn_off"),
+    ("cover.blinds", "closed", "open_cover", "close_cover"),
+    ("media_player.tv", "off", "turn_on", "turn_off"),
+    ("climate.hallway", "off", "turn_on", "turn_off"),
+    ("vacuum.robot", "docked", "turn_on", "turn_off"),
+    ("input_boolean.guest_mode", "off", "turn_on", "turn_off"),
+    ("scene.evening", "scening", "turn_on", None),
+    ("script.bedtime", "off", "turn_on", "turn_off"),
+]
+
+
+async def one_device(hass, config_entry, entity_id, state):
+    """A house holding the kitchen light and one other device, both exposed."""
+    assert await async_setup_component(hass, "homeassistant", {})
+    assert await async_setup_component(hass, "conversation", {})
+
+    entities = er.async_get(hass)
+    for target, target_state in (("light.kitchen", "off"), (entity_id, state)):
+        domain, object_id = target.split(".")
+        entry = entities.async_get_or_create(
+            domain, "demo", object_id, suggested_object_id=object_id
+        )
+        entities.async_update_entity(entry.entity_id, name=object_id.replace("_", " "))
+        hass.states.async_set(target, target_state)
+        async_expose_entity(hass, conversation.DOMAIN, target, True)
+
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "state", "on_service", "off_service"), DOMAIN_CASES
+)
+async def test_each_controllable_domain_calls_the_right_service(
+    hass, mock_client, config_entry, entity_id, state, on_service, off_service
+):
+    domain = entity_id.split(".")[0]
+    await one_device(hass, config_entry, entity_id, state)
+
+    calls: list[ServiceCall] = []
+    for service in {on_service, off_service} - {None}:
+        hass.services.async_register(domain, service, calls.append)
+
+    for action, expected in (("turn_on", on_service), ("turn_off", off_service)):
+        if expected is None:
+            continue
+        calls.clear()
+        hass.states.async_set(entity_id, state)
+        mock_client.ask.return_value = build_response(
+            **answer_set(
+                action=ChoiceAnswer(choice=action, probabilities={}, confidence=0.97),
+                entity=ChoiceAnswer(choice=entity_id, probabilities={}, confidence=1.0),
+                domain=ChoiceAnswer(choice=domain, probabilities={}, confidence=0.95),
+            )
+        )
+
+        await converse(hass, f"{action} the {domain}")
+        await hass.async_block_till_done()
+
+        assert [c.service for c in calls] == [expected], (
+            f"{action} on {entity_id} called {[c.service for c in calls]}"
+        )
+
+
+async def test_a_lock_is_never_offered_to_the_model(hass, mock_client, config_entry):
+    """Home Assistant locks a lock on turn_on. The agent does not go near one."""
+    await one_device(hass, config_entry, "switch.boiler", "off")
+    hass.states.async_set("lock.front_door", "locked", {"friendly_name": "Front door"})
+    async_expose_entity(hass, conversation.DOMAIN, "lock.front_door", True)
+
+    mock_client.ask.return_value = build_response(**answer_set())
+    await converse(hass, "unlock the front door")
+
+    state = mock_client.ask.call_args.args[0]
+    assert "lock.front_door" not in str(state)
+
+
+async def test_a_house_with_no_areas_still_answers(hass, mock_client, config_entry):
+    """Exposed entities, no room assigned to any of them.
+
+    The area question then held nothing but none_of_these, and jevclient refuses a
+    one-option choice, so every command raised ValueError before it reached the API.
+    """
+    await one_device(hass, config_entry, "switch.boiler", "off")
+
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_on", probabilities={}, confidence=0.97),
+            entity=ChoiceAnswer(choice="switch.boiler", probabilities={}, confidence=1.0),
+            domain=ChoiceAnswer(choice="switch", probabilities={}, confidence=0.95),
+        )
+    )
+    calls: list[ServiceCall] = []
+    hass.services.async_register("switch", "turn_on", calls.append)
+
+    await converse(hass, "turn the boiler on")
+    await hass.async_block_till_done()
+
+    assert "area" not in mock_client.ask.call_args.args[1]
+    assert [c.service for c in calls] == ["turn_on"]
