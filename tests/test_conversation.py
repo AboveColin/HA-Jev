@@ -476,10 +476,16 @@ def test_brightness_parsing(text, expected):
         ("ztlum lampu na 30", 30),
         ("приглуши лампу до 30", 30),
         ("把灯调暗到 30", 30),
+        # Chinese writes no space in front of the number.
+        ("把灯调暗到30", 30),
+        ("把灯调亮到65", 65),
         # A bare number with nothing about light stays a count, in any language.
         ("zet de lamp op 2", None),
         ("accendi 2 lampade", None),
         ("stelle 2 Lampen an", None),
+        # "hello" holds the German stem for bright. A satellite hears it often.
+        ("hello, set the lamp to 2", None),
+        ("stelle die Lampe heller auf 70", 70),
     ],
 )
 def test_brightness_parsing_in_every_translated_language(text, expected):

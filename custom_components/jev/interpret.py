@@ -50,7 +50,10 @@ _PERCENT_WORDS = (
 _PERCENT = re.compile(r"(\d{1,3})\s*(?:" + "|".join(_PERCENT_WORDS) + ")", re.IGNORECASE)
 # Chinese writes its marker in front of the number instead of after it.
 _PERCENT_PREFIX = re.compile(r"百分之\s*(\d{1,3})")
-_BARE_NUMBER = re.compile(r"\b(\d{1,3})\b")
+# Digit lookarounds rather than \b, because Chinese writes no space in front of
+# the number and \b never fires between two characters that are both word
+# characters. "\u628a\u706f\u8c03\u6697\u523030" has to give 30.
+_BARE_NUMBER = re.compile(r"(?<!\d)(\d{1,3})(?!\d)")
 
 # A bare number becomes a brightness only when the sentence also says something
 # about light level. The model already chose set_brightness by this point, so this
@@ -59,7 +62,7 @@ _BARE_NUMBER = re.compile(r"\b(\d{1,3})\b")
 _LEVEL_STEMS = {
     "en": ("bright", "dim"),
     "nl": ("helder",),
-    "de": ("hell", "dunkel"),
+    "de": ("hell(?!o)", "dunkel"),  # the guard keeps "hello" out of the English path
     "fr": ("luminos", "tamis", "clair", "sombre"),
     "it": ("luminos", "attenua", "chiar", "scur"),
     "es": ("brill", "atenu", "atenú", "oscur"),
