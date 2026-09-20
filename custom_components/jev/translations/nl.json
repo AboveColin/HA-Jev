@@ -36,10 +36,10 @@
     "error": {
       "invalid_auth": "TypeSafe weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
-      "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen query, fragment, gebruikersnaam of wachtwoord bevatten."
+      "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten."
     },
     "abort": {
-      "already_configured": "Deze API-sleutel is al ingesteld.",
+      "already_configured": "Deze API-sleutel is al ingesteld. Een invoer wordt herkend aan zijn sleutel, dus een tweede adres heeft een eigen sleutel nodig.",
       "reauth_successful": "De nieuwe sleutel werkt.",
       "reconfigure_successful": "Opnieuw ingesteld."
     }

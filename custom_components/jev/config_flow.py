@@ -77,6 +77,10 @@ def _normalised_url(raw: str | None) -> str:
 
     Empty means the published API, so clearing the field is how you go back.
 
+    A space is refused before yarl sees it. yarl keeps one inside the host, and a
+    host of " gateway.local" is truthy, so the check below would pass a typo on to
+    a request that can only fail.
+
     jevclient appends /v1/systemone to whatever it is given, which is why a path is
     allowed: a reverse proxy can mount the API under one. A query or a fragment
     cannot survive that concatenation. Credentials in the URL are refused because
@@ -84,6 +88,8 @@ def _normalised_url(raw: str | None) -> str:
     """
     if not (text := (raw or "").strip()):
         return DEFAULT_BASE_URL
+    if any(character.isspace() for character in text):
+        raise ValueError("the address cannot contain a space")
     url = URL(text)
     if url.scheme not in ("http", "https"):
         raise ValueError("the address needs to start with http:// or https://")
