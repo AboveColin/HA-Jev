@@ -80,3 +80,37 @@ def test_every_language_carries_the_agent_speech():
                 assert "{name}" in speech[key], (
                     f"{path.name}:{key} dropped the name placeholder"
                 )
+
+
+def test_every_language_keeps_every_placeholder():
+    """A dropped placeholder is a KeyError at speech time, or a hole in a sentence.
+
+    `{name}` is checked above for the agent's own lines. This is the same check over
+    every string in every file, including the ones the service and subentry forms
+    show, and it also holds the markdown and the paragraph breaks still, because a
+    lost `**` or `\\n\\n` shows up as literal asterisks or one wall of text.
+    """
+
+    def leaves(node, prefix=""):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                yield from leaves(value, f"{prefix}{key}.")
+        else:
+            yield prefix.rstrip("."), node
+
+    english = dict(leaves(STRINGS))
+    for path in TRANSLATIONS:
+        other = dict(leaves(json.loads(path.read_text())))
+        for key, source in english.items():
+            if key not in other:
+                continue  # key parity is the test above's job
+            target = other[key]
+            assert sorted(re.findall(r"\{[a-z_]+\}", source)) == sorted(
+                re.findall(r"\{[a-z_]+\}", target)
+            ), f"{path.name}:{key} changed its placeholders"
+            assert source.count("**") == target.count("**"), (
+                f"{path.name}:{key} lost or gained markdown bold"
+            )
+            assert source.count("\n") == target.count("\n"), (
+                f"{path.name}:{key} changed its paragraph breaks"
+            )

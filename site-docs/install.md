@@ -77,3 +77,21 @@ TypeSafe.
 
 The budget is a [tripwire](cost.md#the-budget-is-a-tripwire), not a quota to run
 against. Put it past anything a working setup would use.
+
+## Languages
+
+The setup flow, the options, the question editor, the actions, the entity names, the
+repair issues and everything the conversation agent says back are translated into
+thirteen languages: English, Nederlands, Deutsch, Français, Italiano, Español,
+Português (Brasil), Polski, Svenska, Dansk, Čeština, Русский and 简体中文.
+
+Home Assistant falls back to English key by key, so a missing string never shows a
+blank. The user interface follows your profile language. The conversation agent
+follows the language of the Assist pipeline that called it, which is not always the
+same one, and it accepts every language Assist offers.
+
+Your own questions are not translated, because you wrote them. A choice comes back
+as one of the options you named, in whatever language you named them.
+
+A correction or a language that is not here is welcome as a pull request. One file
+under `custom_components/jev/translations/`, same keys as `strings.json`.
