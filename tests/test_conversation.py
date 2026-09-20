@@ -446,6 +446,52 @@ def test_brightness_parsing(text, expected):
     assert find_brightness(text) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # The word instead of the sign, one sentence per translated language. A
+        # satellite that transcribes "prozent" must not lose the number.
+        ("stelle die Lampe auf 40 Prozent", 40),
+        ("mets la lampe a 40 pour cent", 40),
+        ("imposta la lampada al 40 per cento", 40),
+        ("pon la lampara al 40 por ciento", 40),
+        ("coloque a lampada em 40 por cento", 40),
+        ("ustaw lampe na 40 procent", 40),
+        ("stall lampan pa 40 procent", 40),
+        ("saet lampen til 40 procent", 40),
+        ("nastav lampu na 40 procent", 40),
+        ("установи лампу на 40 процентов", 40),
+        # Chinese puts the marker in front of the number.
+        ("把灯设为百分之40", 40),
+        ("把灯设为 40%", 40),
+        # A bare number, carried by a word about light level.
+        ("dimme die Lampe auf 30", 30),
+        ("tamise la lampe a 30", 30),
+        ("attenua la lampada a 30", 30),
+        ("atenúa la lámpara a 30", 30),
+        ("escureça a lampada para 30", 30),
+        ("przyciemnij lampe do 30", 30),
+        ("dämpa lampan till 30", 30),
+        ("dæmp lampen til 30", 30),
+        ("ztlum lampu na 30", 30),
+        ("приглуши лампу до 30", 30),
+        ("把灯调暗到 30", 30),
+        # Chinese writes no space in front of the number.
+        ("把灯调暗到30", 30),
+        ("把灯调亮到65", 65),
+        # A bare number with nothing about light stays a count, in any language.
+        ("zet de lamp op 2", None),
+        ("accendi 2 lampade", None),
+        ("stelle 2 Lampen an", None),
+        # "hello" holds the German stem for bright. A satellite hears it often.
+        ("hello, set the lamp to 2", None),
+        ("stelle die Lampe heller auf 70", 70),
+    ],
+)
+def test_brightness_parsing_in_every_translated_language(text, expected):
+    assert find_brightness(text) == expected
+
+
 async def test_a_state_question_answers_without_changing_anything(
     hass, house, mock_client
 ):
