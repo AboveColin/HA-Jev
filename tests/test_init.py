@@ -1,10 +1,12 @@
 """Contexts, the entities they produce, and the budget that stops them."""
 
+import copy
 from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
 from homeassistant.const import CONF_API_KEY
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from jevclient import NoulAnswer
@@ -13,7 +15,11 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.jev.const import CONF_DAILY_TOKEN_BUDGET, DOMAIN
+from custom_components.jev.const import (
+    CONF_DAILY_TOKEN_BUDGET,
+    DOMAIN,
+    ISSUE_BUDGET_EXCEEDED,
+)
 
 from .conftest import build_response
 
@@ -471,3 +477,107 @@ async def test_a_yaml_score_takes_structured_levels(hass, mock_client, config_en
     await setup_with_context(hass, config_entry, context)
     sent = next(iter(mock_client.ask.await_args.args[1].values()))
     assert sent.criteria[0]["summary"] == "Cosmetic"
+
+
+async def test_two_contexts_with_one_name_are_refused(hass, mock_client, config_entry):
+    """The second used to replace the first in the coordinator map.
+
+    The first still had a live trigger and a debouncer, and unload walks that
+    same map, so neither was ever stopped.
+    """
+    second = copy.deepcopy(CONTEXT)
+    second["questions"][0]["name"] = "Dryer forgotten"
+    assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [CONTEXT, second]})
+
+
+async def test_two_contexts_differing_only_in_punctuation_are_refused(
+    hass, mock_client, config_entry
+):
+    """slugify is what makes the key, so 'Laundry' and 'laundry!' are one key."""
+    second = copy.deepcopy(CONTEXT)
+    second["name"] = "laundry!"
+    assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [CONTEXT, second]})
+
+
+async def test_two_questions_with_one_name_are_refused(hass, mock_client, config_entry):
+    """One key means one entry in the request, so the second question vanished."""
+    context = copy.deepcopy(CONTEXT)
+    context["questions"].append(
+        {
+            "name": "Laundry forgotten",
+            "type": "noul",
+            "instructions": "A different question that happens to share a name.",
+        }
+    )
+    assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [context]})
+
+
+async def test_a_threshold_of_zero_is_not_the_default(hass, mock_client, config_entry):
+    """`or 0.5` rewrote a configured 0, because 0 is falsy.
+
+    The picker allows 0 and it means "on for any answer", which is a legal thing
+    to ask for.
+    """
+    context = copy.deepcopy(CONTEXT)
+    context["questions"][0]["threshold"] = 0
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.3)
+    )
+    await setup_with_context(hass, config_entry, context)
+    state = hass.states.get("binary_sensor.jev_laundry_forgotten")
+    assert state is not None
+    assert state.state == "on"
+    assert state.attributes["threshold"] == 0
+
+
+async def test_the_budget_warning_goes_away_with_the_new_day(hass, mock_client):
+    """The issue used to outlive the day that raised it, and every day after."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "test-key-not-a-real-one"},
+        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        unique_id="0123456789abcdef",
+    )
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.8)
+    )
+    await setup_with_context(hass, entry)
+    coordinator = next(iter(entry.runtime_data.coordinators.values()))
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is not None
+
+    usage = entry.runtime_data.usage
+    usage.roll_over(usage.day + timedelta(days=1))
+    assert usage.budget_exceeded is False
+    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None
+
+
+async def test_raising_the_budget_clears_the_warning(hass, mock_client):
+    """The warning names that as the fix, so it has to be the fix."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "test-key-not-a-real-one"},
+        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        unique_id="0123456789abcdef",
+    )
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.8)
+    )
+    await setup_with_context(hass, entry)
+    coordinator = next(iter(entry.runtime_data.coordinators.values()))
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is not None
+
+    hass.config_entries.async_update_entry(
+        entry, options={CONF_DAILY_TOKEN_BUDGET: 1_000_000}
+    )
+    await hass.async_block_till_done()
+    assert registry.async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None
