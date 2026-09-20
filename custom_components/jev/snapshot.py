@@ -1,8 +1,11 @@
 """What the house looks like to Assist.
 
-Only entities the user exposed to Assist are described here, and nothing else is
-ever sent to TypeSafe. That boundary is the user's, not ours: they already decided
-which entities a voice assistant may see, and a question is not a reason to widen it.
+Only entities the user exposed to Assist are described here. That boundary is the
+user's, not ours: they already decided which entities a voice assistant may see, and
+a spoken command is not a reason to widen it.
+
+This applies to the voice path alone. The four service actions send whatever the
+caller targets, exposed or not, because an automation names its entities on purpose.
 """
 
 from __future__ import annotations
@@ -19,12 +22,16 @@ from homeassistant.helpers import floor_registry as fr
 
 # Domains a spoken command can act on through a built-in intent. Anything else is
 # left to the fallback agent rather than half-handled here.
+#
+# lock is deliberately absent. Home Assistant maps turn_on to lock.lock and turn_off
+# to lock.unlock (homeassistant/components/intent/__init__.py, "# on = lock"), which
+# is the opposite way round from how anyone says it, and a probability with no
+# reasoning should not be deciding whether a door opens. Ask the fallback agent.
 CONTROLLABLE = (
     "light",
     "switch",
     "fan",
     "cover",
-    "lock",
     "media_player",
     "climate",
     "vacuum",
