@@ -7,13 +7,20 @@ time. They are not free in money: question text is billed as input tokens.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from datetime import date
 from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL, Platform
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_NAME,
+    CONF_SCAN_INTERVAL,
+    CONF_URL,
+    Platform,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
@@ -23,12 +30,14 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 from jevclient import (
+    DEFAULT_BASE_URL,
     USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
     JevError,
     Noul,
 )
+from yarl import URL
 
 from .const import (
     CONF_BACKGROUND,
@@ -271,11 +280,43 @@ def _build_contexts(hass: HomeAssistant) -> list[ContextConfig]:
     return contexts
 
 
+def _warn_if_key_travels_in_clear(base_url: str) -> None:
+    """Say so, once per setup, when the key is sent over plain HTTP.
+
+    Authorization is a bearer header, so an http endpoint puts the key on the wire
+    in clear. On a LAN that is a deliberate trade and not this integration's call to
+    refuse, but it is not something to leave unsaid either. Loopback is exempt: that
+    traffic never reaches a network.
+    """
+    url = URL(base_url)
+    if url.scheme != "http" or not (host := url.host):
+        return
+    if host == "localhost":
+        return
+    try:
+        if ipaddress.ip_address(host).is_loopback:
+            return
+    except ValueError:
+        pass
+    _LOGGER.warning(
+        "The API key is sent to %s in clear, because %s is a plain HTTP address. "
+        "Anything that can see that traffic can read the key. Use https, or keep "
+        "the endpoint on a network you trust",
+        base_url,
+        url.scheme,
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     """Set up one API key, its usage account and a coordinator per context."""
+    # Entries made before this was configurable carry no address and mean the
+    # published API, which is what they have always talked to.
+    base_url = entry.data.get(CONF_URL, DEFAULT_BASE_URL)
+    _warn_if_key_travels_in_clear(base_url)
     client = JevClient(
         entry.data[CONF_API_KEY],
         session=async_get_clientsession(hass),
+        base_url=base_url,
     )
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"

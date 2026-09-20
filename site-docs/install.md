@@ -30,18 +30,41 @@ Copy `custom_components/jev` from the
 
 **Settings**, **Devices and services**, **Add integration**, then **Jev (TypeSafe)**.
 
-The API key is the only thing it asks for. It is checked against the live API before
-the entry is created, so a wrong key fails here rather than silently later.
+It asks for an API key, and for the address to send it to. Both are checked against
+a live request before the entry is created, so a wrong one fails here rather than
+silently later.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
-Use **Reconfigure** to replace the key later. That keeps your entities and their
-history.
+Use **Reconfigure** to replace the key or the address later. That keeps your entities
+and their history.
+
+## A different API address
+
+The address defaults to `https://api.typesafe.ai` and most people should leave it
+there. Change it when you run something of your own that speaks the same API: a
+proxy that holds the key once for several clients, caches answers, or meters what is
+spent across more than Home Assistant.
+
+Whatever is behind it has to answer `POST /v1/systemone` the way TypeSafe does. A
+path is kept as a prefix, so `http://gateway.local:8093/jev` is asked at
+`http://gateway.local:8093/jev/v1/systemone`. A query, a fragment, or a username or
+password in the address are all refused: the first two cannot survive having that
+path appended, and the last would be written into a diagnostics file, which redacts
+secrets by name and would not recognise those. Clearing the field goes back to
+TypeSafe.
+
+!!! warning "An http address sends the key in clear"
+    The key travels as a bearer header. Over `http` anything that can see that
+    traffic can read it. Home Assistant writes one warning per setup saying so,
+    unless the address is loopback. Prefer `https`, or keep the endpoint on a network
+    you trust.
 
 ## Options
 
 | Option | Default | What it does |
 |---|---|---|
+| API address | `https://api.typesafe.ai` | Where requests go. In the config flow, not the options |
 | Daily input token budget | 0 | Stops evaluating for the day once spent. 0 means no limit |
 | Price per million input tokens | 0.042 | Only affects the estimated cost sensor |
 | Fall back to this agent | none | Where the conversation agent sends what it cannot route |

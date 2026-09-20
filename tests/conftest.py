@@ -37,14 +37,22 @@ def answers() -> dict:
 
 @pytest.fixture
 def mock_client(answers):
-    """Replace JevClient everywhere it is constructed."""
+    """Replace JevClient everywhere it is constructed.
+
+    `built_by_setup` and `built_by_flow` are the two patched constructors, so a test
+    can assert what the client was pointed at rather than only what it was asked.
+    """
     client = AsyncMock()
     client.ask = AsyncMock(return_value=build_response(**answers))
     client.async_close = AsyncMock()
     with (
-        patch("custom_components.jev.JevClient", return_value=client),
-        patch("custom_components.jev.config_flow.JevClient", return_value=client),
+        patch("custom_components.jev.JevClient", return_value=client) as by_setup,
+        patch(
+            "custom_components.jev.config_flow.JevClient", return_value=client
+        ) as by_flow,
     ):
+        client.built_by_setup = by_setup
+        client.built_by_flow = by_flow
         yield client
 
 

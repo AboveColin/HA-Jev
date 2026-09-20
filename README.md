@@ -75,21 +75,37 @@ installed this way.
 
 ## Configuration
 
-Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. The API key
-is the only thing it asks for, and it is checked before the entry is created.
+Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. It asks for
+an API key and the address to send it to, and both are checked before the entry is
+created. The address already holds the TypeSafe API, so a key is all most people fill
+in.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
 | Option | Where | Default | Description |
 |---|---|---|---|
 | API key | config flow | none | Your TypeSafe key |
+| API address | config flow | `https://api.typesafe.ai` | Where the requests go. Leave it alone unless you run something of your own that speaks the same API |
 | Daily input token budget | options | 0 | Stops evaluating for the day once spent. 0 means no limit |
 | Price per million input tokens | options | 0.042 | Only affects the estimated cost sensor |
 | Fall back to this agent | options | none | Where unrouted sentences go. Empty means the agent says it did not understand |
 | Act only above this confidence | options | 0.6 | Below it, the sentence goes to the fallback instead |
 | Allow whole-house commands | options | off | Commands naming no room or device. Turning everything off is always allowed |
 
-Use Reconfigure to replace the key later, which keeps your entities and history.
+Use Reconfigure to replace the key or the address later, which keeps your entities
+and history.
+
+### Pointing it somewhere else
+
+The address is checked before the entry is created, the same way the key is, so a
+wrong one fails there rather than later. Anything that answers `POST /v1/systemone`
+the way TypeSafe does will do: a proxy that holds the key, caches answers or meters
+what is spent across more than just Home Assistant. A path is kept as a prefix, so
+`http://gateway.local:8093/jev` becomes `http://gateway.local:8093/jev/v1/systemone`.
+
+The key is sent as a bearer header. Over `http` that puts it on the wire in clear,
+where anything on the same network can read it, so the log says so once per setup
+unless the address is loopback. Leaving the field empty goes back to TypeSafe.
 
 ### Actions
 

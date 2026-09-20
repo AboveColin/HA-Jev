@@ -5,27 +5,38 @@
         "title": "Connect to TypeSafe",
         "description": "Paste an API key from your TypeSafe account. Home Assistant asks one short question to check that the key works.",
         "data": {
-          "api_key": "API key"
+          "api_key": "API key",
+          "url": "API address"
+        },
+        "data_description": {
+          "api_key": "The key the requests are sent with.",
+          "url": "Leave this alone unless you run something of your own that speaks the same API, such as a proxy that holds the key or caches answers. The key is sent as a bearer header, so an http address puts it on the wire in clear."
         }
       },
       "reauth_confirm": {
         "title": "Re-enter your API key",
-        "description": "TypeSafe rejected the key currently stored. Paste a working one.",
+        "description": "TypeSafe rejected the key currently stored. Paste a working one. The API address is left as it is; use Reconfigure to change that.",
         "data": {
           "api_key": "API key"
         }
       },
       "reconfigure": {
-        "title": "Replace your API key",
-        "description": "Paste a different TypeSafe API key. Your questions and entities are kept.",
+        "title": "Replace your API key or address",
+        "description": "Paste a different TypeSafe API key, and change the address if the API is reached somewhere other than TypeSafe. Your questions and entities are kept.",
         "data": {
-          "api_key": "API key"
+          "api_key": "API key",
+          "url": "API address"
+        },
+        "data_description": {
+          "api_key": "The key the requests are sent with.",
+          "url": "Clear this field to go back to the TypeSafe API. The key is sent as a bearer header, so an http address puts it on the wire in clear."
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
-      "cannot_connect": "Home Assistant could not reach the TypeSafe API."
+      "cannot_connect": "Home Assistant could not reach the API at that address.",
+      "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a query, a fragment, a username or a password."
     },
     "abort": {
       "already_configured": "This API key is already set up.",

@@ -2,11 +2,11 @@
 
 import copy
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
@@ -681,3 +681,61 @@ async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config
     )
     await setup_with_context(hass, config_entry)
     assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_BUDGET_EXCEEDED) is None
+
+
+@pytest.mark.parametrize(
+    ("base_url", "warned"),
+    [
+        ("https://gateway.local", False),
+        # Loopback never reaches a network, so there is nothing to overhear.
+        ("http://127.0.0.1:8093", False),
+        ("http://localhost:8093", False),
+        ("http://[::1]:8093", False),
+        ("http://gateway.local:8093", True),
+        ("http://192.0.2.10:8093", True),
+    ],
+)
+async def test_a_plain_http_endpoint_says_the_key_is_in_clear(
+    hass, mock_client, caplog, base_url, warned
+):
+    """Authorization is a bearer header, so http puts the key on the wire.
+
+    It is a legitimate trade on a LAN, so it is said rather than refused.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "a-key", CONF_URL: base_url},
+        unique_id="0123456789abcdef",
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    said = any("in clear" in record.message for record in caplog.records)
+    assert said is warned
+
+
+async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
+    """Checking typesafe.ai for someone who never talks to it answers nothing."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        unique_id="0123456789abcdef",
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert await async_setup_component(hass, "system_health", {})
+
+    from custom_components.jev.system_health import system_health_info
+
+    # MagicMock, not the AsyncMock patch would otherwise build: the real function is
+    # async, and its unawaited coroutine is a warning the suite would carry forever.
+    with patch(
+        "homeassistant.components.system_health.async_check_can_reach_url",
+        new_callable=MagicMock,
+    ) as reach:
+        await system_health_info(hass)
+    assert reach.call_args.args[1] == "http://gateway.local:8093"
