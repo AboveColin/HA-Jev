@@ -55,8 +55,10 @@ sentence has already failed.
 
 ## The conversation agent handles five intents
 
-On, off, toggle, brightness and state questions. Media players, covers and climate
-setpoints go to the fallback agent.
+On, off, toggle, brightness and state questions. Locks, climate setpoints, anything
+needing words written and anything phrased as two commands go to the fallback agent.
+Locks are refused on purpose: Home Assistant reads turn_on on a lock as `lock.lock`,
+which is the opposite way round from the spoken command.
 
 ## It is not a core integration
 

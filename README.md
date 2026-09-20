@@ -133,6 +133,12 @@ All four take a template in `state`, or an object, or a list. They also take
 `background:` for standing facts about how to read the state, which is
 [worth more attached to the question than to the state](docs/measurements.md).
 
+They send whatever you target, whether or not it is exposed to Assist. An
+automation names its entities on purpose, so the Assist exposure list is not
+consulted here. It is consulted for the conversation agent below. Watch that with
+`include_attributes: true` on a `device_tracker`, which puts coordinates in the
+request.
+
 ### Questions
 
 Settings, Devices and services, **Jev**, then **Add question**. Pick what kind of
@@ -231,6 +237,11 @@ on and off, toggles them, sets a light's brightness and answers what something i
 set to. Anything else, anything phrased as two commands, and anything it is not
 confident about goes to the fallback agent whole, with nothing done first.
 
+Locks are not among them and are never described to the model. Home Assistant reads
+turn_on on a lock as lock and turn_off as unlock, which is the opposite way round
+from how the command is spoken, and a probability with no reasoning should not be
+deciding whether a door opens. Lock sentences go to the fallback agent.
+
 Against the built-in sentence matcher, it understands a command phrased a way
 nobody wrote a template for, and it returns a confidence the router can refuse to
 act on. Against an LLM agent, it is cheaper and it stops on its own: a command works
@@ -285,8 +296,8 @@ Europe against the published figure, and the two findings that changed this code
 - Not for safety decisions. A probability with no explanation should not hold a lock,
   a heater or a smoke alarm.
 - The conversation agent handles on, off, toggle, brightness and state questions.
-  Media, covers, climate setpoints and anything needing words written go to the
-  fallback agent.
+  Locks, climate setpoints, anything needing words written and anything phrased as
+  two commands go to the fallback agent.
 - Diagnostics include the last 20 sentences the agent routed. Read the file before
   pasting it into a public issue.
 
@@ -315,12 +326,16 @@ logger:
 
 Issues and pull requests welcome.
 
+Python 3.14. The pinned `pytest-homeassistant-custom-component` requires it, and CI
+runs the same version, so 3.13 fails at install with "No matching distribution
+found".
+
 ```bash
 pip install -r requirements-test.txt
 pytest
 ```
 
-192 tests run the integration inside a real Home Assistant with the API client
+204 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 
