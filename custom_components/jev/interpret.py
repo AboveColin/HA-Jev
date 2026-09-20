@@ -34,8 +34,56 @@ ACTIONS: dict[str, str] = {
     "get_state": ha_intent.INTENT_GET_STATE,
 }
 
-_PERCENT = re.compile(r"(\d{1,3})\s*(?:%|percent|procent)")
-_BARE_NUMBER = re.compile(r"\b(\d{1,3})\b")
+# The words that turn a number into a percentage, in the languages the integration
+# is translated into. "%" carries most of the traffic; these are for a satellite
+# that transcribes the word instead of the sign.
+_PERCENT_WORDS = (
+    "%",
+    r"per ?cento?",  # en, and it "per cento"
+    r"procent\w*",  # nl, sv, da, pl, cs
+    "prozent",  # de
+    r"pour ?cent\w*",  # fr
+    "por ?ciento",  # es
+    "por ?cento",  # pt-BR
+    r"процент\w*",  # ru
+)
+_PERCENT = re.compile(r"(\d{1,3})\s*(?:" + "|".join(_PERCENT_WORDS) + ")", re.IGNORECASE)
+# Chinese writes its marker in front of the number instead of after it.
+_PERCENT_PREFIX = re.compile(r"百分之\s*(\d{1,3})")
+# Digit lookarounds rather than \b, because Chinese writes no space in front of
+# the number and \b never fires between two characters that are both word
+# characters. "\u628a\u706f\u8c03\u6697\u523030" has to give 30.
+_BARE_NUMBER = re.compile(r"(?<!\d)(\d{1,3})(?!\d)")
+
+# A bare number becomes a brightness only when the sentence also says something
+# about light level. The model already chose set_brightness by this point, so this
+# is a guard against "turn on 2 lamps", not a classifier. Stems, matched at a word
+# start.
+_LEVEL_STEMS = {
+    "en": ("bright", "dim"),
+    "nl": ("helder",),
+    "de": ("hell(?!o)", "dunkel"),  # the guard keeps "hello" out of the English path
+    "fr": ("luminos", "tamis", "clair", "sombre"),
+    "it": ("luminos", "attenua", "chiar", "scur"),
+    "es": ("brill", "atenu", "atenú", "oscur"),
+    "pt-BR": ("brilh", "escur"),
+    "pl": ("jasn", "przyciemn"),
+    "sv": ("ljus", "dämp"),
+    "da": ("lys", "dæmp"),
+    "cs": ("jas", "ztlum", "stmív"),
+    "ru": ("ярк", "приглуш", "свет"),
+}
+_LEVEL = re.compile(
+    r"\b(?:" + "|".join(s for g in _LEVEL_STEMS.values() for s in g) + ")",
+    re.IGNORECASE,
+)
+# No spaces in Chinese, so a word boundary never fires in front of these.
+_LEVEL_CJK = ("亮", "暗")
+
+
+def _in_range(raw: str) -> int | None:
+    value = int(raw)
+    return value if 0 <= value <= 100 else None
 
 
 def find_brightness(text: str) -> int | None:
@@ -45,12 +93,12 @@ def find_brightness(text: str) -> int | None:
     is not a brightness.
     """
     if m := _PERCENT.search(text):
-        value = int(m.group(1))
-        return value if 0 <= value <= 100 else None
-    if "bright" in text.lower() or "dim" in text.lower():
+        return _in_range(m.group(1))
+    if m := _PERCENT_PREFIX.search(text):
+        return _in_range(m.group(1))
+    if _LEVEL.search(text) or any(word in text for word in _LEVEL_CJK):
         if m := _BARE_NUMBER.search(text):
-            value = int(m.group(1))
-            return value if 0 <= value <= 100 else None
+            return _in_range(m.group(1))
     return None
 
 

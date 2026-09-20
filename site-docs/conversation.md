@@ -69,6 +69,11 @@ asking the model. Jev judges and does not calculate, and a regex is exact and fr
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
 
+The percent word is read in every language the integration is translated into, so
+`40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`, `40 procent`,
+`40 процентов` and `百分之40` all give 40. A bare number needs a word about light
+level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
+
 ## A command that is already done
 
 Three runs per starting state, one sentence, one entity:
