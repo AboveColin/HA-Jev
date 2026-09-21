@@ -5,12 +5,23 @@
         "title": "Connetti a TypeSafe",
         "description": "Incolla una chiave API dal tuo account TypeSafe. Home Assistant pone una breve domanda per verificare che la chiave funzioni.",
         "data": {
-          "api_key": "Chiave API",
-          "url": "Indirizzo API"
+          "api_key": "Chiave API"
         },
         "data_description": {
-          "api_key": "La chiave con cui vengono inviate le richieste.",
-          "url": "Lascia stare, a meno che tu non abbia qualcosa di tuo che parla la stessa API, come un proxy che conserva la chiave o mette in cache le risposte. La chiave viaggia in un'intestazione bearer, quindi con un indirizzo http passa in chiaro sulla rete."
+          "api_key": "La chiave con cui vengono inviate le richieste."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanzate",
+            "data": {
+              "url": "Indirizzo API",
+              "model": "Modello"
+            },
+            "data_description": {
+              "url": "Lascia stare, a meno che tu non abbia qualcosa di tuo che parla la stessa API, come un proxy che conserva la chiave o mette in cache le risposte. La chiave viaggia in un'intestazione bearer, quindi con un indirizzo http passa in chiaro sulla rete.",
+              "model": "L'id del modello inviato a ogni richiesta. Lascia vuoto per usare quello predefinito."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Sostituisci la chiave API o l'indirizzo",
         "description": "Incolla un'altra chiave API di TypeSafe, e cambia l'indirizzo se l'API si raggiunge altrove che su TypeSafe. Le tue domande e le tue entità restano.",
         "data": {
-          "api_key": "Chiave API",
-          "url": "Indirizzo API"
+          "api_key": "Chiave API"
         },
         "data_description": {
-          "api_key": "La chiave con cui vengono inviate le richieste.",
-          "url": "Svuota questo campo per tornare all'API di TypeSafe. La chiave viaggia in un'intestazione bearer, quindi con un indirizzo http passa in chiaro sulla rete."
+          "api_key": "La chiave con cui vengono inviate le richieste."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanzate",
+            "data": {
+              "url": "Indirizzo API",
+              "model": "Modello"
+            },
+            "data_description": {
+              "url": "Svuota questo campo per tornare all'API di TypeSafe. La chiave viaggia in un'intestazione bearer, quindi con un indirizzo http passa in chiaro sulla rete.",
+              "model": "L'id del modello inviato a ogni richiesta. Lascia vuoto per usare quello predefinito."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe ha rifiutato questa chiave.",
       "cannot_connect": "Home Assistant non è riuscito a raggiungere l'API a quell'indirizzo.",
-      "invalid_url": "Non è un indirizzo API utilizzabile. Servono uno schema e un host, e non può contenere spazi, query, frammenti, nome utente o password."
+      "invalid_url": "Non è un indirizzo API utilizzabile. Servono uno schema e un host, e non può contenere spazi, query, frammenti, nome utente o password.",
+      "invalid_model": "Questo id modello non è stato accettato. Controllalo, oppure svuota il campo per usare quello predefinito."
     },
     "abort": {
       "already_configured": "Questa chiave API è già configurata. Una voce si riconosce dalla sua chiave, quindi un secondo indirizzo ha bisogno di una chiave propria.",

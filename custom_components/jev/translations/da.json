@@ -5,12 +5,23 @@
         "title": "Forbind til TypeSafe",
         "description": "Indsæt en API-nøgle fra din TypeSafe-konto. Home Assistant stiller ét kort spørgsmål for at kontrollere, at nøglen virker.",
         "data": {
-          "api_key": "API-nøgle",
-          "url": "API-adresse"
+          "api_key": "API-nøgle"
         },
         "data_description": {
-          "api_key": "Nøglen, som anmodningerne sendes med.",
-          "url": "Lad dette stå, medmindre du selv kører noget, der taler den samme API, for eksempel en proxy, der opbevarer nøglen eller cacher svar. Nøglen sendes som bearer-header, så med en http-adresse går den i klartekst over nettet."
+          "api_key": "Nøglen, som anmodningerne sendes med."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanceret",
+            "data": {
+              "url": "API-adresse",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Lad dette stå, medmindre du selv kører noget, der taler den samme API, for eksempel en proxy, der opbevarer nøglen eller cacher svar. Nøglen sendes som bearer-header, så med en http-adresse går den i klartekst over nettet.",
+              "model": "Model-id'et der sendes med hver forespørgsel. Tomt felt betyder standardmodellen."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Udskift din API-nøgle eller adresse",
         "description": "Indsæt en anden TypeSafe API-nøgle, og ret adressen, hvis API'en nås et andet sted end hos TypeSafe. Dine spørgsmål og entiteter bevares.",
         "data": {
-          "api_key": "API-nøgle",
-          "url": "API-adresse"
+          "api_key": "API-nøgle"
         },
         "data_description": {
-          "api_key": "Nøglen, som anmodningerne sendes med.",
-          "url": "Ryd dette felt for at gå tilbage til TypeSafe-API'en. Nøglen sendes som bearer-header, så med en http-adresse går den i klartekst over nettet."
+          "api_key": "Nøglen, som anmodningerne sendes med."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanceret",
+            "data": {
+              "url": "API-adresse",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Ryd dette felt for at gå tilbage til TypeSafe-API'en. Nøglen sendes som bearer-header, så med en http-adresse går den i klartekst over nettet.",
+              "model": "Model-id'et der sendes med hver forespørgsel. Tomt felt betyder standardmodellen."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe afviste denne nøgle.",
       "cannot_connect": "Home Assistant kunne ikke nå API'en på den adresse.",
-      "invalid_url": "Det er ikke en brugbar API-adresse. Den skal have et skema og en vært, og den må ikke indeholde mellemrum, forespørgsel, fragment, brugernavn eller adgangskode."
+      "invalid_url": "Det er ikke en brugbar API-adresse. Den skal have et skema og en vært, og den må ikke indeholde mellemrum, forespørgsel, fragment, brugernavn eller adgangskode.",
+      "invalid_model": "Det model-id blev ikke accepteret. Tjek det, eller lad feltet stå tomt for standardmodellen."
     },
     "abort": {
       "already_configured": "Denne API-nøgle er allerede sat op. En konfiguration kendes på sin nøgle, så en ekstra adresse skal have sin egen nøgle.",

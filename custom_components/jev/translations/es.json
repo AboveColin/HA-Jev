@@ -5,12 +5,23 @@
         "title": "Conectar con TypeSafe",
         "description": "Pega una clave API de tu cuenta de TypeSafe. Home Assistant hace una pregunta corta para comprobar que la clave funciona.",
         "data": {
-          "api_key": "Clave API",
-          "url": "Dirección de la API"
+          "api_key": "Clave API"
         },
         "data_description": {
-          "api_key": "La clave con la que se envían las solicitudes.",
-          "url": "No cambies esto salvo que ejecutes algo propio que hable la misma API, como un proxy que guarde la clave o que cachee las respuestas. La clave se envía como cabecera bearer, así que una dirección http la pone en claro en la red."
+          "api_key": "La clave con la que se envían las solicitudes."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanzado",
+            "data": {
+              "url": "Dirección de la API",
+              "model": "Modelo"
+            },
+            "data_description": {
+              "url": "No cambies esto salvo que ejecutes algo propio que hable la misma API, como un proxy que guarde la clave o que cachee las respuestas. La clave se envía como cabecera bearer, así que una dirección http la pone en claro en la red.",
+              "model": "El id del modelo que se envía en cada petición. Déjalo vacío para usar el predeterminado."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Sustituye tu clave API o la dirección",
         "description": "Pega otra clave API de TypeSafe, y cambia la dirección si la API se alcanza en otro sitio distinto de TypeSafe. Tus preguntas y entidades se conservan.",
         "data": {
-          "api_key": "Clave API",
-          "url": "Dirección de la API"
+          "api_key": "Clave API"
         },
         "data_description": {
-          "api_key": "La clave con la que se envían las solicitudes.",
-          "url": "Vacía este campo para volver a la API de TypeSafe. La clave se envía como cabecera bearer, así que una dirección http la pone en claro en la red."
+          "api_key": "La clave con la que se envían las solicitudes."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanzado",
+            "data": {
+              "url": "Dirección de la API",
+              "model": "Modelo"
+            },
+            "data_description": {
+              "url": "Vacía este campo para volver a la API de TypeSafe. La clave se envía como cabecera bearer, así que una dirección http la pone en claro en la red.",
+              "model": "El id del modelo que se envía en cada petición. Déjalo vacío para usar el predeterminado."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe ha rechazado esta clave.",
       "cannot_connect": "Home Assistant no ha podido acceder a la API en esa dirección.",
-      "invalid_url": "Esa no es una dirección de API utilizable. Necesita un esquema y un host, y no puede llevar un espacio, una consulta, un fragmento, un usuario ni una contraseña."
+      "invalid_url": "Esa no es una dirección de API utilizable. Necesita un esquema y un host, y no puede llevar un espacio, una consulta, un fragmento, un usuario ni una contraseña.",
+      "invalid_model": "Ese id de modelo no se aceptó. Revísalo, o deja el campo vacío para usar el predeterminado."
     },
     "abort": {
       "already_configured": "Esta clave API ya está configurada. Cada entrada se identifica por su clave, así que una segunda dirección necesita su propia clave.",

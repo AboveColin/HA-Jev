@@ -5,12 +5,23 @@
         "title": "Połącz z TypeSafe",
         "description": "Wklej klucz API ze swojego konta TypeSafe. Home Assistant zadaje jedno krótkie pytanie, żeby sprawdzić, czy klucz działa.",
         "data": {
-          "api_key": "Klucz API",
-          "url": "Adres API"
+          "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania.",
-          "url": "Zostaw to bez zmian, chyba że uruchamiasz coś własnego, co mówi tym samym API, na przykład proxy przechowujące klucz albo buforujące odpowiedzi. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem."
+          "api_key": "Klucz, z którym wysyłane są żądania."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Zaawansowane",
+            "data": {
+              "url": "Adres API",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Zostaw to bez zmian, chyba że uruchamiasz coś własnego, co mówi tym samym API, na przykład proxy przechowujące klucz albo buforujące odpowiedzi. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem.",
+              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Puste pole oznacza domyślny."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Zmień klucz API lub adres",
         "description": "Wklej inny klucz API TypeSafe i zmień adres, jeśli API jest osiągalne gdzie indziej niż w TypeSafe. Twoje pytania i encje zostają zachowane.",
         "data": {
-          "api_key": "Klucz API",
-          "url": "Adres API"
+          "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania.",
-          "url": "Wyczyść to pole, żeby wrócić do API TypeSafe. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem."
+          "api_key": "Klucz, z którym wysyłane są żądania."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Zaawansowane",
+            "data": {
+              "url": "Adres API",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Wyczyść to pole, żeby wrócić do API TypeSafe. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem.",
+              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Puste pole oznacza domyślny."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe odrzucił ten klucz.",
       "cannot_connect": "Home Assistant nie może połączyć się z API pod tym adresem.",
-      "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła."
+      "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła.",
+      "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego."
     },
     "abort": {
       "already_configured": "Ten klucz API jest już skonfigurowany. Wpis jest rozpoznawany po kluczu, więc drugi adres potrzebuje własnego klucza.",

@@ -5,12 +5,23 @@
         "title": "Connect to TypeSafe",
         "description": "Paste an API key from your TypeSafe account. Home Assistant asks one short question to check that the key works.",
         "data": {
-          "api_key": "API key",
-          "url": "API address"
+          "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The key the requests are sent with.",
-          "url": "Leave this alone unless you run something of your own that speaks the same API, such as a proxy that holds the key or caches answers. The key is sent as a bearer header, so an http address puts it on the wire in clear."
+          "api_key": "The key the requests are sent with."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "url": "API address",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Leave this alone unless you run something of your own that speaks the same API, such as a proxy that holds the key or caches answers. The key is sent as a bearer header, so an http address puts it on the wire in clear.",
+              "model": "The model id sent with every request. Clear it to use the default."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Replace your API key or address",
         "description": "Paste a different TypeSafe API key, and change the address if the API is reached somewhere other than TypeSafe. Your questions and entities are kept.",
         "data": {
-          "api_key": "API key",
-          "url": "API address"
+          "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The key the requests are sent with.",
-          "url": "Clear this field to go back to the TypeSafe API. The key is sent as a bearer header, so an http address puts it on the wire in clear."
+          "api_key": "The key the requests are sent with."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "url": "API address",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Clear this field to go back to the TypeSafe API. The key is sent as a bearer header, so an http address puts it on the wire in clear.",
+              "model": "The model id sent with every request. Clear it to use the default."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
-      "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password."
+      "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
+      "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default."
     },
     "abort": {
       "already_configured": "This API key is already set up. An entry is identified by its key, so a second address needs its own key.",

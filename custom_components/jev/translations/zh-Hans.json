@@ -5,12 +5,23 @@
         "title": "连接到 TypeSafe",
         "description": "粘贴你的 TypeSafe 账户中的 API 密钥。Home Assistant 会提一个简短的问题，确认该密钥可用。",
         "data": {
-          "api_key": "API 密钥",
-          "url": "API 地址"
+          "api_key": "API 密钥"
         },
         "data_description": {
-          "api_key": "发送请求时所用的密钥。",
-          "url": "保持原样，除非你自己运行了使用同一套 API 的服务，例如保管密钥或缓存回答的代理。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。"
+          "api_key": "发送请求时所用的密钥。"
+        },
+        "sections": {
+          "advanced": {
+            "name": "高级",
+            "data": {
+              "url": "API 地址",
+              "model": "模型"
+            },
+            "data_description": {
+              "url": "保持原样，除非你自己运行了使用同一套 API 的服务，例如保管密钥或缓存回答的代理。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。",
+              "model": "每次请求都会带上的模型 id。留空表示使用默认模型。"
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "更换你的 API 密钥或地址",
         "description": "粘贴另一个 TypeSafe API 密钥；如果访问的 API 不在 TypeSafe 而在别处，请同时更改地址。你的问题和实体会保留。",
         "data": {
-          "api_key": "API 密钥",
-          "url": "API 地址"
+          "api_key": "API 密钥"
         },
         "data_description": {
-          "api_key": "发送请求时所用的密钥。",
-          "url": "清空此字段即可回到 TypeSafe API。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。"
+          "api_key": "发送请求时所用的密钥。"
+        },
+        "sections": {
+          "advanced": {
+            "name": "高级",
+            "data": {
+              "url": "API 地址",
+              "model": "模型"
+            },
+            "data_description": {
+              "url": "清空此字段即可回到 TypeSafe API。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。",
+              "model": "每次请求都会带上的模型 id。留空表示使用默认模型。"
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe 拒绝了此密钥。",
       "cannot_connect": "Home Assistant 无法通过该地址访问 API。",
-      "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。"
+      "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
+      "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。"
     },
     "abort": {
       "already_configured": "此 API 密钥已配置。配置条目以密钥来标识，因此第二个地址需要自己的密钥。",
