@@ -4,6 +4,11 @@ from typing import Final
 
 DOMAIN: Final = "jev"
 
+CONF_MODEL: Final = "model"
+# The address and the model live behind one collapsed section: both are for people
+# who run their own endpoint, and neither is touched by anyone who does not.
+CONF_ADVANCED: Final = "advanced"
+
 CONF_QUESTIONS: Final = "questions"
 CONF_STATE_TEMPLATE: Final = "state"
 CONF_INSTRUCTIONS: Final = "instructions"

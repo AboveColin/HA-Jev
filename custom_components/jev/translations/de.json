@@ -5,12 +5,23 @@
         "title": "Mit TypeSafe verbinden",
         "description": "Füge einen API-Schlüssel aus deinem TypeSafe-Konto ein. Home Assistant stellt eine kurze Frage, um zu prüfen, ob der Schlüssel funktioniert.",
         "data": {
-          "api_key": "API-Schlüssel",
-          "url": "API-Adresse"
+          "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden.",
-          "url": "Lass das so, außer du betreibst etwas Eigenes, das dieselbe API spricht, etwa einen Proxy, der den Schlüssel hält oder Antworten zwischenspeichert. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung."
+          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Erweitert",
+            "data": {
+              "url": "API-Adresse",
+              "model": "Modell"
+            },
+            "data_description": {
+              "url": "Lass das so, außer du betreibst etwas Eigenes, das dieselbe API spricht, etwa einen Proxy, der den Schlüssel hält oder Antworten zwischenspeichert. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung.",
+              "model": "Die Modell-ID, die mit jeder Anfrage mitgeht. Leer bedeutet die Standard-ID."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "API-Schlüssel oder Adresse ersetzen",
         "description": "Füge einen anderen TypeSafe-API-Schlüssel ein und ändere die Adresse, wenn die API woanders als bei TypeSafe erreicht wird. Deine Fragen und Entitäten bleiben erhalten.",
         "data": {
-          "api_key": "API-Schlüssel",
-          "url": "API-Adresse"
+          "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden.",
-          "url": "Leere dieses Feld, um zur TypeSafe-API zurückzukehren. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung."
+          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Erweitert",
+            "data": {
+              "url": "API-Adresse",
+              "model": "Modell"
+            },
+            "data_description": {
+              "url": "Leere dieses Feld, um zur TypeSafe-API zurückzukehren. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung.",
+              "model": "Die Modell-ID, die mit jeder Anfrage mitgeht. Leer bedeutet die Standard-ID."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe hat diesen Schlüssel abgelehnt.",
       "cannot_connect": "Home Assistant konnte die API unter dieser Adresse nicht erreichen.",
-      "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten."
+      "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten.",
+      "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID."
     },
     "abort": {
       "already_configured": "Dieser API-Schlüssel ist bereits eingerichtet. Ein Eintrag wird über seinen Schlüssel erkannt, eine zweite Adresse braucht also einen eigenen Schlüssel.",

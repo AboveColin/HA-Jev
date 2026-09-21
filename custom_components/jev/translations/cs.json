@@ -5,12 +5,23 @@
         "title": "Připojení k TypeSafe",
         "description": "Vložte klíč API ze svého účtu TypeSafe. Home Assistant položí jednu krátkou otázku, aby ověřil, že klíč funguje.",
         "data": {
-          "api_key": "Klíč API",
-          "url": "Adresa API"
+          "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky.",
-          "url": "Nechte beze změny, pokud neprovozujete něco vlastního, co mluví stejným API, například proxy, která drží klíč nebo ukládá odpovědi do mezipaměti. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně."
+          "api_key": "Klíč, se kterým se odesílají požadavky."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Pokročilé",
+            "data": {
+              "url": "Adresa API",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Nechte beze změny, pokud neprovozujete něco vlastního, co mluví stejným API, například proxy, která drží klíč nebo ukládá odpovědi do mezipaměti. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně.",
+              "model": "Identifikátor modelu posílaný s každým požadavkem. Prázdné pole znamená výchozí."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Nahraďte klíč API nebo adresu",
         "description": "Vložte jiný klíč API pro TypeSafe a změňte adresu, pokud se API nachází jinde než u TypeSafe. Vaše otázky a entity zůstanou zachovány.",
         "data": {
-          "api_key": "Klíč API",
-          "url": "Adresa API"
+          "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky.",
-          "url": "Vyprázdněte toto pole pro návrat k API TypeSafe. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně."
+          "api_key": "Klíč, se kterým se odesílají požadavky."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Pokročilé",
+            "data": {
+              "url": "Adresa API",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Vyprázdněte toto pole pro návrat k API TypeSafe. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně.",
+              "model": "Identifikátor modelu posílaný s každým požadavkem. Prázdné pole znamená výchozí."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe tento klíč odmítl.",
       "cannot_connect": "Home Assistant nedokázal na této adrese kontaktovat API.",
-      "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo."
+      "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
+      "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí."
     },
     "abort": {
       "already_configured": "Tento klíč API je už nastavený. Záznam se rozpoznává podle svého klíče, takže druhá adresa potřebuje vlastní klíč.",
