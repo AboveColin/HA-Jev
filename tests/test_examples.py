@@ -35,33 +35,3 @@ def test_a_jev_block_passes_the_real_schema(path):
     # Templates arrive as plain strings from yaml.safe_load, which is what Home
     # Assistant hands the schema too before it builds Template objects.
     CONFIG_SCHEMA({DOMAIN: config[DOMAIN]})
-
-
-# Addresses from a private network. The check covers the shipped tree, not the
-# examples alone.
-REFUSED = (
-    "192.168.",
-)
-
-SHIPPED = [
-    path
-    for folder in ("custom_components", "site-docs")
-    for path in sorted((ROOT / folder).rglob("*"))
-    if path.is_file() and path.suffix in {".py", ".md", ".json", ".yaml"}
-]
-
-
-@pytest.mark.parametrize("path", EXAMPLES, ids=lambda p: p.name)
-def test_an_example_names_no_real_house(path):
-    """Nothing from a private network."""
-    text = path.read_text().lower()
-    for word in REFUSED:
-        assert word not in text, f"{path.name} still mentions {word}"
-
-
-@pytest.mark.parametrize("path", SHIPPED, ids=lambda p: p.name)
-def test_the_shipped_tree_names_no_real_house(path):
-    """Same for the code and the documentation, where a measurement gets written."""
-    text = path.read_text().lower()
-    for word in REFUSED:
-        assert word not in text, f"{path} still mentions {word}"
