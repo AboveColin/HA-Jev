@@ -65,6 +65,7 @@ from .const import (
     TYPE_SCORE,
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
+from .identity import entry_unique_id
 from .models import ContextConfig, build_question_config
 from .services import async_register_services
 from .subentry import async_contexts_from_subentries
@@ -282,14 +283,17 @@ def _build_contexts(hass: HomeAssistant) -> list[ContextConfig]:
     return contexts
 
 
-def _warn_if_key_travels_in_clear(base_url: str) -> None:
+def _warn_if_key_travels_in_clear(base_url: str, api_key: str) -> None:
     """Say so, once per setup, when the key is sent over plain HTTP.
 
     Authorization is a bearer header, so an http endpoint puts the key on the wire
     in clear. On a LAN that is a deliberate trade and not this integration's call to
     refuse, but it is not something to leave unsaid either. Loopback is exempt: that
-    traffic never reaches a network.
+    traffic never reaches a network, and an entry with no key sends no header to
+    read.
     """
+    if not api_key:
+        return
     url = URL(base_url)
     if url.scheme != "http" or not (host := url.host):
         return
@@ -309,14 +313,37 @@ def _warn_if_key_travels_in_clear(base_url: str) -> None:
     )
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
+    """Move an entry's unique id to the endpoint-and-key hash.
+
+    Until 1.14.0 it hashed the key alone. Recomputing it here, rather than at the
+    next reconfigure, is what keeps the duplicate guard working: the flow compares
+    the id it computes for a new entry against the ids already stored, and an
+    entry still in the old format matches nothing, so the same key could be added
+    a second time.
+    """
+    if entry.minor_version < 2:
+        hass.config_entries.async_update_entry(
+            entry,
+            unique_id=entry_unique_id(
+                entry.data.get(CONF_URL, DEFAULT_BASE_URL),
+                entry.data.get(CONF_API_KEY, ""),
+            ),
+            minor_version=2,
+        )
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     """Set up one API key, its usage account and a coordinator per context."""
     # Entries made before these were configurable carry neither, and mean the
     # published API and its default model, which is what they have always used.
     base_url = entry.data.get(CONF_URL, DEFAULT_BASE_URL)
-    _warn_if_key_travels_in_clear(base_url)
+    # An entry that names an endpoint of its own may hold no key at all.
+    api_key = entry.data.get(CONF_API_KEY, "")
+    _warn_if_key_travels_in_clear(base_url, api_key)
     client = JevClient(
-        entry.data[CONF_API_KEY],
+        api_key,
         session=async_get_clientsession(hass),
         base_url=base_url,
         model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),

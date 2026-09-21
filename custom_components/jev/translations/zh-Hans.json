@@ -8,7 +8,7 @@
           "api_key": "API 密钥"
         },
         "data_description": {
-          "api_key": "发送请求时所用的密钥。"
+          "api_key": "发送请求时所用的密钥。仅当使用自己的、无需密钥的端点时才留空。"
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API 密钥"
         },
         "data_description": {
-          "api_key": "发送请求时所用的密钥。"
+          "api_key": "发送请求时所用的密钥。仅当使用自己的、无需密钥的端点时才留空。"
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe 拒绝了此密钥。",
       "cannot_connect": "Home Assistant 无法通过该地址访问 API。",
       "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
-      "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。"
+      "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。",
+      "key_required": "TypeSafe API 需要密钥。仅当地址指向自己的、无需密钥的端点时，才能留空。"
     },
     "abort": {
       "already_configured": "此 API 密钥已配置。配置条目以密钥来标识，因此第二个地址需要自己的密钥。",

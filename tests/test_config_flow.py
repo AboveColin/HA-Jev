@@ -81,7 +81,7 @@ async def test_user_flow_errors_recover(hass, mock_client, error, expected):
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):
     config_entry.add_to_hass(hass)
-    with patch("custom_components.jev.config_flow.hashlib.sha256") as sha:
+    with patch("custom_components.jev.identity.hashlib.sha256") as sha:
         sha.return_value.hexdigest.return_value = config_entry.unique_id + "padding"
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -165,18 +165,23 @@ async def test_reconfigure_swaps_the_key_and_keeps_the_entities(
     assert loaded_entry.data[CONF_API_KEY] == "a-fresh-key"
 
 
-def _key_id(api_key: str) -> str:
-    return hashlib.sha256(api_key.encode()).hexdigest()[:16]
+def _entry_id(api_key: str, base_url: str = DEFAULT_BASE_URL) -> str:
+    """The hash the flow computes, spelled out here rather than imported.
+
+    An import would follow a change of the scheme silently, and a changed scheme
+    is what breaks every stored id.
+    """
+    return hashlib.sha256(f"{base_url}\n{api_key}".encode()).hexdigest()[:16]
 
 
 async def test_a_swapped_key_takes_its_unique_id_with_it(hass, mock_client, config_entry):
-    """The unique id is the hash of the key, so it has to move when the key does.
+    """The key is half the unique id, so the id has to move when the key does.
 
     Left behind, it guarded the retired key and let a second entry be created
     with the key now in use.
     """
     config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, unique_id=_key_id(API_KEY))
+    hass.config_entries.async_update_entry(config_entry, unique_id=_entry_id(API_KEY))
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
@@ -185,7 +190,7 @@ async def test_a_swapped_key_takes_its_unique_id_with_it(hass, mock_client, conf
         result["flow_id"], _form("a-second-key")
     )
     assert result["reason"] == "reconfigure_successful"
-    assert config_entry.unique_id == _key_id("a-second-key")
+    assert config_entry.unique_id == _entry_id("a-second-key")
 
     # The key now in use is guarded.
     result = await hass.config_entries.flow.async_init(
@@ -210,20 +215,20 @@ async def test_reconfiguring_with_the_same_key_is_a_no_op(
 ):
     """Re-entering the same key must not abort on this entry's own unique id."""
     config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, unique_id=_key_id(API_KEY))
+    hass.config_entries.async_update_entry(config_entry, unique_id=_entry_id(API_KEY))
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     result = await config_entry.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], _form())
     assert result["reason"] == "reconfigure_successful"
-    assert config_entry.unique_id == _key_id(API_KEY)
+    assert config_entry.unique_id == _entry_id(API_KEY)
 
 
 async def test_reauth_moves_the_unique_id_too(hass, mock_client, config_entry):
-    """Reauth is a key swap as well, and the hash of a new key is a new hash."""
+    """Reauth is a key swap as well, and a new key is a new hash."""
     config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, unique_id=_key_id(API_KEY))
+    hass.config_entries.async_update_entry(config_entry, unique_id=_entry_id(API_KEY))
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
@@ -234,18 +239,18 @@ async def test_reauth_moves_the_unique_id_too(hass, mock_client, config_entry):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert config_entry.data[CONF_API_KEY] == "renewed-key"
-    assert config_entry.unique_id == _key_id("renewed-key")
+    assert config_entry.unique_id == _entry_id("renewed-key")
 
 
 async def test_a_swap_onto_another_entrys_key_is_refused(hass, mock_client, config_entry):
     """Two entries holding one key is what the unique id exists to prevent."""
     config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, unique_id=_key_id(API_KEY))
+    hass.config_entries.async_update_entry(config_entry, unique_id=_entry_id(API_KEY))
     other = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: "the-other-key"},
-        unique_id=_key_id("the-other-key"),
+        unique_id=_entry_id("the-other-key"),
     )
     other.add_to_hass(hass)
 
@@ -383,7 +388,7 @@ async def test_clearing_the_endpoint_goes_back_to_typesafe(hass, mock_client):
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: API_KEY, CONF_URL: GATEWAY},
-        unique_id=_key_id(API_KEY),
+        unique_id=_entry_id(API_KEY, GATEWAY),
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -404,7 +409,7 @@ async def test_reauth_leaves_the_endpoint_where_it_is(hass, mock_client):
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: API_KEY, CONF_URL: GATEWAY},
-        unique_id=_key_id(API_KEY),
+        unique_id=_entry_id(API_KEY, GATEWAY),
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -429,7 +434,7 @@ async def test_an_entry_from_before_this_option_still_means_typesafe(hass, mock_
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: API_KEY},
-        unique_id=_key_id(API_KEY),
+        unique_id=_entry_id(API_KEY),
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -554,7 +559,7 @@ async def test_reauth_leaves_the_model_where_it_is(hass, mock_client):
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: API_KEY, CONF_URL: GATEWAY, CONF_MODEL: MODEL},
-        unique_id=_key_id(API_KEY),
+        unique_id=_entry_id(API_KEY, GATEWAY),
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -569,3 +574,59 @@ async def test_reauth_leaves_the_model_where_it_is(hass, mock_client):
 
     assert entry.data[CONF_MODEL] == MODEL
     assert mock_client.built_by_flow.call_args.kwargs["model"] == MODEL
+
+
+async def test_an_endpoint_of_your_own_needs_no_key(hass, mock_client):
+    """The key is optional because an endpoint of your own may ask for none."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="", url=GATEWAY)
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_API_KEY] == ""
+    assert mock_client.built_by_flow.call_args.args[0] == ""
+
+
+async def test_an_empty_key_against_typesafe_is_refused(hass, mock_client):
+    """The published API answers 401 to a keyless request, so no request is sent."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="")
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_API_KEY: "key_required"}
+    mock_client.ask.assert_not_called()
+
+
+async def test_two_keyless_endpoints_are_two_entries(hass, mock_client):
+    """Hashing the key alone gave every keyless endpoint one id, so only one fitted."""
+    for url in (GATEWAY, "http://192.0.2.5:8093"):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], _form(key="", url=url)
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 2
+
+
+async def test_the_same_key_at_two_endpoints_is_two_entries(hass, mock_client):
+    """What the endpoint in the id costs: one key, two entries, two daily budgets.
+
+    A key means something only at the endpoint that issued it, so the same string
+    at two addresses is two credentials rather than one used twice.
+    """
+    for url in (DEFAULT_BASE_URL, GATEWAY):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], _form(url=url)
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 2

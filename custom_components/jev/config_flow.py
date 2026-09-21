@@ -8,7 +8,6 @@ as well as the key.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping
 from typing import Any
 
@@ -49,6 +48,7 @@ from .const import (
     DOMAIN,
     SUBENTRY_QUESTION,
 )
+from .identity import entry_unique_id
 from .subentry import JevQuestionSubentryFlow
 
 # Collapsed, so the common setup is one field. Both of these only matter to
@@ -62,9 +62,12 @@ ADVANCED_SCHEMA = vol.Schema(
     }
 )
 
+# Optional, not because TypeSafe takes an empty key, but because an endpoint of
+# your own may need none. An empty key against the published address is refused
+# below rather than sent.
 STEP_USER_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_API_KEY): str,
+        vol.Optional(CONF_API_KEY, default=""): str,
         vol.Required(CONF_ADVANCED): section(ADVANCED_SCHEMA, {"collapsed": True}),
     }
 )
@@ -72,18 +75,6 @@ STEP_USER_SCHEMA = vol.Schema(
 # Reauth is a rejected credential, not a moved address, so it asks for the key alone
 # and leaves the endpoint where it is. An endpoint that moved is a reconfigure.
 STEP_REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): str})
-
-
-def _key_id(api_key: str) -> str:
-    """The unique id for an entry holding this key.
-
-    The key itself is never the unique id: it would land in the registry.
-
-    The endpoint is deliberately not part of it. One entry is one key because the
-    budget and the usage account are per key, and two entries sharing a key would
-    each count half the spend.
-    """
-    return hashlib.sha256(api_key.encode()).hexdigest()[:16]
 
 
 def _normalised_url(raw: str | None) -> str:
@@ -129,6 +120,21 @@ def _normalised_model(raw: str | None) -> str:
     return text
 
 
+def _credentials(user_input: dict[str, Any]) -> tuple[str, str, str, dict[str, str]]:
+    """The key, the address and the model out of one submitted form.
+
+    Every field is checked before the request that would use them, so two typos
+    are two messages on one submit rather than one per attempt.
+    """
+    api_key = (user_input.get(CONF_API_KEY) or "").strip()
+    base_url, model, errors = _advanced(user_input)
+    if not api_key and base_url == DEFAULT_BASE_URL:
+        # The published API answers 401 to a request with no key, so an empty key
+        # here is a mistake that can be named without spending a request on it.
+        errors[CONF_API_KEY] = "key_required"
+    return api_key, base_url, model, errors
+
+
 def _advanced(user_input: dict[str, Any]) -> tuple[str, str, dict[str, str]]:
     """The address and the model out of the section, with what is wrong with them.
 
@@ -169,6 +175,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     """Take an API key and the address to send it to, and prove the pair works."""
 
     VERSION = 1
+    # 2: the unique id hashes the endpoint with the key. async_migrate_entry moves
+    # entries written before that.
+    MINOR_VERSION = 2
 
     async def _async_validate(
         self, api_key: str, base_url: str, model: str
@@ -193,25 +202,30 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         return None
 
     async def _async_swap_key(
-        self, entry: ConfigEntry, user_input: dict[str, Any]
+        self, entry: ConfigEntry, updates: dict[str, Any]
     ) -> ConfigFlowResult:
         """Store a validated key on an existing entry, unique id and all.
 
-        The unique id is the hash of the key, so a swap has to move it. Left
-        where it was, it went on guarding the retired key and stopped guarding
-        the one now in use: a second entry could then be added with the same key.
+        The unique id is the hash of the endpoint and the key, so a swap of
+        either has to move it. Left where it was, it went on guarding the retired
+        pair and stopped guarding the one now in use: a second entry could then be
+        added with the same key.
 
         _abort_if_unique_id_configured is not the guard here, because it counts
         this entry too and re-entering the same key is a legal no-op. Only
         another entry already holding the new key is a collision.
         """
-        new_id = _key_id(user_input[CONF_API_KEY])
+        new_id = entry_unique_id(
+            # Reauth changes the key alone and leaves the endpoint where it is.
+            updates.get(CONF_URL, _stored(entry)[0]),
+            updates[CONF_API_KEY],
+        )
         for other in self._async_current_entries(include_ignore=True):
             if other.entry_id != entry.entry_id and other.unique_id == new_id:
                 return self.async_abort(reason="already_configured")
         await self.async_set_unique_id(new_id)
         return self.async_update_reload_and_abort(
-            entry, unique_id=new_id, data_updates=user_input
+            entry, unique_id=new_id, data_updates=updates
         )
 
     async def async_step_user(
@@ -219,12 +233,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            api_key = user_input[CONF_API_KEY]
-            # Both are checked before the request that would use them, so a typo
-            # costs nothing and names its own field.
-            base_url, model, errors = _advanced(user_input)
+            api_key, base_url, model, errors = _credentials(user_input)
             if not errors:
-                await self.async_set_unique_id(_key_id(api_key))
+                await self.async_set_unique_id(entry_unique_id(base_url, api_key))
                 self._abort_if_unique_id_configured()
                 if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
@@ -277,9 +288,8 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
-            base_url, model, errors = _advanced(user_input)
+            api_key, base_url, model, errors = _credentials(user_input)
             if not errors:
-                api_key = user_input[CONF_API_KEY]
                 if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
                 else:

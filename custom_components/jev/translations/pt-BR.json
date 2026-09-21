@@ -8,7 +8,7 @@
           "api_key": "Chave de API"
         },
         "data_description": {
-          "api_key": "A chave com a qual as requisições são enviadas."
+          "api_key": "A chave com a qual as requisições são enviadas. Deixe em branco apenas para um endpoint seu que não precise de chave."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "Chave de API"
         },
         "data_description": {
-          "api_key": "A chave com a qual as requisições são enviadas."
+          "api_key": "A chave com a qual as requisições são enviadas. Deixe em branco apenas para um endpoint seu que não precise de chave."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "O TypeSafe rejeitou esta chave.",
       "cannot_connect": "O Home Assistant não conseguiu acessar a API nesse endereço.",
       "invalid_url": "Esse não é um endereço de API utilizável. Ele precisa de um esquema e de um host, e não pode conter espaço, consulta, fragmento, nome de usuário ou senha.",
-      "invalid_model": "Esse id de modelo não foi aceito. Verifique, ou deixe o campo vazio para usar o padrão."
+      "invalid_model": "Esse id de modelo não foi aceito. Verifique, ou deixe o campo vazio para usar o padrão.",
+      "key_required": "A API da TypeSafe precisa de uma chave. Uma chave vazia só funciona com um endereço seu que não precise de nenhuma."
     },
     "abort": {
       "already_configured": "Esta chave de API já está configurada. Uma entrada é identificada pela sua chave, então um segundo endereço precisa da própria chave.",

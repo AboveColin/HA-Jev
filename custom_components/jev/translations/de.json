@@ -8,7 +8,7 @@
           "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden."
+          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden. Nur bei einem eigenen Endpunkt, der keinen Schlüssel braucht, bleibt das Feld leer."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden."
+          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden. Nur bei einem eigenen Endpunkt, der keinen Schlüssel braucht, bleibt das Feld leer."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe hat diesen Schlüssel abgelehnt.",
       "cannot_connect": "Home Assistant konnte die API unter dieser Adresse nicht erreichen.",
       "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten.",
-      "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID."
+      "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID.",
+      "key_required": "Die TypeSafe-API braucht einen Schlüssel. Ein leerer Schlüssel funktioniert nur bei einer eigenen Adresse, die keinen braucht."
     },
     "abort": {
       "already_configured": "Dieser API-Schlüssel ist bereits eingerichtet. Ein Eintrag wird über seinen Schlüssel erkannt, eine zweite Adresse braucht also einen eigenen Schlüssel.",

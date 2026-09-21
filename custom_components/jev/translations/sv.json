@@ -8,7 +8,7 @@
           "api_key": "API-nyckel"
         },
         "data_description": {
-          "api_key": "Nyckeln som förfrågningarna skickas med."
+          "api_key": "Nyckeln som förfrågningarna skickas med. Lämna det tomt endast för en egen slutpunkt som inte behöver någon nyckel."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API-nyckel"
         },
         "data_description": {
-          "api_key": "Nyckeln som förfrågningarna skickas med."
+          "api_key": "Nyckeln som förfrågningarna skickas med. Lämna det tomt endast för en egen slutpunkt som inte behöver någon nyckel."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe avvisade den här nyckeln.",
       "cannot_connect": "Home Assistant kunde inte nå API:et på den adressen.",
       "invalid_url": "Det är inte en användbar API-adress. Den behöver ett schema och en värd, och den kan inte innehålla mellanslag, frågesträng, fragment, användarnamn eller lösenord.",
-      "invalid_model": "Det modell-id:t godtogs inte. Kontrollera det, eller lämna fältet tomt för standardmodellen."
+      "invalid_model": "Det modell-id:t godtogs inte. Kontrollera det, eller lämna fältet tomt för standardmodellen.",
+      "key_required": "TypeSafe-API:t kräver en nyckel. En tom nyckel fungerar bara med en egen adress som inte behöver någon."
     },
     "abort": {
       "already_configured": "Den här API-nyckeln är redan konfigurerad. En post identifieras av sin nyckel, så en andra adress behöver en egen nyckel.",

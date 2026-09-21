@@ -8,7 +8,7 @@
           "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky."
+          "api_key": "Klíč, se kterým se odesílají požadavky. Nechte prázdné jen u vlastního endpointu, který klíč nepotřebuje."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky."
+          "api_key": "Klíč, se kterým se odesílají požadavky. Nechte prázdné jen u vlastního endpointu, který klíč nepotřebuje."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe tento klíč odmítl.",
       "cannot_connect": "Home Assistant nedokázal na této adrese kontaktovat API.",
       "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
-      "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí."
+      "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí.",
+      "key_required": "API TypeSafe vyžaduje klíč. Prázdný klíč funguje jen u vlastní adresy, která žádný nevyžaduje."
     },
     "abort": {
       "already_configured": "Tento klíč API je už nastavený. Záznam se rozpoznává podle svého klíče, takže druhá adresa potřebuje vlastní klíč.",

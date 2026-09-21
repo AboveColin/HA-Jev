@@ -8,7 +8,7 @@
           "api_key": "API-nøgle"
         },
         "data_description": {
-          "api_key": "Nøglen, som anmodningerne sendes med."
+          "api_key": "Nøglen, som anmodningerne sendes med. Lad kun feltet stå tomt for et endpoint af dit eget, der ikke kræver en nøgle."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API-nøgle"
         },
         "data_description": {
-          "api_key": "Nøglen, som anmodningerne sendes med."
+          "api_key": "Nøglen, som anmodningerne sendes med. Lad kun feltet stå tomt for et endpoint af dit eget, der ikke kræver en nøgle."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe afviste denne nøgle.",
       "cannot_connect": "Home Assistant kunne ikke nå API'en på den adresse.",
       "invalid_url": "Det er ikke en brugbar API-adresse. Den skal have et skema og en vært, og den må ikke indeholde mellemrum, forespørgsel, fragment, brugernavn eller adgangskode.",
-      "invalid_model": "Det model-id blev ikke accepteret. Tjek det, eller lad feltet stå tomt for standardmodellen."
+      "invalid_model": "Det model-id blev ikke accepteret. Tjek det, eller lad feltet stå tomt for standardmodellen.",
+      "key_required": "TypeSafe-API'et kræver en nøgle. En tom nøgle virker kun med en adresse af dit eget, der ikke kræver en."
     },
     "abort": {
       "already_configured": "Denne API-nøgle er allerede sat op. En konfiguration kendes på sin nøgle, så en ekstra adresse skal have sin egen nøgle.",
