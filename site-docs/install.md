@@ -90,14 +90,28 @@ blank. The user interface follows your profile language. The conversation agent
 follows the language of the Assist pipeline that called it, which is not always the
 same one, and it accepts every language Assist offers.
 
-The answer to a state question is not on that list, and does not need to be. It
-comes from the template Home Assistant's own Assist ships for that language, so
-"Luce Tavolo è off" is worded the way stock Assist words it. Polish inflects
-the adjective by the last letter of the device name, Russian writes the state word
-in Russian, and German says "21,5 Grad" rather than "21.5 °C". Measured
-against `home-assistant-intents` 2026.8.28: it ships 63 languages and 47 carry
-that template. The other 16, Japanese and Turkish among them, get an English
-sentence.
+Two of the agent's own lines reach further than those thirteen. "Sorry, I did not
+understand that" and "Sorry, that did not work" are worded by Home Assistant in all
+63 languages `home-assistant-intents` 2026.8.28 carries, so a Japanese pipeline
+hears a Japanese sentence. Where this integration has its own translation, that one
+is used.
+
+The answer to a state question is not on the list either, and does not need to be.
+The sentence comes from the template Home Assistant's own Assist ships for that
+language, and the state word inside it comes from the state names Home Assistant
+already shows on a badge, so Italian answers "Luce Tavolo è spento" rather than
+"è off". The word follows the device class, which is what makes a door
+"aperto" and a motion sensor "rilevato" instead of both being "acceso". A number
+keeps its value and its unit, and German says "21,5 Grad" rather than "21.5
+°C".
+
+The measurements, against `home-assistant-intents` 2026.8.28 and Home Assistant
+2026.8: 63 languages ship, 47 carry the state template. Three of those 47, Polish,
+Russian and Thai, write the state word themselves by comparing against the English
+one, so those three are handed the raw state and keep working. Of the remaining 44,
+33 have Home Assistant's own word for the state. The other 11 keep the English word
+inside a translated sentence, and the 16 languages with no template at all get an
+English sentence.
 
 Your own questions are not translated, because you wrote them. A choice comes back
 as one of the options you named, in whatever language you named them.

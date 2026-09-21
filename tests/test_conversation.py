@@ -517,25 +517,28 @@ async def test_a_state_question_answers_without_changing_anything(
 @pytest.mark.parametrize(
     ("language", "expected"),
     [
+        # The sentence comes from home-assistant-intents and the state word from
+        # the light integration's own translations, so neither is written here.
         ("en", "Kitchen light is off"),
-        ("nl", "Kitchen light is off"),
-        ("it", "Kitchen light \u00e8 off"),
-        ("de", "Kitchen light ist off"),
-        ("fr", "Kitchen light est off"),
-        ("sv", "Kitchen light \u00e4r off"),
-        ("da", "Kitchen light er off"),
-        ("cs", "Kitchen light je off"),
+        ("nl", "Kitchen light is uit"),
+        ("it", "Kitchen light \u00e8 spento"),
+        ("de", "Kitchen light ist aus"),
+        ("fr", "Kitchen light est \u00e9teint"),
+        ("sv", "Kitchen light \u00e4r av"),
+        ("da", "Kitchen light er fra"),
+        ("cs", "Kitchen light je vypnuto"),
         # Polish inflects the adjective by the last letter of the device name, and
-        # Russian writes the state word in Russian. Both come from the intents
-        # package, and neither is something a string table here could reach.
+        # Russian writes the state word in Russian. Both templates compare the
+        # state against the English word, so both are handed the raw state.
         ("pl", "Kitchen light jest wy\u0142\u0105czony"),
         ("ru", "\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043e"),
-        ("es", "El dispositivo Kitchen light est\u00e1 off"),
+        ("es", "El dispositivo Kitchen light est\u00e1 apagado"),
         # Brazilian Portuguese answers with the state alone, because the user
-        # named the device in the question.
-        ("pt-BR", "off"),
+        # named the device in the question. That leaves the state word first, so
+        # it is the word that gets the capital.
+        ("pt-BR", "Desligado"),
         # Chinese writes no space around the copula.
-        ("zh-Hans", "Kitchen light\u662foff"),
+        ("zh-Hans", "Kitchen light\u662f\u5173\u95ed"),
     ],
 )
 async def test_a_state_question_answers_in_the_pipeline_language(
@@ -562,8 +565,9 @@ async def test_a_state_question_answers_in_the_pipeline_language(
     ("language", "expected"),
     [
         ("en", "Kitchen light is off, Office light is on"),
-        # Brazilian Portuguese drops the name, so listing two needs it back.
-        ("pt-BR", "Kitchen light: off, Office light: on"),
+        # Brazilian Portuguese drops the name, so listing two needs it back. The
+        # name leads here, so the state word keeps its lower case.
+        ("pt-BR", "Kitchen light: desligado, Office light: ligado"),
     ],
 )
 async def test_several_states_in_one_answer_keep_their_names(
@@ -941,3 +945,50 @@ async def test_a_house_with_no_areas_still_answers(hass, mock_client, config_ent
 
     assert "area" not in mock_client.ask.call_args.args[1]
     assert [c.service for c in calls] == ["turn_on"]
+
+
+@pytest.mark.parametrize(
+    ("device_class", "state", "expected"),
+    [
+        # The device class is what makes a door open rather than switched on, and
+        # a motion sensor detect rather than report itself as on.
+        ("door", "on", "Front door \u00e8 aperto"),
+        ("door", "off", "Front door \u00e8 chiuso"),
+        ("motion", "on", "Front door \u00e8 rilevato"),
+        # Without one, the domain default is the only word there is.
+        (None, "on", "Front door \u00e8 acceso"),
+    ],
+)
+async def test_the_state_word_follows_the_device_class(
+    hass, house, device_class, state, expected
+):
+    """Home Assistant ships a word per device class, and this reads that layer."""
+    assert await async_setup_component(hass, "binary_sensor", {})
+    attributes = {"friendly_name": "Front door"}
+    if device_class is not None:
+        attributes["device_class"] = device_class
+    hass.states.async_set("binary_sensor.front_door", state, attributes)
+
+    spoken = await _render_state_answer(
+        hass, [hass.states.get("binary_sensor.front_door")], [], "it"
+    )
+
+    assert spoken == expected
+
+
+async def test_an_untranslated_language_still_gets_a_sentence(hass, house, mock_client):
+    """This integration translates 13 languages. The intents package carries 63.
+
+    Japanese is one of the other 50, so the English text was all it could get.
+    """
+    mock_client.ask.return_value = build_response(
+        **answer_set(compound=NoulAnswer(noul=0.97))
+    )
+
+    result = await conversation.async_converse(
+        hass, "一度に2つのことをして", None, Context(), language="ja", agent_id=AGENT
+    )
+
+    assert result.response.speech["plain"]["speech"] == (
+        "すみません、理解できませんでした"
+    )
