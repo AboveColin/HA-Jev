@@ -692,7 +692,8 @@ async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config
         ("http://localhost:8093", False),
         ("http://[::1]:8093", False),
         ("http://gateway.local:8093", True),
-        ("http://192.168.0.208:8093", True),
+        # 192.0.2.0/24 is RFC 5737 TEST-NET-1, so this address is nobody's host.
+        ("http://192.0.2.5:8093", True),
     ],
 )
 async def test_a_plain_http_endpoint_says_the_key_is_in_clear(
