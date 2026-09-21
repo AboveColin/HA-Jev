@@ -148,7 +148,8 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
 
     # Only rooms that hold something the agent may act on.
     #
-    # Measured on ha-dev: the registry held Kitchen, Bedroom and Living Room from
+    # Measured on a development instance: the registry held Kitchen, Bedroom and
+    # Living Room from
     # real devices alongside the three test rooms. Offering all six let "kill the
     # lights in the kitchen" come back as area=Kitchen at 0.98 confidence, which was
     # the right answer to the question asked and named a room holding nothing
