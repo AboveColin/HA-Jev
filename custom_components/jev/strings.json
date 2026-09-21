@@ -8,7 +8,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The key the requests are sent with."
+          "api_key": "The key the requests are sent with. Leave it empty only for an endpoint of your own that needs no key."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The key the requests are sent with."
+          "api_key": "The key the requests are sent with. Leave it empty only for an endpoint of your own that needs no key."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
       "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
-      "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default."
+      "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default.",
+      "key_required": "The TypeSafe API needs a key. An empty key only works with an address of your own that needs none."
     },
     "abort": {
       "already_configured": "This API key is already set up. An entry is identified by its key, so a second address needs its own key.",

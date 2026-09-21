@@ -8,7 +8,7 @@
           "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd."
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd. Laat dit alleen leeg bij een eigen endpoint dat geen sleutel nodig heeft."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd."
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd. Laat dit alleen leeg bij een eigen endpoint dat geen sleutel nodig heeft."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
       "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
-      "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard."
+      "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard.",
+      "key_required": "De TypeSafe-API heeft een sleutel nodig. Een lege sleutel werkt alleen bij een eigen adres dat er geen nodig heeft."
     },
     "abort": {
       "already_configured": "Deze API-sleutel is al ingesteld. Een invoer wordt herkend aan zijn sleutel, dus een tweede adres heeft een eigen sleutel nodig.",

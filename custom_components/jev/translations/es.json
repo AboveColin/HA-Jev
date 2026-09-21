@@ -8,7 +8,7 @@
           "api_key": "Clave API"
         },
         "data_description": {
-          "api_key": "La clave con la que se envían las solicitudes."
+          "api_key": "La clave con la que se envían las solicitudes. Déjala vacía solo para un endpoint propio que no necesite ninguna."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "Clave API"
         },
         "data_description": {
-          "api_key": "La clave con la que se envían las solicitudes."
+          "api_key": "La clave con la que se envían las solicitudes. Déjala vacía solo para un endpoint propio que no necesite ninguna."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe ha rechazado esta clave.",
       "cannot_connect": "Home Assistant no ha podido acceder a la API en esa dirección.",
       "invalid_url": "Esa no es una dirección de API utilizable. Necesita un esquema y un host, y no puede llevar un espacio, una consulta, un fragmento, un usuario ni una contraseña.",
-      "invalid_model": "Ese id de modelo no se aceptó. Revísalo, o deja el campo vacío para usar el predeterminado."
+      "invalid_model": "Ese id de modelo no se aceptó. Revísalo, o deja el campo vacío para usar el predeterminado.",
+      "key_required": "La API de TypeSafe necesita una clave. Una clave vacía solo funciona con una dirección propia que no necesite ninguna."
     },
     "abort": {
       "already_configured": "Esta clave API ya está configurada. Cada entrada se identifica por su clave, así que una segunda dirección necesita su propia clave.",

@@ -8,7 +8,7 @@
           "api_key": "Clé API"
         },
         "data_description": {
-          "api_key": "La clé avec laquelle les requêtes sont envoyées."
+          "api_key": "La clé avec laquelle les requêtes sont envoyées. Ne la laissez vide que pour un point de terminaison à vous qui n'en demande aucune."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "Clé API"
         },
         "data_description": {
-          "api_key": "La clé avec laquelle les requêtes sont envoyées."
+          "api_key": "La clé avec laquelle les requêtes sont envoyées. Ne la laissez vide que pour un point de terminaison à vous qui n'en demande aucune."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe rejette cette clé.",
       "cannot_connect": "Home Assistant n'a pas pu joindre l'API à cette adresse.",
       "invalid_url": "Cette adresse d'API n'est pas utilisable. Elle doit comporter un schéma et un hôte, et elle ne peut pas contenir d'espace, de requête, de fragment, de nom d'utilisateur ni de mot de passe.",
-      "invalid_model": "Cet identifiant de modèle a été refusé. Vérifiez-le, ou videz le champ pour utiliser celui par défaut."
+      "invalid_model": "Cet identifiant de modèle a été refusé. Vérifiez-le, ou videz le champ pour utiliser celui par défaut.",
+      "key_required": "L'API TypeSafe exige une clé. Une clé vide ne fonctionne qu'avec une adresse à vous qui n'en demande aucune."
     },
     "abort": {
       "already_configured": "Cette clé API est déjà configurée. Une entrée est identifiée par sa clé, donc une deuxième adresse a besoin de sa propre clé.",

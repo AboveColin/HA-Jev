@@ -8,7 +8,7 @@
           "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania."
+          "api_key": "Klucz, z którym wysyłane są żądania. Zostaw puste tylko dla własnego punktu końcowego, który nie wymaga klucza."
         },
         "sections": {
           "advanced": {
@@ -38,7 +38,7 @@
           "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania."
+          "api_key": "Klucz, z którym wysyłane są żądania. Zostaw puste tylko dla własnego punktu końcowego, który nie wymaga klucza."
         },
         "sections": {
           "advanced": {
@@ -59,7 +59,8 @@
       "invalid_auth": "TypeSafe odrzucił ten klucz.",
       "cannot_connect": "Home Assistant nie może połączyć się z API pod tym adresem.",
       "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła.",
-      "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego."
+      "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego.",
+      "key_required": "API TypeSafe wymaga klucza. Pusty klucz działa tylko z własnym adresem, który go nie wymaga."
     },
     "abort": {
       "already_configured": "Ten klucz API jest już skonfigurowany. Wpis jest rozpoznawany po kluczu, więc drugi adres potrzebuje własnego klucza.",

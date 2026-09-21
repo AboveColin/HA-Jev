@@ -1,7 +1,8 @@
 # Install
 
 Needs **Home Assistant 2026.9 or newer** and an API key from
-[typesafe.ai](https://typesafe.ai).
+[typesafe.ai](https://typesafe.ai). An endpoint of your own that needs no key can be
+set up without one.
 
 ## Through HACS
 
@@ -35,10 +36,18 @@ to and the model to ask for; leave it closed to use TypeSafe. All three are chec
 against a live request before the entry is created, so a wrong one fails here rather
 than silently later.
 
+The key may be left empty, for an endpoint of your own that asks for none. No
+`Authorization` header is then sent at all. Empty against `https://api.typesafe.ai`
+is refused without spending a request, because that API answers 401 to every
+request without a key.
+
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
-An entry is identified by its API key, so the same key cannot be set up twice at two
-addresses. A second endpoint needs its own key.
+An entry is identified by its address and its key together, hashed. Two entries
+cannot hold the same key at the same address. The same key at two addresses is
+allowed, and is two entries with two daily budgets, so that key can spend twice
+what one budget allows. Two keyless endpoints are two entries as long as the
+addresses differ.
 
 Use **Reconfigure** to replace the key, the address or the model later. That keeps
 your entities and their history.

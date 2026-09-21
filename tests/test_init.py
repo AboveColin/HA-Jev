@@ -1,6 +1,7 @@
 """Contexts, the entities they produce, and the budget that stops them."""
 
 import copy
+import hashlib
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +23,7 @@ from custom_components.jev.const import (
     ISSUE_BUDGET_EXCEEDED,
     STORAGE_VERSION,
 )
+from custom_components.jev.identity import entry_unique_id
 
 from .conftest import build_response
 
@@ -740,3 +742,55 @@ async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
     ) as reach:
         await system_health_info(hass)
     assert reach.call_args.args[1] == "http://gateway.local:8093"
+
+
+async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_client):
+    """An id that hashed the key alone matches nothing the flow computes now.
+
+    Left alone it would still guard its own entry and nothing else, so the same
+    key could be added a second time.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        unique_id=hashlib.sha256(b"a-key").hexdigest()[:16],
+        minor_version=1,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.unique_id == entry_unique_id("http://gateway.local:8093", "a-key")
+    assert entry.minor_version == 2
+
+
+async def test_an_entry_already_migrated_is_left_where_it_is(hass, mock_client):
+    """Recomputing an id that is already current is a write nobody asked for."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "a-key"},
+        unique_id="0123456789abcdef",
+        minor_version=2,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.unique_id == "0123456789abcdef"
+
+
+async def test_an_endpoint_with_no_key_puts_nothing_in_clear(hass, mock_client, caplog):
+    """http warns because the key rides in a header, and there is no header here."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "", CONF_URL: "http://gateway.local:8093"},
+        unique_id="0123456789abcdef",
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert not any("in clear" in record.message for record in caplog.records)
