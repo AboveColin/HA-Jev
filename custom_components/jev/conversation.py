@@ -31,10 +31,12 @@ from homeassistant.components import conversation
 from homeassistant.components.conversation.models import AbstractConversationAgent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
+from homeassistant.exceptions import TemplateError
 from homeassistant.helpers import intent as ha_intent
-from homeassistant.helpers import translation
+from homeassistant.helpers import template, translation
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import language as language_util
 from jevclient import JevAuthError, JevError
 
 from .const import (
@@ -218,7 +220,12 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
             return await self._speak(user_input, "intent_failed")
 
-        _speak_the_answer(intent_response, await self._sentences(user_input))
+        await _speak_the_answer(
+            self.hass,
+            intent_response,
+            user_input.language or self.hass.config.language,
+            await self._sentences(user_input),
+        )
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
         )
@@ -283,13 +290,103 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
 
 
-def _speak_the_answer(response: ha_intent.IntentResponse, say: dict[str, str]) -> None:
-    """Say what a state question found.
+# The answer template for a state question, one per language, read from the intents
+# package Home Assistant already ships. Keyed by the language that was asked for
+# rather than by the variant it matched, so "it" and "it-IT" cost one load each.
+# None means that language has no template and the English sentence below is used.
+_STATE_ANSWER: dict[str, str | None] = {}
+
+
+def _load_state_answer(language: str) -> str | None:
+    """Read the HassGetState answer template for one language, in the executor.
+
+    home-assistant-intents ships one of these per language, written by the people
+    who translate the rest of Assist. Polish inflects the adjective by the last
+    letter of the device name, Russian writes the state word in Russian, and German
+    turns 21.5 into 21,5 Grad. None of that could be got right from a string table
+    of this integration's own, and all of it reaches languages this integration
+    does not translate.
+    """
+    try:
+        from home_assistant_intents import (
+            get_intents,
+            get_languages,
+        )
+    except ImportError:  # pragma: no cover - the conversation integration installs it
+        return None
+    matches = language_util.matches(language, set(get_languages()))
+    if not matches:
+        return None
+    intents = get_intents(matches[0])
+    if not intents:
+        return None
+    answer = intents.get("responses", {}).get("intents", {}).get("HassGetState", {})
+    one = answer.get("one")
+    return one if isinstance(one, str) else None
+
+
+async def _render_state_answer(
+    hass: HomeAssistant,
+    matched: list[State],
+    unmatched: list[State],
+    language: str,
+) -> str | None:
+    """The sentence the default agent would have said, or None if it cannot."""
+    if language not in _STATE_ANSWER:
+        _STATE_ANSWER[language] = await hass.async_add_executor_job(
+            _load_state_answer, language
+        )
+    template_text = _STATE_ANSWER[language]
+    if template_text is None:
+        return None
+    answer = template.Template(template_text, hass)
+    query = {
+        "matched": [template.TemplateState(hass, state) for state in matched],
+        "unmatched": [template.TemplateState(hass, state) for state in unmatched],
+    }
+    parts = []
+    for state in matched:
+        try:
+            spoken = answer.async_render(
+                {
+                    "slots": {"name": state.name},
+                    "state": template.TemplateState(hass, state),
+                    "query": query,
+                },
+                parse_result=False,
+            )
+        except TemplateError as err:
+            _LOGGER.debug("the %s state answer did not render: %s", language, err)
+            return None
+        # The templates are written over several lines and indented. The default
+        # agent collapses that the same way before speaking it.
+        spoken = " ".join(str(spoken).split())
+        if not spoken:
+            continue
+        # Brazilian Portuguese answers "off" and Russian answers "Выключено",
+        # both without the name, because the default agent reaches this template
+        # only after the user named one device. Several answers in a row need the
+        # name back or they say nothing about which device is which.
+        if len(matched) > 1 and state.name.casefold() not in spoken.casefold():
+            spoken = f"{state.name}: {spoken}"
+        parts.append(spoken)
+    return ", ".join(parts) if parts else None
+
+
+async def _speak_the_answer(
+    hass: HomeAssistant,
+    response: ha_intent.IntentResponse,
+    language: str,
+    say: dict[str, str],
+) -> None:
+    """Say what a state question found, in the language the pipeline is speaking.
 
     `HassGetState` fills in the matched states and stops. The spoken sentence is
-    normally written by the default agent's response templates, which only exist for
+    normally written by the default agent's response templates, which run only for
     sentences the default agent itself matched, so routing the intent here leaves a
-    correct answer nobody hears. This writes one.
+    correct answer nobody hears. This renders the same template the default agent
+    would have used. An English sentence is the last resort, for a language the
+    intents package does not carry.
     """
     if response.response_type is not ha_intent.IntentResponseType.QUERY_ANSWER:
         return
@@ -299,10 +396,9 @@ def _speak_the_answer(response: ha_intent.IntentResponse, say: dict[str, str]) -
     if not matched:
         response.async_set_speech(say["query_not_found"])
         return
-    if len(matched) == 1:
-        state = matched[0]
-        response.async_set_speech(f"{state.name} is {state.state}.")
-        return
-    response.async_set_speech(
-        ", ".join(f"{state.name} is {state.state}" for state in matched) + "."
+    spoken = await _render_state_answer(
+        hass, list(matched), list(response.unmatched_states), language
     )
+    if spoken is None:
+        spoken = ", ".join(f"{state.name} is {state.state}" for state in matched) + "."
+    response.async_set_speech(spoken)

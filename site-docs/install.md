@@ -90,6 +90,15 @@ blank. The user interface follows your profile language. The conversation agent
 follows the language of the Assist pipeline that called it, which is not always the
 same one, and it accepts every language Assist offers.
 
+The answer to a state question is not on that list, and does not need to be. It
+comes from the template Home Assistant's own Assist ships for that language, so
+"Luce Tavolo è off" is worded the way stock Assist words it. Polish inflects
+the adjective by the last letter of the device name, Russian writes the state word
+in Russian, and German says "21,5 Grad" rather than "21.5 °C". Measured
+against `home-assistant-intents` 2026.8.28: it ships 63 languages and 47 carry
+that template. The other 16, Japanese and Turkish among them, get an English
+sentence.
+
 Your own questions are not translated, because you wrote them. A choice comes back
 as one of the options you named, in whatever language you named them.
 
