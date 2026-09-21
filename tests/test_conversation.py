@@ -587,7 +587,12 @@ async def test_several_states_in_one_answer_keep_their_names(
     ],
 )
 async def test_a_number_is_answered_with_its_unit(hass, house, language, expected):
-    """The old sentence said "21.5" and dropped the degrees."""
+    """The template reads state_with_unit, where the old sentence read state.
+
+    No domain in snapshot.CONTROLLABLE carries a unit today, so the voice path
+    cannot reach this yet. It pins the renderer so that adding one does not have
+    to rediscover that the degrees were being dropped.
+    """
     hass.states.async_set(
         "sensor.hall",
         "21.5",
