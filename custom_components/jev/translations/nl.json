@@ -5,12 +5,23 @@
         "title": "Verbinden met TypeSafe",
         "description": "Plak een API-sleutel uit je TypeSafe-account. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
         "data": {
-          "api_key": "API-sleutel",
-          "url": "API-adres"
+          "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd.",
-          "url": "Laat dit staan, tenzij je zelf iets draait dat dezelfde API spreekt, zoals een proxy die de sleutel bewaart of antwoorden cachet. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn."
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Geavanceerd",
+            "data": {
+              "url": "API-adres",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Laat dit staan, tenzij je zelf iets draait dat dezelfde API spreekt, zoals een proxy die de sleutel bewaart of antwoorden cachet. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
+              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Vervang je API-sleutel of adres",
         "description": "Plak een andere TypeSafe API-sleutel, en wijzig het adres als de API elders dan bij TypeSafe wordt bereikt. Je vragen en entiteiten blijven staan.",
         "data": {
-          "api_key": "API-sleutel",
-          "url": "API-adres"
+          "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd.",
-          "url": "Maak dit veld leeg om terug te gaan naar de TypeSafe-API. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn."
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Geavanceerd",
+            "data": {
+              "url": "API-adres",
+              "model": "Model"
+            },
+            "data_description": {
+              "url": "Maak dit veld leeg om terug te gaan naar de TypeSafe-API. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
+              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
-      "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten."
+      "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
+      "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard."
     },
     "abort": {
       "already_configured": "Deze API-sleutel is al ingesteld. Een invoer wordt herkend aan zijn sleutel, dus een tweede adres heeft een eigen sleutel nodig.",

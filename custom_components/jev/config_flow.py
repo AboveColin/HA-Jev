@@ -22,23 +22,28 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from jevclient import (
     DEFAULT_BASE_URL,
+    DEFAULT_MODEL,
     USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
     JevError,
+    JevValidationError,
     Noul,
 )
 from yarl import URL
 
 from .const import (
+    CONF_ADVANCED,
     CONF_ALLOW_WHOLE_HOME,
     CONF_DAILY_TOKEN_BUDGET,
     CONF_FALLBACK_AGENT,
     CONF_MIN_CONFIDENCE,
+    CONF_MODEL,
     CONF_PRICE_PER_MILLION,
     DEFAULT_MIN_CONFIDENCE,
     DOMAIN,
@@ -46,12 +51,21 @@ from .const import (
 )
 from .subentry import JevQuestionSubentryFlow
 
-STEP_USER_SCHEMA = vol.Schema(
+# Collapsed, so the common setup is one field. Both of these only matter to
+# someone running their own endpoint, and either one cleared is the default.
+ADVANCED_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_API_KEY): str,
         vol.Optional(CONF_URL, default=DEFAULT_BASE_URL): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
         ),
+        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
+    }
+)
+
+STEP_USER_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_API_KEY): str,
+        vol.Required(CONF_ADVANCED): section(ADVANCED_SCHEMA, {"collapsed": True}),
     }
 )
 
@@ -102,22 +116,78 @@ def _normalised_url(raw: str | None) -> str:
     return str(url).rstrip("/")
 
 
+def _normalised_model(raw: str | None) -> str:
+    """The model to ask for, or ValueError. Empty means the published default.
+
+    The id is opaque to us, so only a paste error is checked here. Whether the
+    endpoint knows it is settled by the request below.
+    """
+    if not (text := (raw or "").strip()):
+        return DEFAULT_MODEL
+    if any(character.isspace() for character in text):
+        raise ValueError("the model id cannot contain a space")
+    return text
+
+
+def _advanced(user_input: dict[str, Any]) -> tuple[str, str, dict[str, str]]:
+    """The address and the model out of the section, with what is wrong with them.
+
+    Both are checked, so two typos are reported once rather than one per submit.
+    A field that failed falls back to the default and is named in the errors.
+    """
+    values = user_input.get(CONF_ADVANCED) or {}
+    errors: dict[str, str] = {}
+    try:
+        base_url = _normalised_url(values.get(CONF_URL))
+    except ValueError:
+        base_url, errors[CONF_URL] = DEFAULT_BASE_URL, "invalid_url"
+    try:
+        model = _normalised_model(values.get(CONF_MODEL))
+    except ValueError:
+        model, errors[CONF_MODEL] = DEFAULT_MODEL, "invalid_model"
+    return base_url, model, errors
+
+
+def _stored(entry: ConfigEntry) -> tuple[str, str]:
+    """What an entry already talks to.
+
+    Entries made before these were configurable carry neither, and mean the
+    published API and its default model, which is what they have always used.
+    """
+    return (
+        entry.data.get(CONF_URL, DEFAULT_BASE_URL),
+        entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+    )
+
+
+def _suggest(base_url: str, model: str) -> dict[str, Any]:
+    """Section values shaped the way add_suggested_values_to_schema reads them."""
+    return {CONF_ADVANCED: {CONF_URL: base_url, CONF_MODEL: model}}
+
+
 class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     """Take an API key and the address to send it to, and prove the pair works."""
 
     VERSION = 1
 
-    async def _async_validate(self, api_key: str, base_url: str) -> str | None:
-        """Return an error key, or None when that endpoint answers with that key."""
+    async def _async_validate(
+        self, api_key: str, base_url: str, model: str
+    ) -> str | None:
+        """Return an error key, or None when that endpoint answers this request."""
         client = JevClient(
             api_key,
             session=async_get_clientsession(self.hass),
             base_url=base_url,
+            model=model,
         )
         try:
             await client.ask("ok", {"probe": Noul("Is this text in English?")})
         except JevAuthError:
             return "invalid_auth"
+        except JevValidationError:
+            # The probe's question is fixed, so the model id is the only part of
+            # this request a typo can reach.
+            return "invalid_model"
         except JevError:
             return "cannot_connect"
         return None
@@ -150,21 +220,22 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_key = user_input[CONF_API_KEY]
-            # The shape of the address is checked before the request that would use
-            # it, so a typo costs nothing and names its own field.
-            try:
-                base_url = _normalised_url(user_input.get(CONF_URL))
-            except ValueError:
-                errors[CONF_URL] = "invalid_url"
-            else:
+            # Both are checked before the request that would use them, so a typo
+            # costs nothing and names its own field.
+            base_url, model, errors = _advanced(user_input)
+            if not errors:
                 await self.async_set_unique_id(_key_id(api_key))
                 self._abort_if_unique_id_configured()
-                if error := await self._async_validate(api_key, base_url):
+                if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
                 else:
                     return self.async_create_entry(
                         title="Jev",
-                        data={CONF_API_KEY: api_key, CONF_URL: base_url},
+                        data={
+                            CONF_API_KEY: api_key,
+                            CONF_URL: base_url,
+                            CONF_MODEL: model,
+                        },
                     )
         return self.async_show_form(
             step_id="user",
@@ -173,9 +244,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 # The address is handed back after a failure so it does not have to
                 # be retyped. The key is not: it is a secret, and the form is where
                 # it is being corrected.
-                {CONF_URL: user_input.get(CONF_URL) or DEFAULT_BASE_URL}
-                if user_input
-                else {},
+                # What was typed, not what it normalised to, so a bad value comes
+                # back to be corrected rather than silently replaced.
+                {CONF_ADVANCED: user_input.get(CONF_ADVANCED, {})} if user_input else {},
             ),
             errors=errors,
         )
@@ -189,8 +260,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             entry = self._get_reauth_entry()
-            base_url = entry.data.get(CONF_URL, DEFAULT_BASE_URL)
-            if error := await self._async_validate(user_input[CONF_API_KEY], base_url):
+            if error := await self._async_validate(
+                user_input[CONF_API_KEY], *_stored(entry)
+            ):
                 errors["base"] = error
             else:
                 return await self._async_swap_key(entry, user_input)
@@ -205,26 +277,28 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
-            try:
-                base_url = _normalised_url(user_input.get(CONF_URL))
-            except ValueError:
-                errors[CONF_URL] = "invalid_url"
-            else:
+            base_url, model, errors = _advanced(user_input)
+            if not errors:
                 api_key = user_input[CONF_API_KEY]
-                if error := await self._async_validate(api_key, base_url):
+                if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
                 else:
                     return await self._async_swap_key(
-                        entry, {CONF_API_KEY: api_key, CONF_URL: base_url}
+                        entry,
+                        {
+                            CONF_API_KEY: api_key,
+                            CONF_URL: base_url,
+                            CONF_MODEL: model,
+                        },
                     )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
                 STEP_USER_SCHEMA,
-                # The key is never shown back, the endpoint always is: it is not a
-                # secret, and retyping it to change only the key is a way to get it
-                # wrong.
-                {CONF_URL: entry.data.get(CONF_URL, DEFAULT_BASE_URL)},
+                # The key is never shown back, the section always is: neither field
+                # is a secret, and retyping them to change only the key is a way to
+                # get them wrong.
+                _suggest(*_stored(entry)),
             ),
             errors=errors,
         )

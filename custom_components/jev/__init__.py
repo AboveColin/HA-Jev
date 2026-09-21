@@ -31,6 +31,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 from jevclient import (
     DEFAULT_BASE_URL,
+    DEFAULT_MODEL,
     USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
@@ -47,6 +48,7 @@ from .const import (
     CONF_FALSE,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
+    CONF_MODEL,
     CONF_PRICE_PER_MILLION,
     CONF_QUESTIONS,
     CONF_STATE_TEMPLATE,
@@ -309,14 +311,15 @@ def _warn_if_key_travels_in_clear(base_url: str) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     """Set up one API key, its usage account and a coordinator per context."""
-    # Entries made before this was configurable carry no address and mean the
-    # published API, which is what they have always talked to.
+    # Entries made before these were configurable carry neither, and mean the
+    # published API and its default model, which is what they have always used.
     base_url = entry.data.get(CONF_URL, DEFAULT_BASE_URL)
     _warn_if_key_travels_in_clear(base_url)
     client = JevClient(
         entry.data[CONF_API_KEY],
         session=async_get_clientsession(hass),
         base_url=base_url,
+        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
     )
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"

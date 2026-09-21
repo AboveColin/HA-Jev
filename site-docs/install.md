@@ -30,17 +30,18 @@ Copy `custom_components/jev` from the
 
 **Settings**, **Devices and services**, **Add integration**, then **Jev (TypeSafe)**.
 
-It asks for an API key, and for the address to send it to. Both are checked against
-a live request before the entry is created, so a wrong one fails here rather than
-silently later.
+It asks for an API key. **Advanced** is collapsed and holds the address to send it
+to and the model to ask for; leave it closed to use TypeSafe. All three are checked
+against a live request before the entry is created, so a wrong one fails here rather
+than silently later.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
 An entry is identified by its API key, so the same key cannot be set up twice at two
 addresses. A second endpoint needs its own key.
 
-Use **Reconfigure** to replace the key or the address later. That keeps your entities
-and their history.
+Use **Reconfigure** to replace the key, the address or the model later. That keeps
+your entities and their history.
 
 ## A different API address
 
@@ -58,6 +59,14 @@ into a diagnostics file, which redacts secrets by name and would not recognise
 those. Clearing the field goes back to
 TypeSafe.
 
+## A different model
+
+The model defaults to `jev-latest`, which is what TypeSafe serves. Change it when
+your endpoint publishes its own names. The id is sent in the request body, so what
+counts is what that endpoint accepts. Only a space is refused locally. An id the
+endpoint rejects comes back as "That model id was not accepted", with the form still
+open. Clearing the field goes back to `jev-latest`.
+
 !!! warning "An http address sends the key in clear"
     The key travels as a bearer header. Over `http` anything that can see that
     traffic can read it. Home Assistant writes one warning per setup saying so,
@@ -69,6 +78,7 @@ TypeSafe.
 | Option | Default | What it does |
 |---|---|---|
 | API address | `https://api.typesafe.ai` | Where requests go. In the config flow, not the options |
+| Model | `jev-latest` | Which model the endpoint is asked for. In the config flow, not the options |
 | Daily input token budget | 0 | Stops evaluating for the day once spent. 0 means no limit |
 | Price per million input tokens | 0.042 | Only affects the estimated cost sensor |
 | Fall back to this agent | none | Where the conversation agent sends what it cannot route |

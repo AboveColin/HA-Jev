@@ -5,12 +5,23 @@
         "title": "Se connecter à TypeSafe",
         "description": "Collez une clé API de votre compte TypeSafe. Home Assistant pose une courte question pour vérifier que la clé fonctionne.",
         "data": {
-          "api_key": "Clé API",
-          "url": "Adresse de l'API"
+          "api_key": "Clé API"
         },
         "data_description": {
-          "api_key": "La clé avec laquelle les requêtes sont envoyées.",
-          "url": "Ne touchez pas à ce champ, sauf si vous hébergez vous-même quelque chose qui parle la même API, par exemple un proxy qui conserve la clé ou met les réponses en cache. La clé est envoyée dans un en-tête bearer, donc avec une adresse http elle circule en clair sur le réseau."
+          "api_key": "La clé avec laquelle les requêtes sont envoyées."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avancé",
+            "data": {
+              "url": "Adresse de l'API",
+              "model": "Modèle"
+            },
+            "data_description": {
+              "url": "Ne touchez pas à ce champ, sauf si vous hébergez vous-même quelque chose qui parle la même API, par exemple un proxy qui conserve la clé ou met les réponses en cache. La clé est envoyée dans un en-tête bearer, donc avec une adresse http elle circule en clair sur le réseau.",
+              "model": "L'identifiant de modèle envoyé à chaque requête. Videz le champ pour utiliser celui par défaut."
+            }
+          }
         }
       },
       "reauth_confirm": {
@@ -24,19 +35,31 @@
         "title": "Remplacez votre clé API ou votre adresse",
         "description": "Collez une autre clé API TypeSafe, et modifiez l'adresse si l'API est jointe ailleurs que chez TypeSafe. Vos questions et vos entités sont conservées.",
         "data": {
-          "api_key": "Clé API",
-          "url": "Adresse de l'API"
+          "api_key": "Clé API"
         },
         "data_description": {
-          "api_key": "La clé avec laquelle les requêtes sont envoyées.",
-          "url": "Videz ce champ pour revenir à l'API TypeSafe. La clé est envoyée dans un en-tête bearer, donc avec une adresse http elle circule en clair sur le réseau."
+          "api_key": "La clé avec laquelle les requêtes sont envoyées."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avancé",
+            "data": {
+              "url": "Adresse de l'API",
+              "model": "Modèle"
+            },
+            "data_description": {
+              "url": "Videz ce champ pour revenir à l'API TypeSafe. La clé est envoyée dans un en-tête bearer, donc avec une adresse http elle circule en clair sur le réseau.",
+              "model": "L'identifiant de modèle envoyé à chaque requête. Videz le champ pour utiliser celui par défaut."
+            }
+          }
         }
       }
     },
     "error": {
       "invalid_auth": "TypeSafe rejette cette clé.",
       "cannot_connect": "Home Assistant n'a pas pu joindre l'API à cette adresse.",
-      "invalid_url": "Cette adresse d'API n'est pas utilisable. Elle doit comporter un schéma et un hôte, et elle ne peut pas contenir d'espace, de requête, de fragment, de nom d'utilisateur ni de mot de passe."
+      "invalid_url": "Cette adresse d'API n'est pas utilisable. Elle doit comporter un schéma et un hôte, et elle ne peut pas contenir d'espace, de requête, de fragment, de nom d'utilisateur ni de mot de passe.",
+      "invalid_model": "Cet identifiant de modèle a été refusé. Vérifiez-le, ou videz le champ pour utiliser celui par défaut."
     },
     "abort": {
       "already_configured": "Cette clé API est déjà configurée. Une entrée est identifiée par sa clé, donc une deuxième adresse a besoin de sa propre clé.",
