@@ -22,6 +22,7 @@ from custom_components.jev.const import (
     CONF_MIN_CONFIDENCE,
     CONVERSATION_TRACE_LENGTH,
 )
+from custom_components.jev.conversation import _render_state_answer
 from custom_components.jev.interpret import find_brightness
 
 from .conftest import build_response
@@ -78,9 +79,9 @@ async def house(hass, mock_client, config_entry):
     return config_entry
 
 
-async def converse(hass, text, agent_id=AGENT):
+async def converse(hass, text, agent_id=AGENT, language="en"):
     return await conversation.async_converse(
-        hass, text, None, Context(), language="en", agent_id=agent_id
+        hass, text, None, Context(), language=language, agent_id=agent_id
     )
 
 
@@ -508,7 +509,119 @@ async def test_a_state_question_answers_without_changing_anything(
 
     assert calls == []
     # HassGetState finds the state and stops. The spoken sentence normally comes
-    # from the default agent's templates, which this path never touches.
+    # from the default agent's templates, which this path never touches, so the
+    # agent renders the same template itself.
+    assert result.response.speech["plain"]["speech"] == "Kitchen light is off"
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "Kitchen light is off"),
+        ("nl", "Kitchen light is off"),
+        ("it", "Kitchen light \u00e8 off"),
+        ("de", "Kitchen light ist off"),
+        ("fr", "Kitchen light est off"),
+        ("sv", "Kitchen light \u00e4r off"),
+        ("da", "Kitchen light er off"),
+        ("cs", "Kitchen light je off"),
+        # Polish inflects the adjective by the last letter of the device name, and
+        # Russian writes the state word in Russian. Both come from the intents
+        # package, and neither is something a string table here could reach.
+        ("pl", "Kitchen light jest wy\u0142\u0105czony"),
+        ("ru", "\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043e"),
+        ("es", "El dispositivo Kitchen light est\u00e1 off"),
+        # Brazilian Portuguese answers with the state alone, because the user
+        # named the device in the question.
+        ("pt-BR", "off"),
+        # Chinese writes no space around the copula.
+        ("zh-Hans", "Kitchen light\u662foff"),
+    ],
+)
+async def test_a_state_question_answers_in_the_pipeline_language(
+    hass, house, mock_client, language, expected
+):
+    """The reply follows the language Assist is speaking, not this file's English.
+
+    Reported on issue #9: Italian got "Luce Tavolo is off" from a pipeline that was
+    answering in Italian everywhere else.
+    """
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="get_state", probabilities={}, confidence=0.91)
+        )
+    )
+
+    result = await converse(hass, "is the kitchen light on", language=language)
+    await hass.async_block_till_done()
+
+    assert result.response.speech["plain"]["speech"] == expected
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "Kitchen light is off, Office light is on"),
+        # Brazilian Portuguese drops the name, so listing two needs it back.
+        ("pt-BR", "Kitchen light: off, Office light: on"),
+    ],
+)
+async def test_several_states_in_one_answer_keep_their_names(
+    hass, house, language, expected
+):
+    hass.states.async_set("light.kitchen", "off", {"friendly_name": "Kitchen light"})
+    hass.states.async_set("light.office", "on", {"friendly_name": "Office light"})
+    matched = [hass.states.get("light.kitchen"), hass.states.get("light.office")]
+
+    spoken = await _render_state_answer(hass, matched, [], language)
+
+    assert spoken == expected
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "Hall temperature is 21.5 \u00b0C"),
+        # The German template writes the decimal comma and says the unit out loud.
+        ("de", "Hall temperature ist 21,5 Grad"),
+    ],
+)
+async def test_a_number_is_answered_with_its_unit(hass, house, language, expected):
+    """The template reads state_with_unit, where the old sentence read state.
+
+    No domain in snapshot.CONTROLLABLE carries a unit today, so the voice path
+    cannot reach this yet. It pins the renderer so that adding one does not have
+    to rediscover that the degrees were being dropped.
+    """
+    hass.states.async_set(
+        "sensor.hall",
+        "21.5",
+        {"friendly_name": "Hall temperature", "unit_of_measurement": "\u00b0C"},
+    )
+
+    spoken = await _render_state_answer(
+        hass, [hass.states.get("sensor.hall")], [], language
+    )
+
+    assert spoken == expected
+
+
+async def test_a_state_question_in_a_language_with_no_template_still_answers(
+    hass, house, mock_client
+):
+    """An English sentence beats silence when the intents package has no entry.
+
+    Klingon is not one of the 90-odd languages home-assistant-intents ships.
+    """
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="get_state", probabilities={}, confidence=0.91)
+        )
+    )
+
+    result = await converse(hass, "is the kitchen light on", language="tlh")
+    await hass.async_block_till_done()
+
     assert result.response.speech["plain"]["speech"] == "Kitchen light is off."
 
 
