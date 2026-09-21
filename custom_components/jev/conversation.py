@@ -23,16 +23,19 @@ it did not understand.
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
+import re
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Literal
 
 from homeassistant.components import conversation
 from homeassistant.components.conversation.models import AbstractConversationAgent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MATCH_ALL
+from homeassistant.const import ATTR_DEVICE_CLASS, MATCH_ALL
 from homeassistant.core import HomeAssistant, State
 from homeassistant.exceptions import TemplateError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers import template, translation
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -224,7 +227,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             self.hass,
             intent_response,
             user_input.language or self.hass.config.language,
-            await self._sentences(user_input),
+            await self._lines(user_input.language or self.hass.config.language),
         )
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
@@ -253,18 +256,36 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
         return result
 
-    async def _sentences(
-        self, user_input: conversation.ConversationInput
-    ) -> dict[str, str]:
-        """This agent's own lines, in the language the pipeline is speaking."""
-        language = user_input.language or self.hass.config.language
-        strings = await translation.async_get_translations(
+    async def _lines(self, language: str) -> dict[str, str]:
+        """This agent's own lines, in the language the pipeline is speaking.
+
+        The intent layer localises its own replies, so anything this agent says
+        itself has to be localised here or a Dutch pipeline answers in English.
+        The English text is the last resort, so a missing key is still a sentence.
+
+        This integration translates 13 languages. Home Assistant words two of these
+        lines in all 63 that home-assistant-intents carries, so a pipeline speaking
+        one of the other 50 hears a sentence rather than English. Our own wording
+        wins wherever we have it.
+        """
+        ours = await translation.async_get_translations(
             self.hass, language, "common", [DOMAIN]
         )
-        return {
-            key: strings.get(f"component.{DOMAIN}.common.{key}", fallback)
-            for key, fallback in _FALLBACK.items()
-        }
+        # The cache loads English underneath every language, so a language this
+        # integration has not translated comes back as its English text rather than
+        # missing. Two identical dictionaries is what tells those apart.
+        shipped = None
+        if not language_util.matches(language, {"en"}) and ours == (
+            await translation.async_get_translations(self.hass, "en", "common", [DOMAIN])
+        ):
+            shipped = await _shipped(self.hass, language)
+        lines = {}
+        for key, fallback in _FALLBACK.items():
+            text = None
+            if shipped is not None and (name := _SHIPPED_SENTENCE.get(key)):
+                text = shipped.errors.get(name)
+            lines[key] = text or ours.get(f"component.{DOMAIN}.common.{key}", fallback)
+        return lines
 
     async def _speak(
         self,
@@ -272,17 +293,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         key: str,
         **placeholders: str,
     ) -> conversation.ConversationResult:
-        """Say one of our own lines, in the language the pipeline is speaking.
-
-        The intent layer localises its own replies, so anything this agent says
-        itself has to be localised here or a Dutch pipeline answers in English.
-        The English text is the fallback, so a missing key is still a sentence.
-        """
+        """Say one of our own lines, with its placeholders filled in."""
         language = user_input.language or self.hass.config.language
-        strings = await translation.async_get_translations(
-            self.hass, language, "common", [DOMAIN]
-        )
-        text = strings.get(f"component.{DOMAIN}.common.{key}", _FALLBACK[key])
+        text = (await self._lines(language))[key]
         response = ha_intent.IntentResponse(language=user_input.language)
         response.async_set_speech(text.format(**placeholders))
         return conversation.ConversationResult(
@@ -290,22 +303,42 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         )
 
 
-# The answer template for a state question, one per language, read from the intents
-# package Home Assistant already ships. Keyed by the language that was asked for
-# rather than by the variant it matched, so "it" and "it-IT" cost one load each.
-# None means that language has no template and the English sentence below is used.
-_STATE_ANSWER: dict[str, str | None] = {}
+# A template that compares the state against an English word writes the state word
+# itself, in its own language. Hand it a translated one and every branch falls
+# through. Measured against home-assistant-intents 2026.8.28: 3 of the 47 templates
+# do this, Polish, Russian and Thai.
+_COMPARES_STATE = re.compile(r"""==\s*['"](?:on|off|open|closed|locked|unlocked)['"]""")
+
+# Home Assistant words these two in all 63 languages the intents package carries,
+# against the 13 this integration translates. Saying what stock Assist says is the
+# same choice the state answer makes.
+_SHIPPED_SENTENCE = {"not_understood": "no_intent", "intent_failed": "handle_error"}
 
 
-def _load_state_answer(language: str) -> str | None:
-    """Read the HassGetState answer template for one language, in the executor.
+@dataclass(frozen=True, slots=True)
+class _Shipped:
+    """One language's share of home-assistant-intents."""
 
-    home-assistant-intents ships one of these per language, written by the people
-    who translate the rest of Assist. Polish inflects the adjective by the last
-    letter of the device name, Russian writes the state word in Russian, and German
-    turns 21.5 into 21,5 Grad. None of that could be got right from a string table
-    of this integration's own, and all of it reaches languages this integration
-    does not translate.
+    state_answer: str | None
+    writes_the_state_word: bool
+    errors: Mapping[str, str]
+
+
+# Read once per language, keyed by the language that was asked for rather than the
+# variant it matched, so "it" and "it-IT" cost one load each. None means the
+# package carries nothing for it and this agent falls back to English.
+_SHIPPED: dict[str, _Shipped | None] = {}
+
+
+def _load_shipped(language: str) -> _Shipped | None:
+    """Read one language out of home-assistant-intents, in the executor.
+
+    The package ships the answer template for a state question and the error
+    sentences, both written by the people who translate the rest of Assist. Polish
+    inflects the adjective by the last letter of the device name, Russian writes the
+    state word in Russian, and German turns 21.5 into 21,5 Grad. None of that could
+    be got right from a string table of this integration's own, and all of it reaches
+    languages this integration does not translate.
     """
     try:
         from home_assistant_intents import (
@@ -320,9 +353,87 @@ def _load_state_answer(language: str) -> str | None:
     intents = get_intents(matches[0])
     if not intents:
         return None
-    answer = intents.get("responses", {}).get("intents", {}).get("HassGetState", {})
-    one = answer.get("one")
-    return one if isinstance(one, str) else None
+    responses = intents.get("responses", {})
+    answer = responses.get("intents", {}).get("HassGetState", {}).get("one")
+    if not isinstance(answer, str):
+        answer = None
+    return _Shipped(
+        state_answer=answer,
+        writes_the_state_word=bool(answer and _COMPARES_STATE.search(answer)),
+        errors={
+            key: text
+            for key, text in responses.get("errors", {}).items()
+            if isinstance(text, str) and text.strip()
+        },
+    )
+
+
+async def _shipped(hass: HomeAssistant, language: str) -> _Shipped | None:
+    """What home-assistant-intents carries for a language, loaded once."""
+    if language not in _SHIPPED:
+        _SHIPPED[language] = await hass.async_add_executor_job(_load_shipped, language)
+    return _SHIPPED[language]
+
+
+async def _state_word(hass: HomeAssistant, state: State, language: str) -> str | None:
+    """Home Assistant's own word for this state, or None when it has none.
+
+    The three keys `async_translate_state` reads, in its order: the entity's own
+    translation key, then the device class, then the domain's default. That helper
+    cannot be called here, because it reads `hass.config.language`, which is the
+    language of the user interface and not the one this pipeline speaks.
+
+    The device class layer is what makes a door answer "aperto" rather than
+    "acceso", and a motion sensor "rilevato" rather than "on".
+
+    Lower case, because the shipped words are interface labels and are capitalised
+    for a badge. The finished sentence gets its first letter back below.
+    """
+    domain = state.domain
+    entry = er.async_get(hass).async_get(state.entity_id)
+    if entry is not None and entry.translation_key is not None:
+        own = await translation.async_get_translations(
+            hass, language, "entity", {entry.platform}
+        )
+        key = (
+            f"component.{entry.platform}.entity.{domain}"
+            f".{entry.translation_key}.state.{state.state}"
+        )
+        if word := own.get(key):
+            return word.lower()
+    words = await translation.async_get_translations(
+        hass, language, "entity_component", {domain}
+    )
+    if (device_class := state.attributes.get(ATTR_DEVICE_CLASS)) is not None:
+        key = f"component.{domain}.entity_component.{device_class}.state.{state.state}"
+        if word := words.get(key):
+            return word.lower()
+    word = words.get(f"component.{domain}.entity_component._.state.{state.state}")
+    return word.lower() if word else None
+
+
+class _SpokenState(template.TemplateState):
+    """A state whose `state_with_unit` reads in the language being spoken.
+
+    The answer templates reach the state only through this property, so one
+    substitution here turns "Luce Tavolo è off" into "Luce Tavolo è spento" without
+    touching the sentence. A numeric state has no translation, so a sensor keeps
+    its rounded value and its unit.
+    """
+
+    __slots__ = ("_word",)
+
+    def __init__(self, hass: HomeAssistant, state: State, word: str | None) -> None:
+        """Carry the translated word, or None to leave the state as it is."""
+        super().__init__(hass, state)
+        self._word = word
+
+    @property
+    def state_with_unit(self) -> str:
+        """The state in the spoken language, or Home Assistant's own formatting."""
+        if self._word is None:
+            return super().state_with_unit
+        return self._word
 
 
 async def _render_state_answer(
@@ -332,25 +443,29 @@ async def _render_state_answer(
     language: str,
 ) -> str | None:
     """The sentence the default agent would have said, or None if it cannot."""
-    if language not in _STATE_ANSWER:
-        _STATE_ANSWER[language] = await hass.async_add_executor_job(
-            _load_state_answer, language
-        )
-    template_text = _STATE_ANSWER[language]
-    if template_text is None:
+    shipped = await _shipped(hass, language)
+    if shipped is None or shipped.state_answer is None:
         return None
-    answer = template.Template(template_text, hass)
+    words: dict[str, str | None] = {}
+    if not shipped.writes_the_state_word:
+        for state in (*matched, *unmatched):
+            words[state.entity_id] = await _state_word(hass, state, language)
+
+    def spoken(state: State) -> _SpokenState:
+        return _SpokenState(hass, state, words.get(state.entity_id))
+
+    answer = template.Template(shipped.state_answer, hass)
     query = {
-        "matched": [template.TemplateState(hass, state) for state in matched],
-        "unmatched": [template.TemplateState(hass, state) for state in unmatched],
+        "matched": [spoken(state) for state in matched],
+        "unmatched": [spoken(state) for state in unmatched],
     }
     parts = []
     for state in matched:
         try:
-            spoken = answer.async_render(
+            rendered = answer.async_render(
                 {
                     "slots": {"name": state.name},
-                    "state": template.TemplateState(hass, state),
+                    "state": spoken(state),
                     "query": query,
                 },
                 parse_result=False,
@@ -360,16 +475,20 @@ async def _render_state_answer(
             return None
         # The templates are written over several lines and indented. The default
         # agent collapses that the same way before speaking it.
-        spoken = " ".join(str(spoken).split())
-        if not spoken:
+        sentence = " ".join(str(rendered).split())
+        if not sentence:
             continue
-        # Brazilian Portuguese answers "off" and Russian answers "Выключено",
-        # both without the name, because the default agent reaches this template
-        # only after the user named one device. Several answers in a row need the
-        # name back or they say nothing about which device is which.
-        if len(matched) > 1 and state.name.casefold() not in spoken.casefold():
-            spoken = f"{state.name}: {spoken}"
-        parts.append(spoken)
+        # Brazilian Portuguese answers with the state alone and Russian answers
+        # "Выключено", both without the name, because the default agent reaches this
+        # template only after the user named one device. Several answers in a row
+        # need the name back or they say nothing about which device is which.
+        if len(matched) > 1 and state.name.casefold() not in sentence.casefold():
+            sentence = f"{state.name}: {sentence}"
+        # Every template capitalises the device name, so a sentence that starts with
+        # the state word instead, as the Brazilian Portuguese one does, would start
+        # in lower case. Only the first character moves: `str.capitalize` would lower
+        # the rest of the sentence.
+        parts.append(sentence[0].upper() + sentence[1:])
     return ", ".join(parts) if parts else None
 
 
