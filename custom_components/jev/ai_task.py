@@ -32,6 +32,7 @@ from jevclient import (
     ScoreAnswer,
 )
 
+from .const import DOMAIN
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
 from .payload import payload_bytes
@@ -75,9 +76,9 @@ class JevAITaskEntity(ai_task.AITaskEntity):
     ) -> ai_task.GenDataTaskResult:
         if task.structure is None:
             raise ServiceValidationError(
-                f"task {task.name!r} asks for free text, and Jev answers typed "
-                f"questions only. Give the action a structure whose fields are "
-                f"booleans, selects or numbers."
+                translation_domain=DOMAIN,
+                translation_key="task_needs_structure",
+                translation_placeholders={"task": task.name},
             )
         questions = questions_from_structure(task.structure)
         usage = self._runtime.usage
@@ -86,15 +87,24 @@ class JevAITaskEntity(ai_task.AITaskEntity):
         estimate = usage.estimate_tokens(request_bytes)
         if usage.would_exceed_with(estimate):
             raise HomeAssistantError(
-                f"task {task.name!r} costs about {estimate} input tokens and "
-                f"{usage.remaining()} of the {usage.budget} daily budget are left. "
-                f"Raise or clear the budget in the integration options to continue."
+                translation_domain=DOMAIN,
+                translation_key="task_over_budget",
+                translation_placeholders={
+                    "task": task.name,
+                    "estimate": str(estimate),
+                    "remaining": str(usage.remaining()),
+                    "budget": str(usage.budget),
+                },
             )
 
         try:
             response = await self._runtime.client.ask(task.instructions, questions)
         except JevError as err:
-            raise HomeAssistantError(f"TypeSafe did not answer: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="ask_failed",
+                translation_placeholders={"reason": str(err)},
+            ) from err
 
         usage.record(response.usage.input_tokens, request_bytes)
         self._runtime.model_version = response.model or self._runtime.model_version

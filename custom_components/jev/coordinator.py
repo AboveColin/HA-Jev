@@ -313,7 +313,9 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             )
         except TemplateError as err:
             raise UpdateFailed(
-                f"the state template for context {context.name!r} failed: {err}"
+                translation_domain=DOMAIN,
+                translation_key="context_template_failed",
+                translation_placeholders={"context": context.name, "reason": str(err)},
             ) from err
         try:
             state_text = async_build_state(
@@ -322,7 +324,11 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         except ServiceValidationError as err:
             # A picked device or area that has since been removed. Saying so beats
             # quietly asking about whatever is left.
-            raise UpdateFailed(f"context {context.name!r}: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="context_targets_failed",
+                translation_placeholders={"context": context.name, "reason": str(err)},
+            ) from err
 
         questions = {q.key: q.question for q in self.context_config.questions}
         request_bytes = payload_bytes(state_text, questions, self.runtime.model)
@@ -335,20 +341,36 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             # Refusing before the request is the point: a call that would not fit
             # used to be sent, counted, and only then stop the one after it.
             raise UpdateFailed(
-                f"evaluating context {context.name!r} costs about {estimate} input "
-                f"tokens and {usage.remaining()} of the {usage.budget} daily budget "
-                f"are left. Raise or clear the budget in the integration options to "
-                f"continue."
+                translation_domain=DOMAIN,
+                translation_key="context_over_budget",
+                translation_placeholders={
+                    "context": context.name,
+                    "estimate": str(estimate),
+                    "remaining": str(usage.remaining()),
+                    "budget": str(usage.budget),
+                },
             )
         try:
             response = await self.runtime.client.ask(state_text, questions)
         except JevAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="auth_rejected",
+                translation_placeholders={"reason": str(err)},
+            ) from err
         except JevRateLimitError as err:
-            raise UpdateFailed(f"rate limited by TypeSafe: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="rate_limited",
+                translation_placeholders={"reason": str(err)},
+            ) from err
         except JevError as err:
             self._log_unavailable_once(err)
-            raise UpdateFailed(str(err)) from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="ask_failed",
+                translation_placeholders={"reason": str(err)},
+            ) from err
 
         if self._logged_unavailable:
             _LOGGER.info("TypeSafe is answering again, context %r resumed", context.name)

@@ -135,36 +135,53 @@ def test_a_field_with_no_description_asks_about_its_own_name():
 
 
 def test_the_result_key_cannot_be_taken_by_a_field():
-    with pytest.raises(ServiceValidationError, match="'jev' cannot be used"):
+    with pytest.raises(ServiceValidationError) as err:
         questions_from_structure(structure(jev=("Anything", {"boolean": {}})))
+    assert err.value.translation_key == "reserved_field"
+    assert err.value.translation_placeholders == {"field": "jev"}
 
 
 def test_a_structure_with_no_fields_is_refused():
-    with pytest.raises(ServiceValidationError, match="no fields"):
+    with pytest.raises(ServiceValidationError) as err:
         questions_from_structure(vol.Schema({}))
+    assert err.value.translation_key == "no_fields"
 
 
 def test_a_selector_jev_cannot_answer_names_itself_and_the_three_that_work():
     with pytest.raises(ServiceValidationError) as err:
         questions_from_structure(structure(note=("Write a note", {"text": {}})))
-    assert "TextSelector" in str(err.value)
-    assert "boolean" in str(err.value)
+    assert err.value.translation_key == "unsupported_field"
+    assert err.value.translation_placeholders == {
+        "field": "note",
+        "selector": "TextSelector",
+    }
 
 
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        ({"select": {"options": ["only"]}}, "1 options"),
-        ({"number": {"min": 0}}, "no max"),
-        ({"number": {"max": 10}}, "no min"),
-        ({"number": {"min": 10, "max": 10}}, "not a scale"),
+        (
+            {"select": {"options": ["only"]}},
+            ("field_options_out_of_range", {"count": "1"}),
+        ),
+        ({"number": {"min": 0}}, ("field_needs_scale", {"bound": "max"})),
+        ({"number": {"max": 10}}, ("field_needs_scale", {"bound": "min"})),
+        (
+            {"number": {"min": 10, "max": 10}},
+            ("field_scale_not_ordered", {"min": "10", "max": "10"}),
+        ),
     ],
 )
 def test_a_field_jev_cannot_be_asked_is_refused_before_a_request_is_spent(
     config, expected
 ):
-    with pytest.raises(ServiceValidationError, match=expected):
+    key, placeholders = expected
+    with pytest.raises(ServiceValidationError) as err:
         questions_from_structure(structure(field=("A field", config)))
+    assert err.value.translation_key == key
+    assert err.value.translation_placeholders is not None
+    assert err.value.translation_placeholders["field"] == "field"
+    assert placeholders.items() <= err.value.translation_placeholders.items()
 
 
 @pytest.mark.parametrize(
@@ -229,8 +246,10 @@ def test_a_continuous_number_keeps_its_fraction():
 
 def test_an_answer_that_never_came_is_an_error_rather_than_a_none():
     schema = structure(window_open=("Is the window open?", {"boolean": {}}))
-    with pytest.raises(ServiceValidationError, match="no answer for 'window_open'"):
+    with pytest.raises(ServiceValidationError) as err:
         values_from_answers(schema, {})
+    assert err.value.translation_key == "answer_missing"
+    assert err.value.translation_placeholders == {"field": "window_open"}
 
 
 def test_an_answer_of_the_wrong_shape_says_which_two_do_not_fit():
@@ -244,5 +263,9 @@ def test_an_answer_of_the_wrong_shape_says_which_two_do_not_fit():
                 )
             },
         )
-    assert "ChoiceAnswer" in str(err.value)
-    assert "BooleanSelector" in str(err.value)
+    assert err.value.translation_key == "answer_does_not_fit"
+    assert err.value.translation_placeholders == {
+        "field": "window_open",
+        "answer": "ChoiceAnswer",
+        "selector": "BooleanSelector",
+    }

@@ -130,3 +130,8 @@ SUBENTRY_QUESTION: Final = "question"
 CONF_TARGET: Final = "target"
 CONF_LEVELS_TEXT: Final = "levels"
 CONF_OPTIONS_TEXT: Final = "options"
+
+# Shown in the 404 form error, which is what an OpenRouter address with the request
+# path left on comes back as. hassfest refuses a URL written into strings.json, so
+# the address travels as a placeholder.
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"

@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe avvisade den här nyckeln.",
       "cannot_connect": "Home Assistant kunde inte nå API:et på den adressen.",
-      "not_found": "Servern svarade HTTP 404. Jev lägger till /v1/systemone efter adressen, så ange bara delen före. För OpenRouter är det https://openrouter.ai/api.",
+      "not_found": "Servern svarade HTTP 404. Jev lägger till /v1/systemone efter adressen, så ange bara delen före. För OpenRouter är det {openrouter_url}.",
       "invalid_url": "Det är inte en användbar API-adress. Den behöver ett schema och en värd, och den kan inte innehålla mellanslag, frågesträng, fragment, användarnamn eller lösenord.",
       "invalid_model": "Det modell-id:t godtogs inte. Kontrollera det, eller lämna fältet tomt för standardmodellen.",
       "key_required": "TypeSafe-API:t kräver en nyckel. En tom nyckel fungerar bara med en egen adress som inte behöver någon."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe returnerade ett svar av typen {kind}, som den här versionen inte kan läsa. Uppdatera integrationen."
+    },
+    "task_needs_structure": {
+      "message": "Uppgiften {task} ber om fri text, och Jev svarar bara på typade frågor. Ge åtgärden en struktur vars fält är boolean, select eller number."
+    },
+    "task_over_budget": {
+      "message": "Uppgiften {task} kostar ungefär {estimate} indatatokens och {remaining} av dagsbudgeten på {budget} återstår. Höj eller rensa budgeten i integrationens alternativ för att fortsätta."
+    },
+    "reserved_field": {
+      "message": "Fältet {field} kan inte användas, eftersom resultatet bär säkerheten bakom varje svar under det namnet. Byt namn på fältet."
+    },
+    "no_fields": {
+      "message": "Strukturen deklarerar inga fält."
+    },
+    "answer_missing": {
+      "message": "Svaret innehåller inget för {field}."
+    },
+    "unsupported_field": {
+      "message": "Fältet {field} använder en {selector}, och Jev svarar på en ja/nej-fråga, ett val ur en lista eller ett betyg på en skala. Ge fältet en boolean, en select med alternativ eller en number med min och max."
+    },
+    "field_options_out_of_range": {
+      "message": "Fältet {field} erbjuder {count} alternativ, och ett val kräver {min} till {max}."
+    },
+    "field_needs_scale": {
+      "message": "Fältet {field} är ett tal utan {bound}. Ett betyg kräver skalans båda ändar."
+    },
+    "field_scale_not_ordered": {
+      "message": "Fältet {field} har min {min} och max {max}, och det är ingen skala."
+    },
+    "answer_does_not_fit": {
+      "message": "Svaret för {field} kom tillbaka som {answer}, och det passar inte en {selector}."
+    },
+    "context_template_failed": {
+      "message": "State-mallen för kontexten {context} misslyckades: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Kontext {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Att utvärdera kontexten {context} kostar ungefär {estimate} indatatokens och {remaining} av dagsbudgeten på {budget} återstår. Höj eller rensa budgeten i integrationens alternativ för att fortsätta."
+    },
+    "rate_limited": {
+      "message": "TypeSafe begränsade begäran: {reason}"
     }
   },
   "common": {

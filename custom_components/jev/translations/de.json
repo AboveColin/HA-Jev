@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe hat diesen Schlüssel abgelehnt.",
       "cannot_connect": "Home Assistant konnte die API unter dieser Adresse nicht erreichen.",
-      "not_found": "Der Server hat mit HTTP 404 geantwortet. Jev hängt /v1/systemone an die Adresse an, gib also nur den Teil davor ein. Für OpenRouter ist das https://openrouter.ai/api.",
+      "not_found": "Der Server hat mit HTTP 404 geantwortet. Jev hängt /v1/systemone an die Adresse an, gib also nur den Teil davor ein. Für OpenRouter ist das {openrouter_url}.",
       "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten.",
       "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID.",
       "key_required": "Die TypeSafe-API braucht einen Schlüssel. Ein leerer Schlüssel funktioniert nur bei einer eigenen Adresse, die keinen braucht."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe hat eine Antwort vom Typ {kind} zurückgegeben, die diese Version nicht lesen kann. Aktualisiere die Integration."
+    },
+    "task_needs_structure": {
+      "message": "Die Aufgabe {task} verlangt freien Text, und Jev beantwortet nur typisierte Fragen. Gib der Aktion eine Struktur, deren Felder boolean, select oder number sind."
+    },
+    "task_over_budget": {
+      "message": "Die Aufgabe {task} kostet etwa {estimate} Eingabetokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
+    },
+    "reserved_field": {
+      "message": "Das Feld {field} kann nicht verwendet werden, weil das Ergebnis unter diesem Namen die Sicherheit hinter jeder Antwort mitliefert. Benenne das Feld um."
+    },
+    "no_fields": {
+      "message": "Die Struktur deklariert keine Felder."
+    },
+    "answer_missing": {
+      "message": "Die Antwort enthält nichts für {field}."
+    },
+    "unsupported_field": {
+      "message": "Das Feld {field} verwendet einen {selector}, und Jev beantwortet eine Ja/Nein-Frage, eine Auswahl aus einer Liste oder eine Bewertung auf einer Skala. Gib dem Feld einen boolean, einen select mit Optionen oder eine number mit min und max."
+    },
+    "field_options_out_of_range": {
+      "message": "Das Feld {field} bietet {count} Optionen, und eine Auswahl braucht {min} bis {max}."
+    },
+    "field_needs_scale": {
+      "message": "Das Feld {field} ist eine Zahl ohne {bound}. Eine Bewertung braucht beide Enden der Skala."
+    },
+    "field_scale_not_ordered": {
+      "message": "Das Feld {field} hat min {min} und max {max}, und das ist keine Skala."
+    },
+    "answer_does_not_fit": {
+      "message": "Die Antwort für {field} kam als {answer} zurück, und das passt nicht zu einem {selector}."
+    },
+    "context_template_failed": {
+      "message": "Die State-Vorlage für den Kontext {context} ist fehlgeschlagen: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Kontext {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Den Kontext {context} auszuwerten kostet etwa {estimate} Eingabetokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
+    },
+    "rate_limited": {
+      "message": "TypeSafe hat die Anfrage gedrosselt: {reason}"
     }
   },
   "common": {

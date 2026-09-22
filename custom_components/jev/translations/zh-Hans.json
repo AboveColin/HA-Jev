@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe 拒绝了此密钥。",
       "cannot_connect": "Home Assistant 无法通过该地址访问 API。",
-      "not_found": "服务器返回 HTTP 404。Jev 会在地址后面加上 /v1/systemone，因此只填写它前面的部分。OpenRouter 的地址是 https://openrouter.ai/api。",
+      "not_found": "服务器返回 HTTP 404。Jev 会在地址后面加上 /v1/systemone，因此只填写它前面的部分。OpenRouter 的地址是 {openrouter_url}。",
       "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
       "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。",
       "key_required": "TypeSafe API 需要密钥。仅当地址指向自己的、无需密钥的端点时，才能留空。"
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe 返回了类型为 {kind} 的回答，此版本无法读取。请更新此集成。"
+    },
+    "task_needs_structure": {
+      "message": "任务 {task} 要求自由文本，而 Jev 只回答有类型的问题。请为该动作提供一个结构，其字段为 boolean、select 或 number。"
+    },
+    "task_over_budget": {
+      "message": "任务 {task} 大约需要 {estimate} 个输入令牌，而每日预算 {budget} 只剩 {remaining}。请在集成选项中提高或清除预算后再继续。"
+    },
+    "reserved_field": {
+      "message": "字段 {field} 不能使用，因为结果在这个名称下携带每个答案背后的置信度。请重命名该字段。"
+    },
+    "no_fields": {
+      "message": "该结构没有声明任何字段。"
+    },
+    "answer_missing": {
+      "message": "回复中没有 {field} 的答案。"
+    },
+    "unsupported_field": {
+      "message": "字段 {field} 使用了 {selector}，而 Jev 回答的是是/否问题、列表中的选择或量表上的评分。请为该字段使用 boolean、带选项的 select，或带 min 和 max 的 number。"
+    },
+    "field_options_out_of_range": {
+      "message": "字段 {field} 提供了 {count} 个选项，而选择需要 {min} 到 {max} 个。"
+    },
+    "field_needs_scale": {
+      "message": "字段 {field} 是一个没有 {bound} 的数字。评分需要量表的两端。"
+    },
+    "field_scale_not_ordered": {
+      "message": "字段 {field} 的 min 为 {min}、max 为 {max}，这不是一个量表。"
+    },
+    "answer_does_not_fit": {
+      "message": "{field} 的答案以 {answer} 返回，与 {selector} 不匹配。"
+    },
+    "context_template_failed": {
+      "message": "上下文 {context} 的状态模板失败：{reason}"
+    },
+    "context_targets_failed": {
+      "message": "上下文 {context}：{reason}"
+    },
+    "context_over_budget": {
+      "message": "评估上下文 {context} 大约需要 {estimate} 个输入令牌，而每日预算 {budget} 只剩 {remaining}。请在集成选项中提高或清除预算后再继续。"
+    },
+    "rate_limited": {
+      "message": "TypeSafe 限制了该请求的速率：{reason}"
     }
   },
   "common": {

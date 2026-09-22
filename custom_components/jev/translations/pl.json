@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe odrzucił ten klucz.",
       "cannot_connect": "Home Assistant nie może połączyć się z API pod tym adresem.",
-      "not_found": "Serwer odpowiedział HTTP 404. Jev dodaje /v1/systemone do adresu, więc podaj tylko część przed nim. Dla OpenRouter jest to https://openrouter.ai/api.",
+      "not_found": "Serwer odpowiedział HTTP 404. Jev dodaje /v1/systemone do adresu, więc podaj tylko część przed nim. Dla OpenRouter jest to {openrouter_url}.",
       "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła.",
       "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego.",
       "key_required": "API TypeSafe wymaga klucza. Pusty klucz działa tylko z własnym adresem, który go nie wymaga."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe zwrócił odpowiedź typu {kind}, której ta wersja nie potrafi odczytać. Zaktualizuj integrację."
+    },
+    "task_needs_structure": {
+      "message": "Zadanie {task} prosi o dowolny tekst, a Jev odpowiada tylko na pytania z typem. Daj akcji strukturę, której pola to boolean, select lub number."
+    },
+    "task_over_budget": {
+      "message": "Zadanie {task} kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Zwiększ lub wyczyść budżet w opcjach integracji, aby kontynuować."
+    },
+    "reserved_field": {
+      "message": "Pola {field} nie można użyć, ponieważ wynik przenosi pod tą nazwą pewność każdej odpowiedzi. Zmień nazwę pola."
+    },
+    "no_fields": {
+      "message": "Struktura nie deklaruje żadnych pól."
+    },
+    "answer_missing": {
+      "message": "Odpowiedź nie zawiera niczego dla {field}."
+    },
+    "unsupported_field": {
+      "message": "Pole {field} używa {selector}, a Jev odpowiada na pytanie tak/nie, wybór z listy lub ocenę na skali. Daj polu boolean, select z opcjami albo number z min i max."
+    },
+    "field_options_out_of_range": {
+      "message": "Pole {field} oferuje {count} opcji, a wybór potrzebuje od {min} do {max}."
+    },
+    "field_needs_scale": {
+      "message": "Pole {field} to liczba bez {bound}. Ocena potrzebuje obu końców skali."
+    },
+    "field_scale_not_ordered": {
+      "message": "Pole {field} ma min {min} i max {max}, a to nie jest skala."
+    },
+    "answer_does_not_fit": {
+      "message": "Odpowiedź dla {field} wróciła jako {answer}, co nie pasuje do {selector}."
+    },
+    "context_template_failed": {
+      "message": "Szablon stanu dla kontekstu {context} nie powiódł się: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Kontekst {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Ocena kontekstu {context} kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Zwiększ lub wyczyść budżet w opcjach integracji, aby kontynuować."
+    },
+    "rate_limited": {
+      "message": "TypeSafe ograniczył żądanie: {reason}"
     }
   },
   "common": {

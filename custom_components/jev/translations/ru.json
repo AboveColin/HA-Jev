@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe отклонил этот ключ.",
       "cannot_connect": "Home Assistant не смог связаться с API по этому адресу.",
-      "not_found": "Сервер ответил HTTP 404. Jev добавляет /v1/systemone к адресу, поэтому укажите только часть до него. Для OpenRouter это https://openrouter.ai/api.",
+      "not_found": "Сервер ответил HTTP 404. Jev добавляет /v1/systemone к адресу, поэтому укажите только часть до него. Для OpenRouter это {openrouter_url}.",
       "invalid_url": "Это непригодный адрес API. Нужны схема и хост, и в нём не может быть пробела, запроса, фрагмента, имени пользователя или пароля.",
       "invalid_model": "Этот идентификатор модели не принят. Проверьте его или очистите поле, чтобы использовать модель по умолчанию.",
       "key_required": "API TypeSafe требует ключ. Пустой ключ работает только с собственным адресом, которому ключ не нужен."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe вернул ответ типа {kind}, который эта версия не может прочитать. Обновите интеграцию."
+    },
+    "task_needs_structure": {
+      "message": "Задача {task} просит свободный текст, а Jev отвечает только на типизированные вопросы. Дайте действию структуру, поля которой имеют тип boolean, select или number."
+    },
+    "task_over_budget": {
+      "message": "Задача {task} стоит около {estimate} входных токенов, а из дневного бюджета {budget} осталось {remaining}. Чтобы продолжить, увеличьте или очистите бюджет в параметрах интеграции."
+    },
+    "reserved_field": {
+      "message": "Поле {field} использовать нельзя, потому что под этим именем результат передаёт уверенность каждого ответа. Переименуйте поле."
+    },
+    "no_fields": {
+      "message": "В структуре не объявлено ни одного поля."
+    },
+    "answer_missing": {
+      "message": "В ответе нет ничего для {field}."
+    },
+    "unsupported_field": {
+      "message": "Поле {field} использует {selector}, а Jev отвечает на вопрос да/нет, выбор из списка или оценку по шкале. Дайте полю boolean, select с вариантами или number с min и max."
+    },
+    "field_options_out_of_range": {
+      "message": "Поле {field} предлагает {count} вариантов, а для выбора нужно от {min} до {max}."
+    },
+    "field_needs_scale": {
+      "message": "Поле {field} является числом без {bound}. Для оценки нужны оба конца шкалы."
+    },
+    "field_scale_not_ordered": {
+      "message": "У поля {field} min {min} и max {max}, и это не шкала."
+    },
+    "answer_does_not_fit": {
+      "message": "Ответ для {field} пришёл как {answer}, а это не подходит для {selector}."
+    },
+    "context_template_failed": {
+      "message": "Шаблон состояния для контекста {context} завершился ошибкой: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Контекст {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Оценка контекста {context} стоит около {estimate} входных токенов, а из дневного бюджета {budget} осталось {remaining}. Чтобы продолжить, увеличьте или очистите бюджет в параметрах интеграции."
+    },
+    "rate_limited": {
+      "message": "TypeSafe ограничил запрос: {reason}"
     }
   },
   "common": {

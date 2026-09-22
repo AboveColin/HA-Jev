@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
-      "not_found": "The server answered HTTP 404. Jev adds /v1/systemone to the address, so give only the part before that. For OpenRouter that is https://openrouter.ai/api.",
+      "not_found": "The server answered HTTP 404. Jev adds /v1/systemone to the address, so give only the part before that. For OpenRouter that is {openrouter_url}.",
       "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
       "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default.",
       "key_required": "The TypeSafe API needs a key. An empty key only works with an address of your own that needs none."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe returned an answer of type {kind}, which this version cannot read. Update the integration."
+    },
+    "task_needs_structure": {
+      "message": "Task {task} asks for free text, and Jev answers typed questions only. Give the action a structure whose fields are booleans, selects or numbers."
+    },
+    "task_over_budget": {
+      "message": "Task {task} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
+    "reserved_field": {
+      "message": "The field {field} cannot be used, because the result carries the confidence behind every answer under that name. Rename the field."
+    },
+    "no_fields": {
+      "message": "The structure declares no fields."
+    },
+    "answer_missing": {
+      "message": "The reply carries no answer for {field}."
+    },
+    "unsupported_field": {
+      "message": "Field {field} uses a {selector}, and Jev answers a yes/no question, a pick from a list, or a rating on a scale. Give the field a boolean, a select with its options, or a number with a min and a max."
+    },
+    "field_options_out_of_range": {
+      "message": "Field {field} offers {count} options, and a pick needs {min} to {max}."
+    },
+    "field_needs_scale": {
+      "message": "Field {field} is a number with no {bound}. A rating needs both ends of the scale."
+    },
+    "field_scale_not_ordered": {
+      "message": "Field {field} has min {min} and max {max}, which is not a scale."
+    },
+    "answer_does_not_fit": {
+      "message": "The answer to {field} came back as a {answer}, which does not fit a {selector}."
+    },
+    "context_template_failed": {
+      "message": "The state template for context {context} failed: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Context {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Evaluating context {context} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
+    "rate_limited": {
+      "message": "TypeSafe rate limited the request: {reason}"
     }
   },
   "common": {

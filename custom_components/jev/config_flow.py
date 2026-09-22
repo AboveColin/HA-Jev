@@ -47,10 +47,14 @@ from .const import (
     CONF_PRICE_PER_MILLION,
     DEFAULT_MIN_CONFIDENCE,
     DOMAIN,
+    OPENROUTER_BASE_URL,
     SUBENTRY_QUESTION,
 )
 from .identity import entry_unique_id
 from .subentry import JevQuestionSubentryFlow
+
+# The placeholders every form that can show the not_found error needs.
+FORM_PLACEHOLDERS = {"openrouter_url": OPENROUTER_BASE_URL}
 
 # Collapsed, so the common setup is one field. Both of these only matter to
 # someone running their own endpoint, and either one cleared is the default.
@@ -271,6 +275,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 {CONF_ADVANCED: user_input.get(CONF_ADVANCED, {})} if user_input else {},
             ),
             errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -289,7 +294,10 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return await self._async_swap_key(entry, user_input)
         return self.async_show_form(
-            step_id="reauth_confirm", data_schema=STEP_REAUTH_SCHEMA, errors=errors
+            step_id="reauth_confirm",
+            data_schema=STEP_REAUTH_SCHEMA,
+            errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     async def async_step_reconfigure(
@@ -322,6 +330,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 _suggest(*_stored(entry)),
             ),
             errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     @staticmethod

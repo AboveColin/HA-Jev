@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe tento klíč odmítl.",
       "cannot_connect": "Home Assistant nedokázal na této adrese kontaktovat API.",
-      "not_found": "Server odpověděl HTTP 404. Jev k adrese připojuje /v1/systemone, zadejte tedy jen část před tím. Pro OpenRouter je to https://openrouter.ai/api.",
+      "not_found": "Server odpověděl HTTP 404. Jev k adrese připojuje /v1/systemone, zadejte tedy jen část před tím. Pro OpenRouter je to {openrouter_url}.",
       "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
       "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí.",
       "key_required": "API TypeSafe vyžaduje klíč. Prázdný klíč funguje jen u vlastní adresy, která žádný nevyžaduje."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe vrátil odpověď typu {kind}, kterou tato verze neumí přečíst. Aktualizujte integraci."
+    },
+    "task_needs_structure": {
+      "message": "Úloha {task} žádá volný text a Jev odpovídá jen na typované otázky. Dejte akci strukturu, jejíž pole jsou boolean, select nebo number."
+    },
+    "task_over_budget": {
+      "message": "Úloha {task} stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pro pokračování zvyšte nebo zrušte rozpočet v možnostech integrace."
+    },
+    "reserved_field": {
+      "message": "Pole {field} nelze použít, protože výsledek pod tímto názvem nese jistotu každé odpovědi. Pole přejmenujte."
+    },
+    "no_fields": {
+      "message": "Struktura nedeklaruje žádná pole."
+    },
+    "answer_missing": {
+      "message": "Odpověď neobsahuje nic pro {field}."
+    },
+    "unsupported_field": {
+      "message": "Pole {field} používá {selector} a Jev odpovídá na otázku ano/ne, výběr ze seznamu nebo hodnocení na stupnici. Dejte poli boolean, select s možnostmi nebo number s min a max."
+    },
+    "field_options_out_of_range": {
+      "message": "Pole {field} nabízí {count} možností a výběr potřebuje {min} až {max}."
+    },
+    "field_needs_scale": {
+      "message": "Pole {field} je číslo bez {bound}. Hodnocení potřebuje oba konce stupnice."
+    },
+    "field_scale_not_ordered": {
+      "message": "Pole {field} má min {min} a max {max}, a to není stupnice."
+    },
+    "answer_does_not_fit": {
+      "message": "Odpověď pro {field} se vrátila jako {answer}, což neodpovídá {selector}."
+    },
+    "context_template_failed": {
+      "message": "Šablona stavu pro kontext {context} selhala: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Kontext {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Vyhodnocení kontextu {context} stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pro pokračování zvyšte nebo zrušte rozpočet v možnostech integrace."
+    },
+    "rate_limited": {
+      "message": "TypeSafe omezil požadavek: {reason}"
     }
   },
   "common": {

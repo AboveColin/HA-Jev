@@ -83,7 +83,7 @@ rules:
   reauthentication-flow: done
   test-coverage:
     status: done
-    comment: 95% measured across 192 tests, enforced in CI.
+    comment: 96% measured across 347 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -134,10 +134,13 @@ rules:
   exception-translations:
     status: done
     comment: >-
-      Fourteen keys, including the library's own limit errors, which are re-raised
-      with the real numbers as placeholders rather than passed through in English.
-      A test asserts every key raised in code exists in every language file, and a
-      check asserts no raise anywhere carries a bare string.
+      Twenty-eight keys, including the library's own limit errors, which are
+      re-raised with the real numbers as placeholders rather than passed through in
+      English. The coordinator's UpdateFailed and setup's ConfigEntryNotReady and
+      ConfigEntryAuthFailed are translated too, since both reach the integrations
+      page. tests/test_translations.py asserts that every key raised in code exists
+      in every language file, and walks the syntax tree of every module to assert
+      that no Home Assistant exception is raised with a bare string.
   icon-translations:
     status: done
     comment: >-
@@ -168,4 +171,4 @@ rules:
       Assistant ships aiohttp and httpx, not httpx2.
   strict-typing:
     status: done
-    comment: mypy --strict passes on all 12 modules, enforced in CI.
+    comment: mypy --strict passes on all 20 modules, enforced in CI.

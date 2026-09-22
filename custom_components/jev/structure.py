@@ -33,6 +33,8 @@ from jevclient import (
     ScoreAnswer,
 )
 
+from .const import DOMAIN
+
 # Where a boolean field lands. A noul is a probability, and half is the only
 # division that does not favour one answer. A question that needs another line is a
 # question subentry, which carries a threshold of its own.
@@ -51,12 +53,15 @@ def questions_from_structure(structure: vol.Schema) -> dict[str, Question]:
         key = _key(marker)
         if key == RESERVED_KEY:
             raise ServiceValidationError(
-                f"the field {RESERVED_KEY!r} cannot be used: the result carries the "
-                f"confidence behind every answer under that name. Rename the field."
+                translation_domain=DOMAIN,
+                translation_key="reserved_field",
+                translation_placeholders={"field": RESERVED_KEY},
             )
         questions[key] = _question(key, _description(marker, key), value)
     if not questions:
-        raise ServiceValidationError("the structure declares no fields")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key="no_fields"
+        )
     return questions
 
 
@@ -72,7 +77,11 @@ def values_from_answers(
     for marker, selector_instance in structure.schema.items():
         key = _key(marker)
         if key not in answers:
-            raise ServiceValidationError(f"the reply carries no answer for {key!r}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="answer_missing",
+                translation_placeholders={"field": key},
+            )
         values[key] = _value(key, selector_instance, answers[key])
     return values
 
@@ -102,9 +111,9 @@ def _question(key: str, description: str, instance: Any) -> Question:
     if isinstance(instance, selector.NumberSelector):
         return Score(instructions=description, criteria=_levels(key, instance))
     raise ServiceValidationError(
-        f"field {key!r} uses a {type(instance).__name__}, and Jev answers a yes/no "
-        f"question, a pick from a list, or a rating on a scale. Give the field a "
-        f"boolean, a select with its options, or a number with a min and a max."
+        translation_domain=DOMAIN,
+        translation_key="unsupported_field",
+        translation_placeholders={"field": key, "selector": type(instance).__name__},
     )
 
 
@@ -121,8 +130,14 @@ def _options(key: str, instance: selector.SelectSelector) -> list[str]:
     ]
     if not MIN_CHOICE_OPTIONS <= len(options) <= MAX_CHOICE_OPTIONS:
         raise ServiceValidationError(
-            f"field {key!r} offers {len(options)} options, and a pick needs "
-            f"{MIN_CHOICE_OPTIONS} to {MAX_CHOICE_OPTIONS}."
+            translation_domain=DOMAIN,
+            translation_key="field_options_out_of_range",
+            translation_placeholders={
+                "field": key,
+                "count": str(len(options)),
+                "min": str(MIN_CHOICE_OPTIONS),
+                "max": str(MAX_CHOICE_OPTIONS),
+            },
         )
     return options
 
@@ -138,12 +153,24 @@ def _scale(key: str, instance: selector.NumberSelector) -> tuple[float, float, f
     low, high = config.get("min"), config.get("max")
     if low is None or high is None:
         raise ServiceValidationError(
-            f"field {key!r} is a number with no {'min' if low is None else 'max'}. "
-            f"A rating needs both ends of the scale."
+            translation_domain=DOMAIN,
+            translation_key="field_needs_scale",
+            translation_placeholders={
+                "field": key,
+                "bound": "min" if low is None else "max",
+            },
         )
     if high <= low:
         raise ServiceValidationError(
-            f"field {key!r} has min {low} and max {high}, which is not a scale."
+            translation_domain=DOMAIN,
+            translation_key="field_scale_not_ordered",
+            # The selector stores both ends as floats, so 10 would print as 10.0,
+            # which is not what the user wrote.
+            translation_placeholders={
+                "field": key,
+                "min": f"{low:g}",
+                "max": f"{high:g}",
+            },
         )
     step = config.get("step")
     # "any" means the caller wants a continuous number, so the scale gets as many
@@ -182,8 +209,13 @@ def _value(key: str, instance: Any, answer: Answer) -> Any:
     if isinstance(instance, selector.NumberSelector) and isinstance(answer, ScoreAnswer):
         return _number(instance, answer)
     raise ServiceValidationError(
-        f"the answer to {key!r} came back as a {type(answer).__name__}, which does "
-        f"not fit a {type(instance).__name__}."
+        translation_domain=DOMAIN,
+        translation_key="answer_does_not_fit",
+        translation_placeholders={
+            "field": key,
+            "answer": type(answer).__name__,
+            "selector": type(instance).__name__,
+        },
     )
 
 

@@ -388,9 +388,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     try:
         await client.ask("ok", {"probe": Noul("Is this text in English?")})
     except JevAuthError as err:
-        raise ConfigEntryAuthFailed(str(err)) from err
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="auth_rejected",
+            translation_placeholders={"reason": str(err)},
+        ) from err
     except JevError as err:
-        raise ConfigEntryNotReady(f"TypeSafe did not answer: {err}") from err
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="ask_failed",
+            translation_placeholders={"reason": str(err)},
+        ) from err
 
     contexts = _build_contexts(hass) + async_contexts_from_subentries(hass, entry)
     for context in contexts:

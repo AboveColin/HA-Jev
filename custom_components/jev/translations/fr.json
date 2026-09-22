@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe rejette cette clé.",
       "cannot_connect": "Home Assistant n'a pas pu joindre l'API à cette adresse.",
-      "not_found": "Le serveur a répondu HTTP 404. Jev ajoute /v1/systemone à l'adresse, n'indiquez donc que la partie qui précède. Pour OpenRouter, c'est https://openrouter.ai/api.",
+      "not_found": "Le serveur a répondu HTTP 404. Jev ajoute /v1/systemone à l'adresse, n'indiquez donc que la partie qui précède. Pour OpenRouter, c'est {openrouter_url}.",
       "invalid_url": "Cette adresse d'API n'est pas utilisable. Elle doit comporter un schéma et un hôte, et elle ne peut pas contenir d'espace, de requête, de fragment, de nom d'utilisateur ni de mot de passe.",
       "invalid_model": "Cet identifiant de modèle a été refusé. Vérifiez-le, ou videz le champ pour utiliser celui par défaut.",
       "key_required": "L'API TypeSafe exige une clé. Une clé vide ne fonctionne qu'avec une adresse à vous qui n'en demande aucune."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe a renvoyé une réponse de type {kind}, que cette version ne sait pas lire. Mettez l'intégration à jour."
+    },
+    "task_needs_structure": {
+      "message": "La tâche {task} demande du texte libre, et Jev ne répond qu'à des questions typées. Donnez à l'action une structure dont les champs sont des boolean, select ou number."
+    },
+    "task_over_budget": {
+      "message": "La tâche {task} coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
+    },
+    "reserved_field": {
+      "message": "Le champ {field} ne peut pas être utilisé, car le résultat transporte sous ce nom la confiance derrière chaque réponse. Renommez le champ."
+    },
+    "no_fields": {
+      "message": "La structure ne déclare aucun champ."
+    },
+    "answer_missing": {
+      "message": "La réponse ne contient rien pour {field}."
+    },
+    "unsupported_field": {
+      "message": "Le champ {field} utilise un {selector}, et Jev répond à une question oui/non, à un choix dans une liste ou à une note sur une échelle. Donnez au champ un boolean, un select avec ses options ou un number avec un min et un max."
+    },
+    "field_options_out_of_range": {
+      "message": "Le champ {field} propose {count} options, et un choix en demande de {min} à {max}."
+    },
+    "field_needs_scale": {
+      "message": "Le champ {field} est un nombre sans {bound}. Une note a besoin des deux bouts de l'échelle."
+    },
+    "field_scale_not_ordered": {
+      "message": "Le champ {field} a min {min} et max {max}, ce qui n'est pas une échelle."
+    },
+    "answer_does_not_fit": {
+      "message": "La réponse pour {field} est revenue sous forme de {answer}, qui ne convient pas à un {selector}."
+    },
+    "context_template_failed": {
+      "message": "Le modèle d'état du contexte {context} a échoué : {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Contexte {context} : {reason}"
+    },
+    "context_over_budget": {
+      "message": "Évaluer le contexte {context} coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
+    },
+    "rate_limited": {
+      "message": "TypeSafe a limité la requête : {reason}"
     }
   },
   "common": {

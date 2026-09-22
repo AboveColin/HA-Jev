@@ -5,6 +5,7 @@ the user sees `too_many_entities` instead of a sentence. Nothing fails, which is
 exactly why this needs a test.
 """
 
+import ast
 import json
 import pathlib
 import re
@@ -20,6 +21,35 @@ def keys_raised_in_code() -> set[str]:
     for path in COMPONENT.glob("*.py"):
         found.update(re.findall(r'translation_key="([a-z_]+)"', path.read_text()))
     return found
+
+
+# The exceptions Home Assistant shows a person: in a service call's error, in the
+# entry's state on the integrations page, and in a coordinator's log line. vol.Invalid
+# and ValueError are left out: voluptuous and the config flow turn those into form
+# errors of their own.
+SHOWN_EXCEPTIONS = {
+    "HomeAssistantError",
+    "ServiceValidationError",
+    "ConfigEntryError",
+    "ConfigEntryNotReady",
+    "ConfigEntryAuthFailed",
+    "UpdateFailed",
+}
+
+
+def test_no_shown_exception_is_raised_with_a_bare_string():
+    """A bare string stays English in a Dutch install. A key does not."""
+    bare = []
+    for path in sorted(COMPONENT.glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):
+                continue
+            func = node.exc.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            keywords = {keyword.arg for keyword in node.exc.keywords}
+            if name in SHOWN_EXCEPTIONS and "translation_key" not in keywords:
+                bare.append(f"{path.name}:{node.lineno} {name}")
+    assert not bare, f"raised without a translation key: {bare}"
 
 
 def test_every_raised_exception_key_exists():

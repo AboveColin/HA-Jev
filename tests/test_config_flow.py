@@ -80,14 +80,17 @@ async def test_user_flow_errors_recover(hass, mock_client, error, expected):
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-class _NotFound:
-    """A host that answers, and has nothing at the path Jev asks for."""
+class _Answering:
+    """A host that answers the probe with a status other than 200."""
 
-    status = 404
     headers: ClassVar[dict[str, str]] = {}
 
+    def __init__(self, status: int, body: str) -> None:
+        self.status = status
+        self._body = body
+
     async def text(self) -> str:
-        return '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}'
+        return self._body
 
     async def json(self, content_type=None):
         return {}
@@ -99,22 +102,39 @@ class _NotFound:
         return None
 
 
-class _NotFoundSession:
+class _AnsweringSession:
+    def __init__(self, status: int, body: str) -> None:
+        self._response = _Answering(status, body)
+
     def post(self, url, **kwargs):
-        return _NotFound()
+        return self._response
 
 
-async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(hass):
-    """OpenRouter is reached at https://openrouter.ai/api, and the path is added.
+@pytest.mark.parametrize(
+    ("status", "body", "error"),
+    [
+        (
+            404,
+            '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}',
+            "not_found",
+        ),
+        (500, '{"error": {"message": "internal error"}}', "cannot_connect"),
+    ],
+)
+async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(
+    hass, status, body, error
+):
+    """A 404 says the address is wrong. Any other failure says the host is.
 
     A base URL carrying the request path already, which is what a reader of the
     published API docs types first, answered "could not reach the API at that
     address". The host answered perfectly well. This drives the real client so the
-    message it raises is the library's own: a change there fails here.
+    message it raises is the library's own: a change there fails here. The 500 case
+    holds the other side, so a broken host is not reported as a wrong address.
     """
     with patch(
         "custom_components.jev.config_flow.async_get_clientsession",
-        return_value=_NotFoundSession(),
+        return_value=_AnsweringSession(status, body),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -125,7 +145,12 @@ async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(hass
         )
 
     assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "not_found"}
+    assert result["errors"] == {"base": error}
+    # The not_found message names this address through a placeholder, and a
+    # placeholder the form does not supply renders as the literal braces.
+    assert result["description_placeholders"] == {
+        "openrouter_url": "https://openrouter.ai/api"
+    }
 
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):

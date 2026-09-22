@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe afviste denne nøgle.",
       "cannot_connect": "Home Assistant kunne ikke nå API'en på den adresse.",
-      "not_found": "Serveren svarede HTTP 404. Jev tilføjer /v1/systemone til adressen, så angiv kun delen før det. For OpenRouter er det https://openrouter.ai/api.",
+      "not_found": "Serveren svarede HTTP 404. Jev tilføjer /v1/systemone til adressen, så angiv kun delen før det. For OpenRouter er det {openrouter_url}.",
       "invalid_url": "Det er ikke en brugbar API-adresse. Den skal have et skema og en vært, og den må ikke indeholde mellemrum, forespørgsel, fragment, brugernavn eller adgangskode.",
       "invalid_model": "Det model-id blev ikke accepteret. Tjek det, eller lad feltet stå tomt for standardmodellen.",
       "key_required": "TypeSafe-API'et kræver en nøgle. En tom nøgle virker kun med en adresse af dit eget, der ikke kræver en."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe returnerede et svar af typen {kind}, som denne version ikke kan læse. Opdater integrationen."
+    },
+    "task_needs_structure": {
+      "message": "Opgaven {task} beder om fri tekst, og Jev besvarer kun typede spørgsmål. Giv handlingen en struktur, hvis felter er boolean, select eller number."
+    },
+    "task_over_budget": {
+      "message": "Opgaven {task} koster omkring {estimate} inputtokens, og der er {remaining} tilbage af dagsbudgettet på {budget}. Hæv eller ryd budgettet i integrationens indstillinger for at fortsætte."
+    },
+    "reserved_field": {
+      "message": "Feltet {field} kan ikke bruges, fordi resultatet bærer sikkerheden bag hvert svar under det navn. Omdøb feltet."
+    },
+    "no_fields": {
+      "message": "Strukturen erklærer ingen felter."
+    },
+    "answer_missing": {
+      "message": "Svaret indeholder intet for {field}."
+    },
+    "unsupported_field": {
+      "message": "Feltet {field} bruger en {selector}, og Jev besvarer et ja/nej-spørgsmål, et valg fra en liste eller en vurdering på en skala. Giv feltet en boolean, en select med muligheder eller en number med min og max."
+    },
+    "field_options_out_of_range": {
+      "message": "Feltet {field} tilbyder {count} muligheder, og et valg kræver {min} til {max}."
+    },
+    "field_needs_scale": {
+      "message": "Feltet {field} er et tal uden {bound}. En vurdering kræver begge ender af skalaen."
+    },
+    "field_scale_not_ordered": {
+      "message": "Feltet {field} har min {min} og max {max}, og det er ikke en skala."
+    },
+    "answer_does_not_fit": {
+      "message": "Svaret for {field} kom tilbage som {answer}, og det passer ikke til en {selector}."
+    },
+    "context_template_failed": {
+      "message": "State-skabelonen for konteksten {context} fejlede: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Kontekst {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "At evaluere konteksten {context} koster omkring {estimate} inputtokens, og der er {remaining} tilbage af dagsbudgettet på {budget}. Hæv eller ryd budgettet i integrationens indstillinger for at fortsætte."
+    },
+    "rate_limited": {
+      "message": "TypeSafe begrænsede forespørgslen: {reason}"
     }
   },
   "common": {

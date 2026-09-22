@@ -114,14 +114,11 @@ Give the address without the request path. An address that already carries
 `/v1/systemone` ends up asking for it twice and setup fails with "The server answered
 HTTP 404", which the form reports separately from a host it could not reach.
 
-**Through OpenRouter.** `https://openrouter.ai/api` as the address, your OpenRouter
-key, and `~typesafe/jev-latest` as the model. The leading `~` is part of the id;
-OpenRouter uses it for an id that always points at the newest model in a family.
-`POST https://openrouter.ai/api/v1/systemone` answers 401 without a key, so that
-address reaches the route; the model id is [reported by a
-user](https://github.com/AboveColin/HA-Jev/issues/15) and is not verified here
-against a paid key. Set the price per million to OpenRouter's, or read the cost
-sensor as tokens only.
+**Through OpenRouter.** [OpenRouter](https://openrouter.ai) resells the model.
+Use `https://openrouter.ai/api` as the address, an OpenRouter key, and
+`~typesafe/jev-latest` as the model. The leading `~` is part of the id, and is how
+OpenRouter names the newest model in a family. Set the price per million in the
+options to OpenRouter's, or read the cost sensor as tokens only.
 
 ### Actions
 
@@ -409,7 +406,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-345 tests run the integration inside a real Home Assistant with the API client
+The tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 

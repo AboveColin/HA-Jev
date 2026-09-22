@@ -58,7 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
-      "not_found": "De server antwoordde met HTTP 404. Jev plakt /v1/systemone achter het adres, dus vul alleen het deel daarvoor in. Voor OpenRouter is dat https://openrouter.ai/api.",
+      "not_found": "De server antwoordde met HTTP 404. Jev plakt /v1/systemone achter het adres, dus vul alleen het deel daarvoor in. Voor OpenRouter is dat {openrouter_url}.",
       "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
       "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard.",
       "key_required": "De TypeSafe-API heeft een sleutel nodig. Een lege sleutel werkt alleen bij een eigen adres dat er geen nodig heeft."
@@ -282,6 +282,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe gaf een antwoord van type {kind} terug dat deze versie niet kan lezen. Werk de integratie bij."
+    },
+    "task_needs_structure": {
+      "message": "Taak {task} vraagt om vrije tekst, en Jev beantwoordt alleen getypeerde vragen. Geef de actie een structuur met velden van het type boolean, select of number."
+    },
+    "task_over_budget": {
+      "message": "Taak {task} kost ongeveer {estimate} invoertokens en van het dagbudget van {budget} zijn er nog {remaining} over. Verhoog of wis het budget in de opties van de integratie om door te gaan."
+    },
+    "reserved_field": {
+      "message": "Het veld {field} kan niet worden gebruikt, omdat het resultaat onder die naam de zekerheid achter elk antwoord meegeeft. Geef het veld een andere naam."
+    },
+    "no_fields": {
+      "message": "De structuur declareert geen velden."
+    },
+    "answer_missing": {
+      "message": "Het antwoord bevat niets voor {field}."
+    },
+    "unsupported_field": {
+      "message": "Veld {field} gebruikt een {selector}, en Jev beantwoordt een ja/nee-vraag, een keuze uit een lijst of een score op een schaal. Geef het veld een boolean, een select met opties, of een number met een min en een max."
+    },
+    "field_options_out_of_range": {
+      "message": "Veld {field} biedt {count} opties, en een keuze heeft er {min} tot {max} nodig."
+    },
+    "field_needs_scale": {
+      "message": "Veld {field} is een getal zonder {bound}. Een score heeft beide uiteinden van de schaal nodig."
+    },
+    "field_scale_not_ordered": {
+      "message": "Veld {field} heeft min {min} en max {max}, en dat is geen schaal."
+    },
+    "answer_does_not_fit": {
+      "message": "Het antwoord voor {field} kwam terug als {answer}, en dat past niet bij een {selector}."
+    },
+    "context_template_failed": {
+      "message": "Het state-template van context {context} is mislukt: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Context {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Context {context} evalueren kost ongeveer {estimate} invoertokens en van het dagbudget van {budget} zijn er nog {remaining} over. Verhoog of wis het budget in de opties van de integratie om door te gaan."
+    },
+    "rate_limited": {
+      "message": "TypeSafe heeft het verzoek begrensd: {reason}"
     }
   },
   "common": {
