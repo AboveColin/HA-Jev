@@ -17,10 +17,16 @@ logger:
 | Entities unavailable, budget sensor on | The daily budget stopped evaluation |
 | Entities unavailable, budget sensor off | Look for one line saying TypeSafe is not answering |
 | Setup fails with "TypeSafe did not answer" | Connectivity, not configuration. Home Assistant retries |
+| Setup fails with "The server answered HTTP 404" | The address carries the request path. `/v1/systemone` is added for you |
+| An AI Task is refused before it is sent | Read the message. It names the field and what its selector would have to be |
 | An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
 | Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
 | Voice acts on the wrong device | The names and areas in your entity registry are what the model reads |
 | A question you expected to batch went alone | Its target, template, schedule or triggers differ from the others. The preview says which |
+| An action says the target holds no entities | Every entity it names has no state, often because it was renamed or removed |
+| Home Assistant asks for a new API key | TypeSafe rejected the key. Setup, the questions, an action, an AI Task or a voice command can all start this |
+| An action is refused and lists your entries | More than one Jev entry is loaded. Name one under API key |
+| Reauthentication says a key is required | The hosted API needs a key. A key of only spaces counts as none |
 
 ## The answer does not track the world
 
@@ -41,12 +47,9 @@ See [writing a question that works](writing-questions.md).
 diagnostics**.
 
 It contains the last evaluated state for every question, the usage account, and the
-last 20 conversation traces. The API key is redacted, and a test asserts it never
-appears.
-
-!!! warning
-    The conversation traces are sentences actually spoken in your house. Read the
-    file before pasting it into a public issue.
+last 20 conversation decisions. The API key, the spoken sentences, access tokens,
+entity pictures and coordinates are redacted, and tests assert it. Entity names and
+states stay in, so read the file before pasting it into a public issue.
 
 ## Reporting something
 

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from math import ceil
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -16,6 +18,7 @@ from homeassistant.exceptions import (
     ServiceValidationError,
     TemplateError,
 )
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
@@ -24,6 +27,7 @@ from homeassistant.helpers.target import (
     async_track_target_selector_state_change_event,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from jevclient import (
     USD_PER_MILLION_INPUT_TOKENS,
     Answer,
@@ -34,14 +38,18 @@ from jevclient import (
 )
 
 from .const import (
+    BUDGET_ESTIMATE_MARGIN,
+    COLD_START_BYTES_PER_TOKEN,
     CONVERSATION_TRACE_LENGTH,
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
+    ISSUE_BUDGET_SPENT,
     MIN_UPDATE_INTERVAL_SECONDS,
     STORE_SAVE_DELAY_SECONDS,
     TRIGGER_DEBOUNCE_SECONDS,
 )
 from .models import ContextConfig
+from .payload import payload_bytes
 from .statebuilder import async_build_state
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +73,14 @@ class UsageAccount:
     budget: int = 0
     price_per_million: float = USD_PER_MILLION_INPUT_TOKENS
     budget_exceeded: bool = False
+    # Measured from the last answered call rather than assumed, and deliberately
+    # not persisted: it describes the endpoint, not the day, and the first call
+    # after a restart measures it again.
+    bytes_per_token: float = COLD_START_BYTES_PER_TOKEN
+    # Estimates of requests that are in flight. Two contexts refreshing together
+    # each saw the same total before either answer came back, so both fitted and
+    # together they went over.
+    reserved: int = 0
     listeners: list[Any] = field(default_factory=list)
     store: Store[dict[str, Any]] | None = None
     hass: HomeAssistant | None = None
@@ -84,7 +100,13 @@ class UsageAccount:
             return ISSUE_BUDGET_EXCEEDED
         return f"{ISSUE_BUDGET_EXCEEDED}_{self.entry_id}"
 
-    def set_budget_exceeded(self, exceeded: bool, used: int = 0) -> None:
+    def set_budget_exceeded(
+        self,
+        exceeded: bool,
+        used: int = 0,
+        context: str | None = None,
+        estimate: int = 0,
+    ) -> None:
         """Move the flag and the repair issue together.
 
         They used to move apart. The issue was raised and never deleted, so the
@@ -96,17 +118,19 @@ class UsageAccount:
         if self.hass is None:
             return
         if exceeded:
+            placeholders = {"budget": str(self.budget), "used": str(used)}
+            if context is not None:
+                placeholders |= {"context": context, "estimate": str(estimate)}
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
                 self.issue_id,
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
-                translation_key=ISSUE_BUDGET_EXCEEDED,
-                translation_placeholders={
-                    "budget": str(self.budget),
-                    "used": str(used),
-                },
+                translation_key=(
+                    ISSUE_BUDGET_SPENT if context is None else ISSUE_BUDGET_EXCEEDED
+                ),
+                translation_placeholders=placeholders,
             )
         else:
             ir.async_delete_issue(self.hass, DOMAIN, self.issue_id)
@@ -143,9 +167,11 @@ class UsageAccount:
             self.set_budget_exceeded(False)
             self._save()
 
-    def record(self, input_tokens: int) -> None:
+    def record(self, input_tokens: int, payload_bytes: int | None = None) -> None:
         self.calls += 1
         self.input_tokens += input_tokens
+        if payload_bytes and input_tokens > 0:
+            self.bytes_per_token = payload_bytes / input_tokens
         self._save()
 
     async def async_flush(self) -> None:
@@ -168,7 +194,42 @@ class UsageAccount:
         return self.input_tokens / 1_000_000 * self.price_per_million
 
     def would_exceed(self) -> bool:
+        """Whether the budget is already spent. Reads the day, not a request."""
         return self.budget > 0 and self.input_tokens >= self.budget
+
+    def estimate_tokens(self, request_bytes: int) -> int:
+        """What a request of this size will be billed, over-estimated on purpose."""
+        return ceil(request_bytes / self.bytes_per_token * BUDGET_ESTIMATE_MARGIN)
+
+    def would_exceed_with(self, estimate: int) -> bool:
+        """Whether a request costing `estimate` would end the day over budget.
+
+        This is the check that runs before a call. would_exceed() only says the
+        budget is already gone, which means the run that spent it went through in
+        full: a 100,000 token budget could finish the day at 140,000.
+        """
+        return self.budget > 0 and self.spoken_for + estimate > self.budget
+
+    @property
+    def spoken_for(self) -> int:
+        return self.input_tokens + self.reserved
+
+    @contextmanager
+    def reservation(self, estimate: int) -> Iterator[None]:
+        """Hold `estimate` against the budget until the request has come back.
+
+        record() then counts what was actually billed, and the hold is released
+        whether the request answered or failed.
+        """
+        self.reserved += estimate
+        try:
+            yield
+        finally:
+            self.reserved -= estimate
+
+    def remaining(self) -> int:
+        """Input tokens left in the budget today. Zero when there is no budget."""
+        return max(self.budget - self.spoken_for, 0) if self.budget > 0 else 0
 
     @callback
     def notify(self) -> None:
@@ -182,6 +243,10 @@ class JevRuntimeData:
 
     client: JevClient
     usage: UsageAccount
+    # The model id asked for, which the client also holds but does not expose. The
+    # pre-flight size check builds the same body the client posts, and the model is
+    # part of that body.
+    model: str = ""
     coordinators: dict[str, JevCoordinator] = field(default_factory=dict)
     model_version: str | None = None
     # What the conversation agent decided, most recent first. Bounded, because a
@@ -209,11 +274,20 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
                 seconds=max(context.scan_interval, MIN_UPDATE_INTERVAL_SECONDS)
             ),
             config_entry=entry,
+            # Every refresh a trigger asks for goes through this, so it holds the
+            # floor. The default cooldown is 10 s, which let a flapping entity ask
+            # three times as often as the scan interval ever may.
+            request_refresh_debouncer=Debouncer(
+                hass, _LOGGER, cooldown=MIN_UPDATE_INTERVAL_SECONDS, immediate=True
+            ),
         )
         self.context_config = context
         self.runtime = runtime
-        self.last_state_text: str | None = None
+        self.entry_id = entry.entry_id
+        # A template can render text, a selector renders records.
+        self.last_state_text: Any = None
         self.last_latency_ms: float | None = None
+        self.last_payload_bytes: int | None = None
         # Log once when it goes away and once when it comes back. A context that
         # evaluates every 30 s would otherwise write 2,880 identical lines a day
         # during an outage, which buries the one line that mattered.
@@ -240,6 +314,10 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
 
         @callback
         def _changed(_event: Any) -> None:
+            # An answer nobody reads is still billed. The registry says so, not the
+            # listeners: at boot a target can appear before the entities are added.
+            if self.nobody_reads():
+                return
             self.hass.async_create_task(debouncer.async_call())
 
         if context.trigger_entities:
@@ -269,17 +347,7 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
 
     async def _async_update_data(self) -> dict[str, Answer]:
         usage = self.runtime.usage
-        usage.roll_over(date.today())
-
-        if usage.would_exceed():
-            self._raise_budget_issue(usage)
-            # Keep the answers already held. Inventing a value here would be worse
-            # than staying still, and clearing them would hide the last real result.
-            raise UpdateFailed(
-                f"daily token budget reached: budget {usage.budget} input tokens, "
-                f"used {usage.input_tokens} today. Raise or clear the budget in the "
-                f"integration options to continue."
-            )
+        usage.roll_over(dt_util.now().date())
 
         context = self.context_config
         try:
@@ -290,7 +358,9 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             )
         except TemplateError as err:
             raise UpdateFailed(
-                f"the state template for context {context.name!r} failed: {err}"
+                translation_domain=DOMAIN,
+                translation_key="context_template_failed",
+                translation_placeholders={"context": context.name, "reason": str(err)},
             ) from err
         try:
             state_text = async_build_state(
@@ -299,26 +369,66 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         except ServiceValidationError as err:
             # A picked device or area that has since been removed. Saying so beats
             # quietly asking about whatever is left.
-            raise UpdateFailed(f"context {context.name!r}: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="context_targets_failed",
+                translation_placeholders={"context": context.name, "reason": str(err)},
+            ) from err
 
         questions = {q.key: q.question for q in self.context_config.questions}
+        request_bytes = payload_bytes(state_text, questions, self.runtime.model)
+        estimate = usage.estimate_tokens(request_bytes)
+        if usage.would_exceed_with(estimate):
+            self._raise_budget_issue(usage, estimate)
+            # The entities go unavailable, which is the honest reading: Jev was
+            # not asked, so there is no answer for right now. The last answers are
+            # still held, and the next refresh that fits the budget replaces them.
+            # Refusing before the request is the point: a call that would not fit
+            # used to be sent, counted, and only then stop the one after it.
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="context_over_budget",
+                translation_placeholders={
+                    "context": context.name,
+                    "estimate": str(estimate),
+                    "remaining": str(usage.remaining()),
+                    "budget": str(usage.budget),
+                },
+            )
         try:
-            response = await self.runtime.client.ask(state_text, questions)
+            with usage.reservation(estimate):
+                response = await self.runtime.client.ask(state_text, questions)
         except JevAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="auth_rejected",
+                translation_placeholders={"reason": str(err)},
+            ) from err
         except JevRateLimitError as err:
-            raise UpdateFailed(f"rate limited by TypeSafe: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="rate_limited",
+                translation_placeholders={"reason": str(err)},
+                # The coordinator waits this long before its next try, rather than
+                # the scan interval, which can be shorter than what TypeSafe asked.
+                retry_after=err.retry_after,
+            ) from err
         except JevError as err:
             self._log_unavailable_once(err)
-            raise UpdateFailed(str(err)) from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="ask_failed",
+                translation_placeholders={"reason": str(err)},
+            ) from err
 
         if self._logged_unavailable:
             _LOGGER.info("TypeSafe is answering again, context %r resumed", context.name)
             self._logged_unavailable = False
-        usage.record(response.usage.input_tokens)
+        usage.record(response.usage.input_tokens, request_bytes)
         self.runtime.model_version = response.model or self.runtime.model_version
         self.last_state_text = state_text
         self.last_latency_ms = response.latency_ms
+        self.last_payload_bytes = request_bytes
         usage.notify()
         return response.answers
 
@@ -332,16 +442,54 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             err,
         )
 
-    def _raise_budget_issue(self, usage: UsageAccount) -> None:
-        if usage.budget_exceeded:
-            return
-        _LOGGER.error(
-            "Jev stopped evaluating: daily budget is %s input tokens, %s used today, "
-            "and context %r needs another call. Raise the budget in the integration "
-            "options or reduce how often contexts evaluate.",
-            usage.budget,
-            usage.input_tokens,
-            self.context_config.name,
+    @callback
+    def nobody_reads(self) -> bool:
+        """Whether every entity that shows this context's answers is disabled.
+
+        Each question always has a sensor. A sensor that is not in the registry yet
+        is about to be created and will read the first answer. The threshold, latency
+        and payload entities do not exist for every context, so only a registered
+        and enabled one counts as a reader.
+        """
+        registry = er.async_get(self.hass)
+        prefix = self.entry_id
+        questions = self.context_config.questions
+        context = self.context_config.key
+
+        def enabled(platform: str, unique_id: str) -> bool | None:
+            entity_id = registry.async_get_entity_id(platform, DOMAIN, unique_id)
+            if entity_id is None or (entity := registry.async_get(entity_id)) is None:
+                return None
+            return entity.disabled_by is None
+
+        if any(enabled("sensor", f"{prefix}_{q.key}") is not False for q in questions):
+            return False
+        optional = [("binary_sensor", f"{prefix}_{q.key}_threshold") for q in questions]
+        optional += [
+            ("sensor", f"{prefix}_{context}_{k}") for k in ("latency", "payload")
+        ]
+        return not any(enabled(platform, uid) for platform, uid in optional)
+
+    def _raise_budget_issue(self, usage: UsageAccount, estimate: int) -> None:
+        """Say that evaluations have stopped, and which context was refused.
+
+        The log line is written once. The issue is raised again each time, so
+        after setup raised it from the restored total it names a context too.
+        """
+        if not usage.budget_exceeded:
+            _LOGGER.error(
+                "Jev stopped evaluating: daily budget is %s input tokens, %s used today, "
+                "and context %r needs about %s more. Raise the budget in the integration "
+                "options or reduce how often contexts evaluate.",
+                usage.budget,
+                usage.input_tokens,
+                self.context_config.name,
+                estimate,
+            )
+        usage.set_budget_exceeded(
+            True,
+            used=usage.input_tokens,
+            context=self.context_config.name,
+            estimate=estimate,
         )
-        usage.set_budget_exceeded(True, used=usage.input_tokens)
         usage.notify()

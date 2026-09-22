@@ -29,6 +29,9 @@
         "description": "TypeSafe rejected the key currently stored. Paste a working one. The API address is left as it is; use Reconfigure to change that.",
         "data": {
           "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Requests go to the API address already stored."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The key the requests are sent with. Leave it empty only for an endpoint of your own that needs no key."
+          "api_key": "Leave it empty to keep the current key while the address stays the same. A new address gets no key unless you type one."
         },
         "sections": {
           "advanced": {
@@ -58,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
+      "not_found": "The server answered HTTP 404. Jev adds /v1/systemone to the address, so give only the part before that. For OpenRouter that is {openrouter_url}.",
       "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
       "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default.",
       "key_required": "The TypeSafe API needs a key. An empty key only works with an address of your own that needs none."
@@ -79,6 +83,13 @@
           "fallback_agent": "Fall back to this agent",
           "min_confidence": "Act only above this confidence (0 to 1)",
           "allow_whole_home": "Allow commands that name no room or device"
+        },
+        "data_description": {
+          "daily_token_budget": "Counted from midnight in the Home Assistant time zone. 0 means no limit.",
+          "price_per_million": "Sets the estimated cost sensor and the cost in the question preview. Nothing that is sent depends on it.",
+          "fallback_agent": "Receives the whole sentence when Jev is not sure what to do.",
+          "min_confidence": "Below this, Jev does nothing and passes the command to the fallback agent.",
+          "allow_whole_home": "Turning everything off is always allowed, with or without this."
         }
       }
     }
@@ -86,7 +97,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev stopped evaluating: daily budget reached",
-      "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. Answers keep their last value until tomorrow. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+      "description": "The daily budget is {budget} input tokens and {used} have been used today. The next evaluation, of context {context}, needs about {estimate} more and does not fit, so no further questions are being asked. The answer sensors go unavailable until a call fits again. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+    },
+    "daily_budget_spent": {
+      "title": "Jev stopped evaluating: daily budget reached",
+      "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. The answer sensors go unavailable until the day rolls over or the budget is raised. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
     }
   },
   "services": {
@@ -228,6 +243,9 @@
       },
       "context_latency": {
         "name": "{context} latency"
+      },
+      "context_payload": {
+        "name": "{context} payload"
       }
     },
     "binary_sensor": {
@@ -242,6 +260,9 @@
     },
     "no_entry": {
       "message": "No loaded Jev config entry to ask with. Add the integration first, or pick one under API key when more than one is set up."
+    },
+    "entry_ambiguous": {
+      "message": "More than one Jev entry is loaded: {entries}. Pick one under API key, because each entry has its own key and budget."
     },
     "missing_targets": {
       "message": "These targets do not exist: {targets}. Asking about the rest would answer a different question from the one you wrote."
@@ -278,6 +299,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe returned an answer of type {kind}, which this version cannot read. Update the integration."
+    },
+    "task_needs_structure": {
+      "message": "Task {task} asks for free text, and Jev answers typed questions only. Give the action a structure whose fields are booleans, selects or numbers."
+    },
+    "task_over_budget": {
+      "message": "Task {task} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
+    "reserved_field": {
+      "message": "The field {field} cannot be used, because the result carries the confidence behind every answer under that name. Rename the field."
+    },
+    "no_fields": {
+      "message": "The structure declares no fields."
+    },
+    "answer_missing": {
+      "message": "The reply carries no answer for {field}."
+    },
+    "unsupported_field": {
+      "message": "Field {field} uses a {selector}, and Jev answers a yes/no question, a pick from a list, or a rating on a scale. Give the field a boolean, a select with its options, or a number with a min and a max."
+    },
+    "field_options_out_of_range": {
+      "message": "Field {field} offers {count} options, and a pick needs {min} to {max}."
+    },
+    "field_needs_scale": {
+      "message": "Field {field} is a number with no {bound}. A rating needs both ends of the scale."
+    },
+    "field_scale_not_ordered": {
+      "message": "Field {field} has min {min} and max {max}, which is not a scale."
+    },
+    "answer_does_not_fit": {
+      "message": "The answer to {field} came back as a {answer}, which does not fit a {selector}."
+    },
+    "context_template_failed": {
+      "message": "The state template for context {context} failed: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Context {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Evaluating context {context} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
+    "rate_limited": {
+      "message": "TypeSafe rate limited the request: {reason}"
     }
   },
   "common": {
@@ -301,6 +364,9 @@
     "preview_mismatched": "The API answered, but not to the question that was asked.",
     "preview_template_error": "The template does not render: {reason}",
     "query_not_found": "I could not find that.",
+    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
+    "unavailable": "TypeSafe did not answer. Try again in a moment.",
     "preview_over_budget": "The daily token budget is spent, so there is no trial answer. The question still saves.",
     "preview_nothing_yet": "No trial answer: there is nothing to ask about yet."
   },
@@ -328,13 +394,10 @@
             "target": "What to look at",
             "state": "Extra note or template",
             "background": "Standing facts about the readings",
-            "include_attributes": "Send every attribute as well",
-            "scan_interval": "Ask this often",
             "true_means": "What a high number means",
             "false_means": "What a low number means",
             "threshold": "Also make a binary sensor above",
-            "advanced": "Advanced",
-            "trigger_entities": "Wake on these instead"
+            "advanced": "Advanced"
           },
           "data_description": {
             "name": "Names the sensor this question creates.",
@@ -342,18 +405,25 @@
             "target": "Pick entities, devices, areas or labels and their readings are sent for you. Leave empty if the note below is the whole state.",
             "state": "Text or a template, alone or alongside the readings.",
             "background": "Folded into `instructions` so it travels with the question rather than with the state.",
-            "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation.",
-            "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "true_means": "Optional. Sharpens which way the answer points.",
             "false_means": "Optional.",
             "threshold": "Leave empty for the probability sensor only.",
-            "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
+            "advanced": "A schedule, and what else to send. The defaults are fine for a first question."
           },
           "sections": {
             "advanced": {
               "name": "Advanced",
-              "description": "A schedule, and what else to send. The defaults are fine for a first question."
+              "description": "A schedule, and what else to send. The defaults are fine for a first question.",
+              "data": {
+                "trigger_entities": "Wake on these instead",
+                "scan_interval": "Ask this often",
+                "include_attributes": "Send every attribute as well"
+              },
+              "data_description": {
+                "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds.",
+                "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
+                "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation."
+              }
             }
           }
         },
@@ -365,11 +435,8 @@
             "target": "What to look at",
             "state": "Extra note or template",
             "background": "Standing facts about the readings",
-            "include_attributes": "Send every attribute as well",
-            "scan_interval": "Ask this often",
             "options": "Your options, one per line",
-            "advanced": "Advanced",
-            "trigger_entities": "Wake on these instead"
+            "advanced": "Advanced"
           },
           "data_description": {
             "name": "Names the sensor this question creates.",
@@ -377,16 +444,23 @@
             "target": "Pick entities, devices, areas or labels and their readings are sent for you. Leave empty if the note below is the whole state.",
             "state": "Text or a template, alone or alongside the readings.",
             "background": "Folded into `instructions` so it travels with the question rather than with the state.",
-            "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation.",
-            "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "options": "Sent to the API as `criteria`. One per line, as `name: what it means`. The description is optional.",
-            "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
+            "advanced": "A schedule, and what else to send. The defaults are fine for a first question."
           },
           "sections": {
             "advanced": {
               "name": "Advanced",
-              "description": "A schedule, and what else to send. The defaults are fine for a first question."
+              "description": "A schedule, and what else to send. The defaults are fine for a first question.",
+              "data": {
+                "trigger_entities": "Wake on these instead",
+                "scan_interval": "Ask this often",
+                "include_attributes": "Send every attribute as well"
+              },
+              "data_description": {
+                "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds.",
+                "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
+                "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation."
+              }
             }
           }
         },
@@ -398,11 +472,8 @@
             "target": "What to look at",
             "state": "Extra note or template",
             "background": "Standing facts about the readings",
-            "include_attributes": "Send every attribute as well",
-            "scan_interval": "Ask this often",
             "levels": "Your levels, lowest first, one per line",
-            "advanced": "Advanced",
-            "trigger_entities": "Wake on these instead"
+            "advanced": "Advanced"
           },
           "data_description": {
             "name": "Names the sensor this question creates.",
@@ -410,16 +481,23 @@
             "target": "Pick entities, devices, areas or labels and their readings are sent for you. Leave empty if the note below is the whole state.",
             "state": "Text or a template, alone or alongside the readings.",
             "background": "Folded into `instructions` so it travels with the question rather than with the state.",
-            "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation.",
-            "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "levels": "Sent to the API as `criteria`. One per line, lowest first. Between 2 and 10 of them.",
-            "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
+            "advanced": "A schedule, and what else to send. The defaults are fine for a first question."
           },
           "sections": {
             "advanced": {
               "name": "Advanced",
-              "description": "A schedule, and what else to send. The defaults are fine for a first question."
+              "description": "A schedule, and what else to send. The defaults are fine for a first question.",
+              "data": {
+                "trigger_entities": "Wake on these instead",
+                "scan_interval": "Ask this often",
+                "include_attributes": "Send every attribute as well"
+              },
+              "data_description": {
+                "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds.",
+                "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
+                "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation."
+              }
             }
           }
         },
@@ -431,15 +509,12 @@
             "target": "What to look at",
             "state": "Extra note or template",
             "background": "Standing facts about the readings",
-            "include_attributes": "Send every attribute as well",
-            "scan_interval": "Ask this often",
             "true_means": "What a high number means",
             "false_means": "What a low number means",
             "threshold": "Also make a binary sensor above",
             "options": "Your options, one per line",
             "levels": "Your levels, lowest first, one per line",
-            "advanced": "Advanced",
-            "trigger_entities": "Wake on these instead"
+            "advanced": "Advanced"
           },
           "data_description": {
             "name": "Names the sensor this question creates.",
@@ -447,20 +522,27 @@
             "target": "Pick entities, devices, areas or labels and their readings are sent for you. Leave empty if the note below is the whole state.",
             "state": "Text or a template, alone or alongside the readings.",
             "background": "Folded into `instructions` so it travels with the question rather than with the state.",
-            "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation.",
-            "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
             "true_means": "Optional. Sharpens which way the answer points.",
             "false_means": "Optional.",
             "threshold": "Leave empty for the probability sensor only.",
             "options": "Sent to the API as `criteria`. One per line, as `name: what it means`. The description is optional.",
             "levels": "Sent to the API as `criteria`. One per line, lowest first. Between 2 and 10 of them.",
-            "advanced": "A schedule, and what else to send. The defaults are fine for a first question.",
-            "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds."
+            "advanced": "A schedule, and what else to send. The defaults are fine for a first question."
           },
           "sections": {
             "advanced": {
               "name": "Advanced",
-              "description": "A schedule, and what else to send. The defaults are fine for a first question."
+              "description": "A schedule, and what else to send. The defaults are fine for a first question.",
+              "data": {
+                "trigger_entities": "Wake on these instead",
+                "scan_interval": "Ask this often",
+                "include_attributes": "Send every attribute as well"
+              },
+              "data_description": {
+                "trigger_entities": "Evaluate when these change, on top of the schedule below. Debounced by 5 seconds.",
+                "scan_interval": "Questions that look at the same thing on the same schedule are sent as one request, which costs tokens but almost no extra time.",
+                "include_attributes": "Off by default. A weather forecast runs to thousands of tokens on every evaluation."
+              }
             }
           }
         },

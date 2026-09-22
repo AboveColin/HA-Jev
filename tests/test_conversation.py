@@ -5,11 +5,13 @@ asserts on entity state, so what is checked is the effect on the house rather th
 which helper got called.
 """
 
+from dataclasses import replace
 from unittest.mock import patch
 
 import pytest
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
@@ -25,7 +27,7 @@ from custom_components.jev.const import (
 from custom_components.jev.conversation import _render_state_answer
 from custom_components.jev.interpret import find_brightness
 
-from .conftest import build_response
+from .conftest import PROBE_TOKENS, build_response
 
 AGENT = "conversation.jev"
 
@@ -76,6 +78,15 @@ async def house(hass, mock_client, config_entry):
     config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+    # The real API answers only what it was asked. A mock that also answered the
+    # domain question on every turn hid a command that never asked it.
+    async def asked_only(state, questions):
+        full = mock_client.ask.return_value
+        kept = {k: v for k, v in full.answers.items() if k in questions}
+        return replace(full, answers=kept)
+
+    mock_client.ask.side_effect = asked_only
     return config_entry
 
 
@@ -310,8 +321,11 @@ async def test_a_voice_command_counts_against_the_budget(hass, house, mock_clien
     await converse(hass, "kitchen light on")
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+    # Setup's probe is the other call.
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
+    assert hass.states.get("sensor.jev_input_tokens_today").state == str(
+        321 + PROBE_TOKENS
+    )
 
 
 async def test_a_spent_budget_stops_voice_too(hass, house, mock_client):
@@ -322,11 +336,46 @@ async def test_a_spent_budget_stops_voice_too(hass, house, mock_client):
 
     calls = []
     hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
-    await converse(hass, "kitchen light on")
+    result = await converse(hass, "kitchen light on")
     await hass.async_block_till_done()
 
     assert mock_client.ask.await_count == 0
     assert calls == []
+    assert "budget is spent" in result.response.speech["plain"]["speech"]
+
+
+async def test_a_rejected_key_is_said_out_loud(hass, house, mock_client):
+    from jevclient import JevAuthError
+
+    mock_client.ask.side_effect = JevAuthError("bad key")
+    result = await converse(hass, "kitchen light on")
+    assert "rejected the API key" in result.response.speech["plain"]["speech"]
+    await hass.async_block_till_done()
+    [flow] = house.async_get_active_flows(hass, {SOURCE_REAUTH})
+    assert flow["step_id"] == "reauth_confirm"
+
+
+async def test_the_fallback_never_points_at_another_jev_agent(hass, house, mock_client):
+    """Two Jev agents that fall back to each other would pay for every pass."""
+    other = er.async_get(hass).async_get_or_create(
+        "conversation", "jev", "other", suggested_object_id="jev_other"
+    )
+    hass.config_entries.async_update_entry(
+        house, options={CONF_FALLBACK_AGENT: other.entity_id}
+    )
+    await hass.async_block_till_done()
+    mock_client.ask.return_value = build_response(
+        **answer_set(compound=NoulAnswer(noul=0.99))
+    )
+
+    with patch(
+        "custom_components.jev.conversation.conversation.async_converse",
+        wraps=conversation.async_converse,
+    ) as handed_over:
+        result = await converse(hass, "do two things")
+
+    assert [c for c in handed_over.await_args_list if c.kwargs["agent_id"] != AGENT] == []
+    assert "did not understand" in result.response.speech["plain"]["speech"]
 
 
 async def test_an_api_failure_acts_on_nothing(hass, house, mock_client):
@@ -340,7 +389,7 @@ async def test_an_api_failure_acts_on_nothing(hass, house, mock_client):
     await hass.async_block_till_done()
 
     assert calls == []
-    assert "did not understand" in result.response.speech["plain"]["speech"]
+    assert "did not answer" in result.response.speech["plain"]["speech"]
 
 
 async def test_a_device_that_is_not_exposed_is_never_acted_on(hass, house, mock_client):
@@ -732,6 +781,8 @@ async def test_a_whole_house_command_names_a_target_the_intent_accepts(
 
 async def test_a_whole_house_command_with_no_kind_asks_which(hass, house, mock_client):
     """Home Assistant refuses "all" with no domain beside it, and so does this."""
+    hass.states.async_set("switch.fan", "on", {"friendly_name": "Fan"})
+    async_expose_entity(hass, conversation.DOMAIN, "switch.fan", True)
     mock_client.ask.return_value = build_response(
         **answer_set(
             action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
@@ -992,3 +1043,216 @@ async def test_an_untranslated_language_still_gets_a_sentence(hass, house, mock_
     assert result.response.speech["plain"]["speech"] == (
         "すみません、理解できませんでした"
     )
+
+
+async def test_a_whole_house_command_in_a_house_of_lights_turns_off_the_lights(
+    hass, house, mock_client
+):
+    """With one kind of device exposed, asking which kind has one answer."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(
+                choice="everything", probabilities={}, confidence=0.95
+            ),
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+            domain=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.4),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    await converse(hass, "turn everything off")
+    await hass.async_block_till_done()
+
+    assert sorted(e for c in calls for e in c.data["entity_id"]) == [
+        "light.kitchen",
+        "light.office",
+    ]
+
+
+async def test_turning_a_room_off_never_unlocks_its_door(hass, house, mock_client):
+    """Home Assistant maps turn_off on a lock to unlock, for every entity in the area.
+
+    The model is never shown the lock, but an area command with no kind of device
+    beside it reached every exposed entity in the room, the lock included.
+    """
+    kitchen = ar.async_get(hass).async_get_area_by_name("Kitchen")
+    entry = er.async_get(hass).async_get_or_create(
+        "lock", "demo", "back_door", suggested_object_id="back_door"
+    )
+    er.async_get(hass).async_update_entity(entry.entity_id, area_id=kitchen.id)
+    hass.states.async_set("lock.back_door", "locked", {"friendly_name": "Back door"})
+    async_expose_entity(hass, conversation.DOMAIN, "lock.back_door", True)
+
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(choice="area", probabilities={}, confidence=0.95),
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+            area=ChoiceAnswer(choice="Kitchen", probabilities={}, confidence=0.97),
+            domain=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.4),
+        )
+    )
+    unlocked, off = [], []
+    hass.services.async_register("lock", "unlock", lambda call: unlocked.append(call))
+    hass.services.async_register("light", "turn_off", lambda call: off.append(call))
+
+    await converse(hass, "turn off the kitchen")
+    await hass.async_block_till_done()
+
+    assert unlocked == []
+    assert [e for c in off for e in c.data["entity_id"]] == ["light.kitchen"]
+
+
+async def test_a_garage_door_is_never_offered_to_the_model(
+    hass, mock_client, config_entry
+):
+    """Opening a garage from a sentence matched at 0.6 is a way into the house."""
+    await one_device(hass, config_entry, "cover.blinds", "closed")
+    for entity_id, device_class in (
+        ("cover.garage", "garage"),
+        ("cover.drive", "gate"),
+        ("cover.porch", "door"),
+    ):
+        hass.states.async_set(entity_id, "closed", {"device_class": device_class})
+        async_expose_entity(hass, conversation.DOMAIN, entity_id, True)
+
+    mock_client.ask.return_value = build_response(**answer_set())
+    await converse(hass, "open the garage")
+
+    sent = {e["entity_id"] for e in mock_client.ask.call_args.args[0]["entities"]}
+    assert sent == {"light.kitchen", "cover.blinds"}
+
+
+async def test_an_unsure_whole_house_command_does_nothing(hass, house, mock_client):
+    """Two kinds of device, so the domain is asked and answered with confidence."""
+    hass.states.async_set("switch.fan", "on", {"friendly_name": "Fan"})
+    async_expose_entity(hass, conversation.DOMAIN, "switch.fan", True)
+    hass.config_entries.async_update_entry(house, options={CONF_ALLOW_WHOLE_HOME: True})
+    await hass.async_block_till_done()
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(
+                choice="everything", probabilities={}, confidence=0.30
+            ),
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+            domain=ChoiceAnswer(choice="light", probabilities={}, confidence=0.95),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    await converse(hass, "turn everything off")
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_a_command_that_is_probably_two_does_nothing(hass, house, mock_client):
+    """At 0.79 the sentence is more likely two commands than one."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(compound=NoulAnswer(noul=0.79))
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "kitchen light on and the office off")
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_no_matching_device_does_nothing(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9)
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the aquarium")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
+async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_client):
+    """Home Assistant tells duplicate names apart by area id, not by area name."""
+    areas = ar.async_get(hass)
+    registry = er.async_get(hass)
+    for entity_id, area in (
+        ("light.kitchen_ceiling", "Kitchen"),
+        ("light.office_ceiling", "Office"),
+    ):
+        entry = registry.async_get_or_create(
+            "light", "demo", entity_id.split(".")[1], suggested_object_id=entity_id[6:]
+        )
+        registry.async_update_entity(
+            entry.entity_id, name="Ceiling", area_id=areas.async_get_area_by_name(area).id
+        )
+        hass.states.async_set(entity_id, "off", {"friendly_name": "Ceiling"})
+        async_expose_entity(hass, conversation.DOMAIN, entity_id, True)
+
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(
+                choice="light.office_ceiling", probabilities={}, confidence=1.0
+            )
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "office ceiling on")
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office_ceiling"]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("set lamp 2 brightness to 40", 40),
+        ("dim bedroom 2 to 30", 30),
+        ("zet lamp 3 helderheid op 70", 70),
+        ("百分之30", 30),
+        ("set it to 1000 percent", None),
+        ("set it to 12.5 percent", None),
+        ("0.5%", None),
+        ("make it 20% brighter", None),
+        ("dim it by 20", None),
+    ],
+)
+def test_a_brightness_is_only_read_when_it_is_a_level(text, expected):
+    """A relative change, a fraction or a room number is not a level to set."""
+    assert find_brightness(text) == expected
+
+
+async def test_a_room_past_the_entity_cap_is_not_offered(hass, config_entry):
+    from custom_components.jev.snapshot import async_snapshot
+
+    assert await async_setup_component(hass, "homeassistant", {})
+    areas = ar.async_get(hass)
+    registry = er.async_get(hass)
+    for entity_id, area in (
+        ("light.a", "Attic"),
+        ("light.b", "Attic"),
+        ("light.c", "Cellar"),
+    ):
+        entry = registry.async_get_or_create(
+            "light", "demo", entity_id[6:], suggested_object_id=entity_id[6:]
+        )
+        registry.async_update_entity(
+            entry.entity_id, area_id=areas.async_get_or_create(area).id
+        )
+        hass.states.async_set(entity_id, "off")
+        async_expose_entity(hass, conversation.DOMAIN, entity_id, True)
+
+    snapshot = async_snapshot(hass, 2)
+
+    assert [e.entity_id for e in snapshot.entities] == ["light.a", "light.b"]
+    assert snapshot.areas == ["Attic"]

@@ -1,10 +1,15 @@
 """The four actions, including what they refuse."""
 
 import pytest
+import voluptuous as vol
+from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import DOMAIN
+from custom_components.jev.payload import payload_bytes
 
 from .conftest import build_response
 
@@ -33,6 +38,22 @@ async def test_noul_returns_the_probability_and_the_threshold(
     assert response["threshold"] == 0.7
     assert response["usage"]["input_tokens"] == 321
     assert response["model"] == "jev-1.13.0"
+
+
+async def test_an_action_teaches_the_budget_how_big_a_token_is(
+    hass, loaded_entry, mock_client
+):
+    """The budget estimate divides request bytes by this ratio, so every call counts."""
+    mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.81))
+    await call(
+        hass,
+        "noul",
+        {"state": "The machine has drawn 1.2 W.", "instructions": "Is it done?"},
+    )
+    state, questions = mock_client.ask.call_args.args
+    runtime = loaded_entry.runtime_data
+    sent = payload_bytes(state, questions, runtime.model)
+    assert runtime.usage.bytes_per_token == sent / 321
 
 
 async def test_the_threshold_is_the_callers_and_nothing_else(
@@ -332,6 +353,10 @@ async def test_a_rejected_key_during_an_action_says_so(hass, loaded_entry, mock_
     with pytest.raises(HomeAssistantError) as err:
         await call(hass, "noul", {"state": "x", "instructions": "y"})
     assert err.value.translation_key == "auth_rejected"
+    # Setup and the coordinators asked for a new key, and an action did not.
+    await hass.async_block_till_done()
+    [flow] = loaded_entry.async_get_active_flows(hass, {SOURCE_REAUTH})
+    assert flow["step_id"] == "reauth_confirm"
 
 
 async def test_a_transport_failure_during_an_action_says_so(
@@ -358,3 +383,57 @@ async def test_asking_with_a_named_entry_picks_that_entry(
         },
     )
     assert "noul" in response
+
+
+async def test_ask_with_no_questions_is_refused_before_a_request_is_spent(
+    hass, loaded_entry, mock_client
+):
+    """An empty mapping was sent, billed, and answered with nothing."""
+    mock_client.ask.reset_mock()
+    with pytest.raises(vol.Invalid, match="length of value must be at least 1"):
+        await call(hass, "ask", {"state": "x", "questions": {}})
+    assert mock_client.ask.await_count == 0
+
+
+async def test_a_target_that_names_only_absent_entities_is_refused(
+    hass, loaded_entry, mock_client
+):
+    """An entity id that exists nowhere is referenced, not missing, so it passed."""
+    mock_client.ask.reset_mock()
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "noul",
+            {"entity_id": ["sensor.not_there"], "instructions": "Is it on?"},
+        )
+    assert err.value.translation_key == "empty_target"
+    assert mock_client.ask.await_count == 0
+
+
+async def test_an_action_with_two_entries_and_none_named_is_refused(
+    hass, loaded_entry, mock_client
+):
+    """Each entry has its own key and budget, and the first one loaded paid."""
+    second = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev guest",
+        data={CONF_API_KEY: "another-key-not-a-real-one"},
+        unique_id="fedcba9876543210",
+    )
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+    mock_client.ask.reset_mock()
+
+    with pytest.raises(ServiceValidationError) as err:
+        await call(hass, "noul", {"state": "x", "instructions": "y"})
+    assert err.value.translation_key == "entry_ambiguous"
+    assert err.value.translation_placeholders == {"entries": "Jev, Jev guest"}
+    assert mock_client.ask.await_count == 0
+
+    named = await call(
+        hass,
+        "noul",
+        {"state": "x", "instructions": "y", "config_entry": second.entry_id},
+    )
+    assert "noul" in named

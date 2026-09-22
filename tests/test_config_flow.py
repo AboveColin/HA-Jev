@@ -1,6 +1,7 @@
 """The config flow, which is the one thing every user touches."""
 
 import hashlib
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -77,6 +78,79 @@ async def test_user_flow_errors_recover(hass, mock_client, error, expected):
     mock_client.ask.side_effect = None
     result = await hass.config_entries.flow.async_configure(result["flow_id"], _form())
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+class _Answering:
+    """A host that answers the probe with a status other than 200."""
+
+    headers: ClassVar[dict[str, str]] = {}
+
+    def __init__(self, status: int, body: str) -> None:
+        self.status = status
+        self._body = body
+
+    async def text(self) -> str:
+        return self._body
+
+    async def json(self, content_type=None):
+        return {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return None
+
+
+class _AnsweringSession:
+    def __init__(self, status: int, body: str) -> None:
+        self._response = _Answering(status, body)
+
+    def post(self, url, **kwargs):
+        return self._response
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "error"),
+    [
+        (
+            404,
+            '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}',
+            "not_found",
+        ),
+        (500, '{"error": {"message": "internal error"}}', "cannot_connect"),
+    ],
+)
+async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(
+    hass, status, body, error
+):
+    """A 404 says the address is wrong. Any other failure says the host is.
+
+    A base URL carrying the request path already, which is what a reader of the
+    published API docs types first, answered "could not reach the API at that
+    address". The host answered perfectly well. This drives the real client so the
+    message it raises is the library's own: a change there fails here. The 500 case
+    holds the other side, so a broken host is not reported as a wrong address.
+    """
+    with patch(
+        "custom_components.jev.config_flow.async_get_clientsession",
+        return_value=_AnsweringSession(status, body),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            _form(url="https://openrouter.ai/api/alpha/decisions"),
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": error}
+    # The not_found message names this address through a placeholder, and a
+    # placeholder the form does not supply renders as the literal braces.
+    assert result["description_placeholders"] == {
+        "openrouter_url": "https://openrouter.ai/api"
+    }
 
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):
@@ -263,7 +337,7 @@ async def test_a_swap_onto_another_entrys_key_is_refused(hass, mock_client, conf
     assert config_entry.data[CONF_API_KEY] == API_KEY
 
 
-GATEWAY = "http://gateway.local:8093"
+GATEWAY = "http://gateway.local:8080"
 
 
 async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
@@ -291,9 +365,9 @@ async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
 @pytest.mark.parametrize(
     ("raw", "stored"),
     [
-        ("http://gateway.local:8093/", GATEWAY),
-        ("HTTP://Gateway.Local:8093", GATEWAY),
-        ("  http://gateway.local:8093  ", GATEWAY),
+        ("http://gateway.local:8080/", GATEWAY),
+        ("HTTP://Gateway.Local:8080", GATEWAY),
+        ("  http://gateway.local:8080  ", GATEWAY),
         # A path is a prefix, because the client appends /v1/systemone to it. That is
         # what lets a reverse proxy mount the API somewhere other than the root.
         ("http://gateway.local/jev/", "http://gateway.local/jev"),
@@ -316,7 +390,7 @@ async def test_an_endpoint_is_normalised_before_it_is_stored(
 @pytest.mark.parametrize(
     "raw",
     [
-        "gateway.local:8093",
+        "gateway.local:8080",
         "ftp://gateway.local",
         "http://",
         "http://gateway.local?model=jev-latest",
@@ -363,7 +437,7 @@ async def test_reconfigure_moves_the_endpoint_and_keeps_the_entities(
     # A bad address here is refused the same way it is on the way in, and the entry
     # keeps the endpoint it already had.
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], _form(url="gateway.local:8093")
+        result["flow_id"], _form(url="gateway.local:8080")
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_URL: "invalid_url"}
@@ -604,7 +678,7 @@ async def test_an_empty_key_against_typesafe_is_refused(hass, mock_client):
 
 async def test_two_keyless_endpoints_are_two_entries(hass, mock_client):
     """Hashing the key alone gave every keyless endpoint one id, so only one fitted."""
-    for url in (GATEWAY, "http://192.0.2.5:8093"):
+    for url in (GATEWAY, "http://192.0.2.5:8080"):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
@@ -630,3 +704,51 @@ async def test_the_same_key_at_two_endpoints_is_two_entries(hass, mock_client):
         )
         assert result["type"] is FlowResultType.CREATE_ENTRY
     assert len(hass.config_entries.async_entries(DOMAIN)) == 2
+
+
+async def test_reauth_takes_the_key_the_way_the_first_form_does(
+    hass, mock_client, config_entry
+):
+    """Reauth stored the key as pasted, newline and all, and took an empty one."""
+    config_entry.add_to_hass(hass)
+    result = await config_entry.start_reauth_flow(hass)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "   "}
+    )
+    assert result["errors"] == {CONF_API_KEY: "key_required"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "  a-pasted-key\n"}
+    )
+    assert result["reason"] == "reauth_successful"
+    assert config_entry.data[CONF_API_KEY] == "a-pasted-key"
+    assert config_entry.unique_id == _entry_id("a-pasted-key")
+    await hass.async_block_till_done()
+
+
+async def test_reconfigure_keeps_the_key_when_the_field_is_left_empty(
+    hass, mock_client, loaded_entry
+):
+    """The form never shows the key back, so changing only the model cleared it."""
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="", model=MODEL)
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_API_KEY] == API_KEY
+    assert loaded_entry.data[CONF_MODEL] == MODEL
+
+
+async def test_reconfigure_sends_no_stored_key_to_a_new_address(
+    hass, mock_client, loaded_entry
+):
+    """A gateway that needs no key gets none, rather than the key for TypeSafe."""
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="", url=GATEWAY)
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_client.built_by_flow.call_args.args[0] == ""
+    assert loaded_entry.data[CONF_API_KEY] == ""
+    assert loaded_entry.data[CONF_URL] == GATEWAY

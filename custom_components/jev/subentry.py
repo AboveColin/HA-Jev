@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date
+from hashlib import sha256
 from typing import Any
 
 import voluptuous as vol
@@ -36,7 +36,7 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import selector, translation
 from homeassistant.helpers.template import Template
-from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util
 from jevclient import (
     Answer,
     ChoiceAnswer,
@@ -428,7 +428,7 @@ async def try_answer(
     """
     say = await _translator(hass)
     usage = entry.runtime_data.usage
-    usage.roll_over(date.today())
+    usage.roll_over(dt_util.now().date())
     # The budget is a tripwire, and a preview that spends past it is a hole in
     # the fence. The form still saves; it just does not get a trial answer.
     if usage.would_exceed():
@@ -491,7 +491,6 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
     """Add or edit one question without touching a file."""
 
     _pending: dict[str, Any]
-    _pending_kind: str
     _editing: str | None = None
 
     async def async_step_user(
@@ -522,50 +521,44 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Edit an existing question, on the form for the type it already is."""
         current = self._get_reconfigure_subentry()
-        kind = current.data["type"]
-        if user_input is None:
-            return self.async_show_form(
-                step_id="reconfigure",
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(dict(current.data))
-                ),
-                description_placeholders={"type": kind},
-            )
-        user_input = flatten(user_input)
-        errors = _validate(kind, user_input)
-        if errors:
-            return self.async_show_form(
-                step_id="reconfigure",
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(user_input)
-                ),
-                errors=errors,
-                description_placeholders={"type": kind},
-            )
-        self._pending = {**user_input, "type": kind}
-        self._pending_kind = kind
-        self._editing = current.subentry_id
-        return await self.async_step_preview()
+        return await self._async_question_form(
+            "reconfigure",
+            current.data["type"],
+            user_input,
+            editing=current.subentry_id,
+            suggested=dict(current.data),
+        )
 
     async def _async_type_step(
         self, kind: str, user_input: dict[str, Any] | None
     ) -> SubentryFlowResult:
-        if user_input is None:
-            return self.async_show_form(step_id=kind, data_schema=SCHEMAS[kind])
-        user_input = flatten(user_input)
-        errors = _validate(kind, user_input)
-        if errors:
-            return self.async_show_form(
-                step_id=kind,
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(user_input)
-                ),
-                errors=errors,
-            )
-        self._pending = {**user_input, "type": kind}
-        self._pending_kind = kind
-        self._editing = None
-        return await self.async_step_preview()
+        return await self._async_question_form(kind, kind, user_input)
+
+    async def _async_question_form(
+        self,
+        step_id: str,
+        kind: str,
+        user_input: dict[str, Any] | None,
+        *,
+        editing: str | None = None,
+        suggested: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Show the form for one kind of question, check it, then go to the preview."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            user_input = flatten(user_input)
+            errors = _validate(kind, user_input)
+            if not errors:
+                self._pending = {**user_input, "type": kind}
+                self._editing = editing
+                return await self.async_step_preview()
+            suggested = user_input
+        schema = SCHEMAS[kind]
+        if suggested is not None:
+            schema = self.add_suggested_values_to_schema(schema, nest(suggested))
+        return self.async_show_form(
+            step_id=step_id, data_schema=schema, errors=errors or None
+        )
 
     async def async_step_preview(
         self, user_input: dict[str, Any] | None = None
@@ -606,7 +599,10 @@ def _validate(kind: str, user_input: dict[str, Any]) -> dict[str, str]:
     ask is the one an automation author can act on.
     """
     errors: dict[str, str] = {}
-    if not user_input.get(CONF_TARGET) and not user_input.get(CONF_STATE_TEMPLATE):
+    # The target picker submits {"entity_id": []} once something was picked and
+    # removed again. That is as empty as no target at all.
+    target = user_input.get(CONF_TARGET) or {}
+    if not any(target.values()) and not user_input.get(CONF_STATE_TEMPLATE):
         errors["base"] = "nothing_to_judge"
     if kind == TYPE_CHOICE:
         text = user_input.get(CONF_OPTIONS_TEXT, "")
@@ -706,7 +702,7 @@ def async_contexts_from_subentries(
         grouped.setdefault(_call_key(dict(subentry.data)), []).append(subentry)
 
     contexts: list[ContextConfig] = []
-    for index, (_key, subentries) in enumerate(sorted(grouped.items())):
+    for index, (call_key, subentries) in enumerate(sorted(grouped.items())):
         first = dict(subentries[0].data)
         raw_template = first.get(CONF_STATE_TEMPLATE)
         template = Template(raw_template, hass) if raw_template else None
@@ -715,14 +711,18 @@ def async_contexts_from_subentries(
         name = subentries[0].title if len(subentries) == 1 else f"Group {index + 1}"
         contexts.append(
             ContextConfig(
-                key=f"ui_{slugify(name)}_{index}",
+                # The latency and payload unique ids are built from this. The
+                # name and the index both move when another question is added,
+                # which orphaned those entities, so the key is the call key itself.
+                key="ui_" + sha256(call_key.encode()).hexdigest()[:12],
                 name=name,
                 template=template,
                 selector=first.get(CONF_TARGET) or None,
                 include_attributes=bool(first.get(CONF_INCLUDE_ATTRIBUTES)),
                 questions=[
                     build_question_config(
-                        _as_raw_question(dict(s.data)), _question_key(s)
+                        _as_raw_question(dict(s.data)),
+                        _question_key(s),
                     )
                     for s in subentries
                 ],

@@ -1,17 +1,19 @@
 """Contexts, the entities they produce, and the budget that stops them."""
 
+import asyncio
 import copy
 import hashlib
-from datetime import date, timedelta
+import json
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY, ConfigEntryState
 from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-from jevclient import JevError, NoulAnswer
+from jevclient import JevError, JevRateLimitError, NoulAnswer
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -25,7 +27,11 @@ from custom_components.jev.const import (
 )
 from custom_components.jev.identity import entry_unique_id
 
-from .conftest import build_response
+from .conftest import PROBE_TOKENS, build_response
+from .test_subentry import question
+
+# What setup's probe and one evaluation of CONTEXT bill together.
+PROBED_AND_ASKED = str(321 + PROBE_TOKENS)
 
 CONTEXT = {
     "name": "Laundry",
@@ -60,8 +66,9 @@ async def test_a_context_makes_a_sensor_per_question(hass, mock_client, config_e
     assert hass.states.get("sensor.jev_laundry_forgotten").state == "0.81"
     # A threshold turns the same answer into something an automation can trigger on.
     assert hass.states.get("binary_sensor.jev_laundry_forgotten").state == "on"
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
+    assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
+    # The probe is a billed call, so it counts next to the evaluation.
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
 
 
 async def test_the_state_is_built_from_the_named_entities(
@@ -100,20 +107,50 @@ async def test_yaml_refuses_the_same_limits_as_the_actions(
     assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [bad]})
 
 
-async def test_the_budget_stops_evaluation_and_says_why(hass, mock_client):
+def _budget_entry(budget: int) -> MockConfigEntry:
     # Built with the budget already set: updating options on a live entry reloads it,
     # which is a different thing to test.
-    entry = MockConfigEntry(
+    return MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: "test-key-not-a-real-one"},
-        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        options={CONF_DAILY_TOKEN_BUDGET: budget},
         unique_id="budget-entry",
     )
-    await setup_with_context(hass, entry)
 
-    # The first call spends 321 tokens, which is already past the budget of 100.
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+
+async def test_a_call_that_does_not_fit_the_budget_is_never_sent(hass, mock_client):
+    """The budget is checked against the estimate, before the request goes out.
+
+    It used to be checked against the day's total alone, which let every call
+    through until one of them had already gone over. A budget of 100 stopped at 321.
+    """
+    await setup_with_context(hass, _budget_entry(100))
+
+    # The setup probe is the only request this entry made, and the coordinator's
+    # first evaluation was refused rather than sent.
+    assert hass.states.get("sensor.jev_input_tokens_today").state == str(PROBE_TOKENS)
+    assert hass.states.get("sensor.jev_calls_today").state == "1"
+    assert hass.states.get("binary_sensor.jev_daily_budget_exceeded").state == "on"
+    assert mock_client.ask.await_count == 1
+    # The warning names what was refused, so a house with ten contexts knows
+    # which one to look at.
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, entry.runtime_data.usage.issue_id)
+    assert issue.translation_key == "daily_budget_exceeded"
+    assert issue.translation_placeholders["context"] == "Laundry"
+    assert int(issue.translation_placeholders["estimate"]) > 100 - PROBE_TOKENS
+
+
+async def test_the_budget_stops_the_next_call_and_keeps_what_it_has(hass, mock_client):
+    """One call fits, the one after it does not, and the answers stay put."""
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.81)
+    )
+    await setup_with_context(hass, _budget_entry(400))
+
+    assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
+    assert hass.states.get("sensor.jev_laundry_forgotten").state == "0.81"
     calls_before = mock_client.ask.await_count
 
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=310))
@@ -121,22 +158,30 @@ async def test_the_budget_stops_evaluation_and_says_why(hass, mock_client):
 
     assert mock_client.ask.await_count == calls_before, "it kept spending past the budget"
     assert hass.states.get("binary_sensor.jev_daily_budget_exceeded").state == "on"
-    # The answer keeps its last value and the usage entities keep explaining why,
-    # rather than everything going blank at once.
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
+    # The usage entities keep explaining why, rather than everything going blank.
+    assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
+    # The answer goes unavailable rather than holding a number nothing measured.
+    # The value itself is still in coordinator.data, so raising the budget brings
+    # it back without a call. This is what the repair issue says happens.
+    assert hass.states.get("sensor.jev_laundry_forgotten").state == "unavailable"
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    coordinator = next(iter(entry.runtime_data.coordinators.values()))
+    assert coordinator.data["laundry_laundry_forgotten"].noul == 0.81
 
 
 async def test_usage_survives_a_reload(hass, mock_client, config_entry):
     """A budget that a restart or an options change clears is not a budget."""
     await setup_with_context(hass, config_entry)
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+    assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
 
     await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
 
     tokens = int(hass.states.get("sensor.jev_input_tokens_today").state)
-    assert tokens >= 321, "the day's usage reset when the entry reloaded"
+    assert tokens >= int(PROBED_AND_ASKED), (
+        "the day's usage reset when the entry reloaded"
+    )
 
 
 async def test_unloading_writes_the_totals_out_first(
@@ -149,14 +194,14 @@ async def test_unloading_writes_the_totals_out_first(
     dropped whatever had been recorded and the daily budget started the day over.
     """
     await setup_with_context(hass, config_entry)
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+    assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
 
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
 
     key = f"{DOMAIN}.{config_entry.entry_id}.usage"
     assert key in hass_storage, "unload left the day's usage in a pending timer"
-    assert hass_storage[key]["data"]["input_tokens"] == 321
+    assert hass_storage[key]["data"]["input_tokens"] == int(PROBED_AND_ASKED)
 
 
 async def test_yesterdays_total_does_not_count_against_today(
@@ -169,7 +214,7 @@ async def test_yesterdays_total_does_not_count_against_today(
     }
     with patch("homeassistant.helpers.storage.Store.async_load", return_value=stored):
         await setup_with_context(hass, config_entry)
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
 
 
 async def test_a_yaml_question_takes_background_too(hass, mock_client, config_entry):
@@ -334,7 +379,7 @@ async def test_a_corrupt_usage_file_is_ignored_rather_than_trusted(
         return_value={"day": "not-a-date", "calls": 99, "input_tokens": 999},
     ):
         await setup_with_context(hass, config_entry)
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
 
 
 async def test_a_latency_sensor_exists_per_context(hass, mock_client, config_entry):
@@ -401,7 +446,7 @@ async def test_entities_accepts_the_full_picker_form(hass, mock_client, config_e
 async def test_the_day_rolls_over_at_midnight(hass, mock_client, config_entry):
     await setup_with_context(hass, config_entry)
     usage = config_entry.runtime_data.usage
-    assert usage.calls == 1
+    assert usage.calls == 2
 
     usage.roll_over(date.today() + timedelta(days=1))
     assert usage.calls == 0
@@ -409,16 +454,106 @@ async def test_the_day_rolls_over_at_midnight(hass, mock_client, config_entry):
     assert usage.budget_exceeded is False
 
 
+async def enable_entity(hass, config_entry, entity_id):
+    """Turn on a diagnostic entity that ships disabled, the way a user would."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    registry.async_update_entity(entity_id, disabled_by=None)
+    # The registry schedules the reload 30 s out rather than doing it now. Let that
+    # one run here, while the client is still answering. Reloading by hand instead
+    # leaves it pending, and it then fires in the middle of whatever the test does
+    # next, which was worth an afternoon.
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    assert config_entry.state is ConfigEntryState.LOADED
+
+
+async def test_the_payload_sensor_carries_the_request_that_was_answered(
+    hass, mock_client, config_entry
+):
+    """What was sent used to be visible only in the diagnostics download.
+
+    The state is the size because a state is capped at 255 characters and the
+    rendered house state is not.
+    """
+    await setup_with_context(hass, config_entry)
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_payload")
+
+    state = hass.states.get("sensor.jev_laundry_payload")
+    assert state.attributes["unit_of_measurement"] == "B"
+    assert state.attributes["device_class"] == "data_size"
+    entities = state.attributes["evaluated_state"]["entities"]
+    assert [entity["name"] for entity in entities] == ["Washer power"]
+    assert state.attributes["questions"] == {
+        "laundry_laundry_forgotten": {
+            "type": "noul",
+            "instructions": "Is the laundry finished but still in the machine?",
+        }
+    }
+
+    coordinator = next(iter(config_entry.runtime_data.coordinators.values()))
+    assert int(state.state) == coordinator.last_payload_bytes
+    # The same number the budget check divided, so a graph of this sensor is a
+    # graph of what the estimates are made of.
+    assert int(state.state) == len(
+        json.dumps(
+            {
+                "state": coordinator.last_state_text,
+                "model": "jev-latest",
+                "questions": {
+                    "laundry_laundry_forgotten": {
+                        "type": "noul",
+                        "instructions": (
+                            "Is the laundry finished but still in the machine?"
+                        ),
+                    }
+                },
+            }
+        ).encode()
+    )
+
+
+async def test_the_house_state_is_not_written_to_the_recorder(
+    hass, mock_client, config_entry
+):
+    """288 copies of the house state a day, per context, is not a graph.
+
+    _unrecorded_attributes is what keeps the long attributes out of the database
+    while they stay readable in a template and in the developer tools.
+    """
+    from custom_components.jev.sensor import JevPayloadSensor
+
+    assert JevPayloadSensor._unrecorded_attributes == frozenset(
+        {"evaluated_state", "questions"}
+    )
+
+
+async def test_the_payload_sensor_keeps_the_last_request_after_a_failure(
+    hass, mock_client, config_entry
+):
+    """A request that never went out does not overwrite the last one that did."""
+    await setup_with_context(hass, config_entry)
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_payload")
+    sent = hass.states.get("sensor.jev_laundry_payload").state
+
+    mock_client.ask.side_effect = JevError("the endpoint did not answer")
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=310))
+    await hass.async_block_till_done()
+
+    coordinator = next(iter(config_entry.runtime_data.coordinators.values()))
+    assert str(coordinator.last_payload_bytes) == sent
+    # The entity itself goes unavailable, because the number it shows is now old.
+    assert hass.states.get("sensor.jev_laundry_payload").state == "unavailable"
+
+
 async def test_the_latency_sensor_reports_the_last_evaluation(
     hass, mock_client, config_entry
 ):
-    from homeassistant.helpers import entity_registry as er
-
     await setup_with_context(hass, config_entry)
-    registry = er.async_get(hass)
-    registry.async_update_entity("sensor.jev_laundry_latency", disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_latency")
     assert hass.states.get("sensor.jev_laundry_latency").state == "274"
 
 
@@ -604,6 +739,8 @@ async def test_each_entry_keeps_its_own_budget_warning(hass, mock_client):
         data={CONF_API_KEY: "another-key-not-a-real-one"},
         options={CONF_DAILY_TOKEN_BUDGET: 200},
         unique_id="fedcba9876543210",
+        # YAML contexts belong to the first entry, so this one asks its own.
+        subentries_data=[question("Laundry forgotten")],
     )
     await setup_with_context(hass, small)
     large.add_to_hass(hass)
@@ -640,10 +777,14 @@ async def test_each_entry_keeps_its_own_budget_warning(hass, mock_client):
     assert registry.async_get_issue(DOMAIN, ids[large.entry_id]) is not None
 
 
-async def test_an_exhausted_budget_outlives_a_failed_setup(
+async def test_a_spent_budget_skips_the_probe_and_still_says_so(
     hass, mock_client, hass_storage
 ):
-    """The count is restored from disk, so the warning has to be too."""
+    """The probe is billed, so a spent day does not send it.
+
+    The count is restored from disk, and with no probe and no evaluation there is
+    no coordinator to report it, so setup raises the warning itself.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
@@ -657,17 +798,19 @@ async def test_an_exhausted_budget_outlives_a_failed_setup(
         "key": f"{DOMAIN}.{entry.entry_id}.usage",
         "data": {"day": date.today().isoformat(), "calls": 3, "input_tokens": 500},
     }
-    mock_client.ask.side_effect = JevError("no route to host")
 
-    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.SETUP_RETRY
-    # No coordinator ever ran, so nothing else can report the exhausted budget.
-    registry = ir.async_get(hass)
-    assert (
-        registry.async_get_issue(DOMAIN, f"{ISSUE_BUDGET_EXCEEDED}_{entry.entry_id}")
-        is not None
+
+    assert mock_client.ask.await_count == 0
+    assert hass.states.get("sensor.jev_input_tokens_today").state == "500"
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, f"{ISSUE_BUDGET_EXCEEDED}_{entry.entry_id}"
     )
+    # Nothing was refused yet, so the text says the day is spent and names no
+    # context.
+    assert issue.translation_key == "daily_budget_spent"
+    assert issue.translation_placeholders == {"budget": "100", "used": "500"}
 
 
 async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config_entry):
@@ -690,12 +833,12 @@ async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config
     [
         ("https://gateway.local", False),
         # Loopback never reaches a network, so there is nothing to overhear.
-        ("http://127.0.0.1:8093", False),
-        ("http://localhost:8093", False),
-        ("http://[::1]:8093", False),
-        ("http://gateway.local:8093", True),
+        ("http://127.0.0.1:8080", False),
+        ("http://localhost:8080", False),
+        ("http://[::1]:8080", False),
+        ("http://gateway.local:8080", True),
         # 192.0.2.0/24 is RFC 5737 TEST-NET-1, so this address is nobody's host.
-        ("http://192.0.2.5:8093", True),
+        ("http://192.0.2.5:8080", True),
     ],
 )
 async def test_a_plain_http_endpoint_says_the_key_is_in_clear(
@@ -724,7 +867,7 @@ async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8080"},
         unique_id="0123456789abcdef",
     )
     entry.add_to_hass(hass)
@@ -741,7 +884,7 @@ async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
         new_callable=MagicMock,
     ) as reach:
         await system_health_info(hass)
-    assert reach.call_args.args[1] == "http://gateway.local:8093"
+    assert reach.call_args.args[1] == "http://gateway.local:8080"
 
 
 async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_client):
@@ -753,7 +896,7 @@ async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_c
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8080"},
         unique_id=hashlib.sha256(b"a-key").hexdigest()[:16],
         minor_version=1,
     )
@@ -761,7 +904,7 @@ async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_c
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.unique_id == entry_unique_id("http://gateway.local:8093", "a-key")
+    assert entry.unique_id == entry_unique_id("http://gateway.local:8080", "a-key")
     assert entry.minor_version == 2
 
 
@@ -786,7 +929,7 @@ async def test_an_endpoint_with_no_key_puts_nothing_in_clear(hass, mock_client, 
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "", CONF_URL: "http://gateway.local:8080"},
         unique_id="0123456789abcdef",
     )
     entry.add_to_hass(hass)
@@ -794,3 +937,176 @@ async def test_an_endpoint_with_no_key_puts_nothing_in_clear(hass, mock_client, 
     await hass.async_block_till_done()
 
     assert not any("in clear" in record.message for record in caplog.records)
+
+
+async def test_two_contexts_at_once_cannot_both_spend_the_last_of_the_budget(
+    hass, mock_client, config_entry
+):
+    """Each context checked the same total, both fitted, and together they went over.
+
+    The estimate of a request in flight now counts against the budget until its
+    answer comes back.
+    """
+    second = {**CONTEXT, "name": "Laundry again"}
+    hass.states.async_set("sensor.washer_power", "1.2", {"friendly_name": "Washer power"})
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: [CONTEXT, second]})
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinators = list(config_entry.runtime_data.coordinators.values())
+    usage = config_entry.runtime_data.usage
+    estimate = usage.estimate_tokens(coordinators[0].last_payload_bytes)
+    # Room for one more evaluation and not for two.
+    usage.budget = usage.input_tokens + estimate + estimate // 2
+
+    async def answer_later(*_args, **_kwargs):
+        await asyncio.sleep(0)
+        return build_response(laundry_laundry_forgotten=NoulAnswer(noul=0.5))
+
+    mock_client.ask.side_effect = answer_later
+    before = mock_client.ask.await_count
+    await asyncio.gather(*(c.async_refresh() for c in coordinators))
+
+    assert mock_client.ask.await_count == before + 1
+    assert usage.reserved == 0, "a finished request kept its hold on the budget"
+
+
+async def test_a_flapping_entity_cannot_ask_faster_than_the_floor(
+    hass, mock_client, config_entry
+):
+    """A trigger refresh went through Home Assistant's 10 s default cooldown.
+
+    That let a sensor that changes every few seconds ask three times as often as
+    the 30 s floor on the scan interval allows.
+    """
+    context = {**CONTEXT, "trigger_entities": ["sensor.washer_power"]}
+    await setup_with_context(hass, config_entry, context)
+    before = mock_client.ask.await_count
+    start = dt_util.utcnow()
+
+    for second, power in ((0, "1450"), (6, "1500"), (12, "1550")):
+        async_fire_time_changed(hass, start + timedelta(seconds=second))
+        hass.states.async_set("sensor.washer_power", power)
+        await hass.async_block_till_done()
+    async_fire_time_changed(hass, start + timedelta(seconds=25))
+    await hass.async_block_till_done()
+
+    assert mock_client.ask.await_count == before + 1
+
+
+async def test_a_context_nobody_reads_is_never_asked(hass, mock_client, config_entry):
+    """Every entity of the context is disabled, so an answer would be billed unread."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    unique = f"{config_entry.entry_id}_laundry_laundry_forgotten"
+    for platform, unique_id in (
+        ("sensor", unique),
+        ("binary_sensor", f"{unique}_threshold"),
+    ):
+        registry.async_get_or_create(
+            platform,
+            DOMAIN,
+            unique_id,
+            disabled_by=er.RegistryEntryDisabler.USER,
+        )
+    context = {**CONTEXT, "trigger_entities": ["sensor.washer_power"]}
+    await setup_with_context(hass, config_entry, context)
+    hass.states.async_set("sensor.washer_power", "1450")
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
+    await hass.async_block_till_done()
+
+    # The probe, and nothing after it.
+    assert mock_client.ask.await_count == 1
+
+
+async def test_yaml_contexts_are_asked_once_however_many_entries(hass, mock_client):
+    """YAML names no entry, so every entry used to ask, and bill, every context."""
+    first, second = (
+        MockConfigEntry(
+            domain=DOMAIN,
+            title=f"Jev {n}",
+            data={CONF_API_KEY: "test-key-not-a-real-one"},
+            unique_id=f"entry-{n}",
+        )
+        for n in (1, 2)
+    )
+    await setup_with_context(hass, first)
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+
+    assert len(first.runtime_data.coordinators) == 1
+    assert second.runtime_data.coordinators == {}
+    # Two probes and one evaluation.
+    assert mock_client.ask.await_count == 3
+
+
+async def test_a_rate_limit_waits_as_long_as_typesafe_asked(
+    hass, mock_client, config_entry
+):
+    await setup_with_context(hass, config_entry)
+    coordinator = next(iter(config_entry.runtime_data.coordinators.values()))
+    mock_client.ask.side_effect = JevRateLimitError("slow down", retry_after=900)
+    await coordinator.async_refresh()
+    before = mock_client.ask.await_count
+
+    # The scan interval is 300 s. Asking again then only earns another 429.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=310))
+    await hass.async_block_till_done()
+    assert mock_client.ask.await_count == before
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=910))
+    await hass.async_block_till_done()
+    assert mock_client.ask.await_count == before + 1
+
+
+async def test_the_day_is_the_house_day_not_the_machine_day(
+    hass, mock_client, config_entry, freezer
+):
+    """A container clock is often UTC. The budget resets at the house's midnight."""
+    await hass.config.async_set_time_zone("Pacific/Kiritimati")
+    # Noon in UTC is two in the morning of the next day in UTC+14.
+    freezer.move_to("2026-09-22 12:00:00+00:00")
+    await setup_with_context(hass, config_entry)
+
+    assert config_entry.runtime_data.usage.day == date(2026, 9, 23)
+
+
+async def test_the_usage_sensors_turn_over_at_midnight_with_nothing_asked(
+    hass, mock_client, config_entry, freezer
+):
+    """They held yesterday's spend until the first call of the new day."""
+    await hass.config.async_set_time_zone("Europe/Amsterdam")
+    freezer.move_to("2026-09-22 23:59:50+02:00")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.jev_input_tokens_today").state == str(PROBE_TOKENS)
+
+    freezer.move_to("2026-09-23 00:00:00+02:00")
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+
+    assert config_entry.runtime_data.usage.day == date(2026, 9, 23)
+    assert hass.states.get("sensor.jev_input_tokens_today").state == "0"
+    assert hass.states.get("sensor.jev_calls_today").state == "0"
+
+
+async def test_the_cost_sensor_keeps_statistics_that_start_each_day(
+    hass, mock_client, config_entry, freezer
+):
+    """With no state class, the recorder kept no history of what was spent."""
+    await hass.config.async_set_time_zone("Europe/Amsterdam")
+    freezer.move_to("2026-09-22 15:00:00+02:00")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.jev_estimated_cost_today")
+    assert state.attributes["state_class"] == "total"
+    # Midnight in Amsterdam, which is 22:00 UTC the evening before.
+    assert dt_util.parse_datetime(state.attributes["last_reset"]) == datetime(
+        2026, 9, 21, 22, tzinfo=UTC
+    )

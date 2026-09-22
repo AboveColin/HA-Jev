@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from .const import (
@@ -19,12 +22,14 @@ from .const import (
     ATTR_LEGEND,
     ATTR_NEAREST_LEVEL,
     ATTR_PROBABILITIES,
+    ATTR_QUESTIONS,
+    ATTR_STATE_TEXT,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
 )
 from .coordinator import JevCoordinator, JevRuntimeData
-from .entity import JevQuestionEntity, JevUsageEntity
+from .entity import JevQuestionEntity, JevUsageEntity, async_remove_stale_entities
 from .models import QuestionConfig
 
 # Every sensor reads an answer a coordinator already fetched, so there is
@@ -46,6 +51,7 @@ async def async_setup_entry(
         for question in coordinator.context_config.questions:
             entities.append(JevQuestionSensor(coordinator, entry.entry_id, question))
         entities.append(JevLatencySensor(coordinator, entry.entry_id))
+        entities.append(JevPayloadSensor(coordinator, entry.entry_id))
     entities.extend(
         [
             JevCallsSensor(entry.entry_id, runtime),
@@ -53,6 +59,7 @@ async def async_setup_entry(
             JevCostSensor(entry.entry_id, runtime),
         ]
     )
+    async_remove_stale_entities(hass, entry.entry_id, SENSOR_DOMAIN, entities)
     async_add_entities(entities)
 
 
@@ -119,32 +126,90 @@ class JevQuestionSensor(JevQuestionEntity, SensorEntity):
         return None
 
 
-class JevLatencySensor(JevQuestionEntity, SensorEntity):
-    """How long the last evaluation of this context took."""
+class _JevContextSensor(JevQuestionEntity, SensorEntity):
+    """A diagnostic sensor about one context as a whole, not one of its questions."""
+
+    _suffix: str
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Off by default. The payload sensor's attributes carry the whole request, and
+    # a 150 entity target renders about 17 kB of state, which every open dashboard
+    # would then be pushed on every evaluation. Somebody auditing a context turns
+    # these on; nobody else pays for them.
     _attr_entity_registry_enabled_default = False
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator: JevCoordinator, entry_id: str) -> None:
         super().__init__(coordinator, entry_id, question_key="")
         # The context name is the user's own word, so it travels as a placeholder
         # rather than being baked into an untranslatable string.
-        self._attr_translation_key = "context_latency"
+        self._attr_translation_key = f"context_{self._suffix}"
         self._attr_translation_placeholders = {"context": coordinator.context_config.name}
-        self._attr_unique_id = f"{entry_id}_{coordinator.context_config.key}_latency"
+        self._attr_unique_id = (
+            f"{entry_id}_{coordinator.context_config.key}_{self._suffix}"
+        )
 
     @property
     def available(self) -> bool:
         return self.coordinator.last_update_success
+
+
+class JevLatencySensor(_JevContextSensor):
+    """How long the last evaluation of this context took."""
+
+    _suffix = "latency"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
 
     @property
     def native_value(self) -> float | None:
         if self.coordinator.last_latency_ms is None:
             return None
         return round(self.coordinator.last_latency_ms)
+
+
+class JevPayloadSensor(_JevContextSensor):
+    """What this context last sent, and how big it was.
+
+    The rendered state was only in the diagnostics download until now, which means
+    reading it took a file and a text editor. Here it is one attribute, which is
+    what somebody wants when an answer surprises them or when they are deciding
+    whether a target is sending more of the house than they meant to.
+
+    The size is the state because a state is capped at 255 characters and the text
+    is not. The size is also the number worth a graph: it is what the request costs,
+    up to the endpoint's tokeniser.
+    """
+
+    # The recorder would otherwise write a copy of the house state on every
+    # evaluation. A context running every 300 seconds is 288 copies a day, of the
+    # exact text this integration exists to keep an eye on.
+    _unrecorded_attributes = frozenset({ATTR_STATE_TEXT, ATTR_QUESTIONS})
+
+    _suffix = "payload"
+    _attr_device_class = SensorDeviceClass.DATA_SIZE
+    _attr_native_unit_of_measurement = UnitOfInformation.BYTES
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.last_payload_bytes
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The last request that was answered.
+
+        A failed evaluation leaves the previous one standing, because the
+        coordinator only assigns these after a reply arrives. That is the right
+        behaviour here: the last thing actually sent is what somebody is looking
+        for, not the thing that never went.
+        """
+        return {
+            ATTR_STATE_TEXT: self.coordinator.last_state_text,
+            ATTR_QUESTIONS: {
+                question.key: question.question.as_payload()
+                for question in self.coordinator.context_config.questions
+            },
+        }
 
 
 class JevCallsSensor(JevUsageEntity, SensorEntity):
@@ -199,6 +264,10 @@ class JevCostSensor(JevUsageEntity, SensorEntity):
     _attr_translation_key = "estimated_cost_today"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.MONETARY
+    # Monetary allows total only. A price change moves today's figure both ways,
+    # so it is not total_increasing either. last_reset tells statistics where
+    # each day starts.
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = "USD"
     _attr_suggested_display_precision = 4
 
@@ -209,6 +278,10 @@ class JevCostSensor(JevUsageEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         return round(self._runtime.usage.estimated_cost, 6)
+
+    @property
+    def last_reset(self) -> datetime:
+        return dt_util.start_of_local_day(self._runtime.usage.day)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from datetime import date
+from datetime import datetime
 from typing import Any
 
 import voluptuous as vol
@@ -21,13 +21,15 @@ from homeassistant.const import (
     CONF_URL,
     Platform,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from jevclient import (
     DEFAULT_BASE_URL,
@@ -66,19 +68,20 @@ from .const import (
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
 from .identity import entry_unique_id
-from .models import ContextConfig, build_question_config
+from .models import ENTRY, ContextConfig, build_question_config
 from .services import async_register_services
 from .subentry import async_contexts_from_subentries
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.CONVERSATION, Platform.SENSOR]
+PLATFORMS = [
+    Platform.AI_TASK,
+    Platform.BINARY_SENSOR,
+    Platform.CONVERSATION,
+    Platform.SENSOR,
+]
 
 type JevConfigEntry = ConfigEntry[JevRuntimeData]
-
-
-# Anywhere the API takes a string, an object or an array.
-ENTRY = vol.Any(cv.string, dict, list)
 
 
 def _check_question_shape(raw: dict[str, Any]) -> dict[str, Any]:
@@ -257,7 +260,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-def _build_contexts(hass: HomeAssistant) -> list[ContextConfig]:
+def _build_contexts(hass: HomeAssistant, entry: JevConfigEntry) -> list[ContextConfig]:
+    """The YAML contexts, for the one entry that owns them.
+
+    YAML does not name an entry. Given to every entry, each context was asked once
+    per entry and billed that many times, so only the first enabled entry gets them.
+    """
+    owner = next(
+        (e for e in hass.config_entries.async_entries(DOMAIN) if e.disabled_by is None),
+        None,
+    )
+    if owner is None or owner.entry_id != entry.entry_id:
+        return []
     contexts: list[ContextConfig] = []
     for raw in hass.data[DOMAIN].get("yaml", []):
         context_key = slugify(raw[CONF_NAME])
@@ -342,17 +356,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # An entry that names an endpoint of its own may hold no key at all.
     api_key = entry.data.get(CONF_API_KEY, "")
     _warn_if_key_travels_in_clear(base_url, api_key)
+    model = entry.data.get(CONF_MODEL, DEFAULT_MODEL)
     client = JevClient(
         api_key,
         session=async_get_clientsession(hass),
         base_url=base_url,
-        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        model=model,
     )
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"
     )
     usage = UsageAccount(
-        day=date.today(),
+        day=dt_util.now().date(),
         budget=entry.options.get(CONF_DAILY_TOKEN_BUDGET, 0),
         price_per_million=entry.options.get(
             CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
@@ -372,21 +387,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # be wrong: the count is restored too, and the probe below can fail, which
     # leaves an exhausted budget with nothing on screen to say so.
     usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
-    runtime = JevRuntimeData(client=client, usage=usage)
+    runtime = JevRuntimeData(client=client, usage=usage, model=model)
     entry.runtime_data = runtime
+
+    # The day otherwise turns over at the first call after midnight, so a quiet
+    # night kept yesterday's spend on the usage sensors, and a spent budget kept
+    # its repair issue, until something asked.
+    @callback
+    def _new_day(now: datetime) -> None:
+        usage.roll_over(now.date())
+        usage.notify()
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _new_day, hour=0, minute=0, second=0)
+    )
 
     # Prove the service answers before entities appear. One noul against a two word
     # state costs about 40 input tokens, well under a thousandth of a cent, and it
     # is the difference between a clear "cannot reach TypeSafe" and a house full of
-    # entities that never populate.
+    # entities that never populate. It is billed like any other call, so it counts
+    # against the day, and a spent budget skips it.
     try:
-        await client.ask("ok", {"probe": Noul("Is this text in English?")})
+        if not usage.would_exceed():
+            response = await client.ask("ok", {"probe": Noul("Is this text in English?")})
+            # No payload size: this request is mostly fixed overhead, and its ratio
+            # of bytes to tokens would skew the estimate for the real ones.
+            usage.record(response.usage.input_tokens)
     except JevAuthError as err:
-        raise ConfigEntryAuthFailed(str(err)) from err
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="auth_rejected",
+            translation_placeholders={"reason": str(err)},
+        ) from err
     except JevError as err:
-        raise ConfigEntryNotReady(f"TypeSafe did not answer: {err}") from err
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="ask_failed",
+            translation_placeholders={"reason": str(err)},
+        ) from err
 
-    contexts = _build_contexts(hass) + async_contexts_from_subentries(hass, entry)
+    contexts = _build_contexts(hass, entry) + async_contexts_from_subentries(hass, entry)
     for context in contexts:
         coordinator = JevCoordinator(hass, entry, runtime, context)
         runtime.coordinators[context.key] = coordinator
@@ -394,8 +434,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         # the first evaluation fails, and the two ways it fails are a spent budget
         # and an unreachable API. Both are states the user needs to see explained,
         # and the budget and usage entities that explain them only exist once setup
-        # finishes. Answers stay unavailable instead.
-        await coordinator.async_refresh()
+        # finishes. Answers stay unavailable instead. A context whose entities are
+        # all disabled has no reader for the answer, so it is not asked at all.
+        if not coordinator.nobody_reads():
+            await coordinator.async_refresh()
         await coordinator.async_setup_triggers()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

@@ -1,9 +1,10 @@
 """Fixtures. Nothing here talks to TypeSafe: the client is replaced everywhere."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import DEFAULT, AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_API_KEY
+from homeassistant.setup import async_setup_component
 from jevclient import ChoiceAnswer, JevResponse, NoulAnswer, ScoreAnswer, Usage
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -18,6 +19,19 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     return
 
 
+@pytest.fixture(autouse=True)
+async def homeassistant_component(hass):
+    """Set up the `homeassistant` component, which a real instance always has.
+
+    The AI Task platform depends on the conversation component, and conversation
+    reads `homeassistant.exposed_entities`. Without this, setting up an entry logs
+    "Setup failed for 'ai_task': Could not setup dependencies: conversation" and the
+    entity is quietly missing from every test, which is the wrong thing to be
+    testing against.
+    """
+    await async_setup_component(hass, "homeassistant", {})
+
+
 def build_response(**answers) -> JevResponse:
     return JevResponse(
         model="jev-1.13.0",
@@ -25,6 +39,26 @@ def build_response(**answers) -> JevResponse:
         usage=Usage(input_tokens=321, output_tokens=42),
         latency_ms=274.0,
     )
+
+
+PROBE_TOKENS = 40
+
+
+def probe_or_default(state, questions, *args, **kwargs):
+    """Answer setup's probe the way the API does, and anything else as configured.
+
+    The probe is billed, so it lands in the day's totals. 40 tokens is the size the
+    setup comment gives it, and it differs from an evaluation's 321 so a test can
+    tell the two apart.
+    """
+    if "probe" in questions:
+        return JevResponse(
+            model="jev-1.13.0",
+            answers={"probe": NoulAnswer(noul=0.97)},
+            usage=Usage(input_tokens=PROBE_TOKENS, output_tokens=3),
+            latency_ms=90.0,
+        )
+    return DEFAULT
 
 
 @pytest.fixture
@@ -44,6 +78,7 @@ def mock_client(answers):
     """
     client = AsyncMock()
     client.ask = AsyncMock(return_value=build_response(**answers))
+    client.ask.side_effect = probe_or_default
     client.async_close = AsyncMock()
     with (
         patch("custom_components.jev.JevClient", return_value=client) as by_setup,

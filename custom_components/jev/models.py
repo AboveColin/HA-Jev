@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.template import Template
 from jevclient import Choice, Noul, Question, Score
 
@@ -19,6 +21,9 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
+
+# Anywhere the API takes a string, an object or an array.
+ENTRY = vol.Any(cv.string, dict, list)
 
 
 @dataclass(slots=True)

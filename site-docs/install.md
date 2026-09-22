@@ -6,9 +6,7 @@ set up without one.
 
 ## Through HACS
 
-Not in the HACS default list yet, so add it as a custom repository once.
-[hacs/default#11052](https://github.com/hacs/default/pull/11052) is queued; when it
-merges, steps 1 and 2 go away.
+Jev is not in the HACS default list, so add it as a custom repository once.
 
 1. Open HACS, then the three dot menu, then **Custom repositories**
 2. Paste `https://github.com/AboveColin/HA-Jev`, set Type to **Integration**, **Add**
@@ -60,13 +58,41 @@ proxy that holds the key once for several clients, caches answers, or meters wha
 spent across more than Home Assistant.
 
 Whatever is behind it has to answer `POST /v1/systemone` the way TypeSafe does. A
-path is kept as a prefix, so `http://gateway.local:8093/jev` is asked at
-`http://gateway.local:8093/jev/v1/systemone`. A query, a fragment, a space, or a username
+path is kept as a prefix, so `http://gateway.local:8080/jev` is asked at
+`http://gateway.local:8080/jev/v1/systemone`. A query, a fragment, a space, or a username
 or password in the address are all refused: the first two cannot survive having that
 path appended, a space is a typo rather than a host, and the last would be written
 into a diagnostics file, which redacts secrets by name and would not recognise
 those. Clearing the field goes back to
 TypeSafe.
+
+!!! warning "Give the address without the request path"
+    `/v1/systemone` is added for you. An address that already carries it, or one
+    copied out of an API reference, ends up asking for `/v1/systemone/v1/systemone`
+    and the setup fails with "The server answered HTTP 404". That is a host that
+    answered, not a host that could not be reached, and the form says so separately.
+
+### Through OpenRouter
+
+[OpenRouter](https://openrouter.ai) resells the model, so an OpenRouter key works
+here too.
+
+| Field | Value |
+|---|---|
+| API address | `https://openrouter.ai/api` |
+| API key | your OpenRouter key |
+| Model | `~typesafe/jev-latest` |
+
+The leading `~` is part of the model id. OpenRouter uses it for an id that always
+points at the newest model in a family, the same way `jev-latest` does at TypeSafe.
+
+Give the address exactly as it is in the table. Not `https://openrouter.ai/api/v1`,
+and not a path out of an API reference: the integration appends `/v1/systemone`
+itself.
+
+Your OpenRouter spend is not visible from here. The cost sensor multiplies the tokens
+the endpoint reports by the price you set in the options, so put OpenRouter's price
+there rather than TypeSafe's, or read the cost as tokens only.
 
 ## A different model
 

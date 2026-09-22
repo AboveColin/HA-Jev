@@ -24,7 +24,7 @@ rules:
   common-modules: done
   config-flow-test-coverage:
     status: done
-    comment: 100% of config_flow.py, measured by pytest-cov in CI.
+    comment: 100% of config_flow.py, measured by pytest-cov and held at 100 in CI.
   config-flow: done
   dependency-transparency:
     status: done
@@ -80,10 +80,14 @@ rules:
       One error when the outage starts, one info when it ends. A 30 s context would
       otherwise write 2,880 identical lines a day.
   parallel-updates: done
-  reauthentication-flow: done
+  reauthentication-flow:
+    status: done
+    comment: >-
+      Setup, the questions, the actions, the AI Task entity and the conversation
+      agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 95% measured across 192 tests, enforced in CI.
+    comment: 97% measured across 407 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -117,24 +121,30 @@ rules:
   entity-device-class: done
   entity-disabled-by-default:
     status: done
-    comment: The per-context latency sensor is diagnostic and off by default.
+    comment: >-
+      The two per-context diagnostic sensors, latency and payload size, are both off
+      by default. The payload sensor's attributes carry the whole rendered state,
+      which every open dashboard would otherwise be pushed on every evaluation.
   entity-translations:
     status: done
     comment: >-
       Every entity the integration names itself uses a translation key, including the
-      per-context latency sensor, whose context name travels as a placeholder. A
-      question sensor is named by the user's own question text, which is theirs to
-      write and cannot be translated by anyone else. The conversation agent takes the
-      device name, which is what every conversation agent in core does, and the six
-      sentences it speaks itself go through the common translation category, so a
-      Dutch pipeline answers in Dutch.
+      per-context latency and payload sensors, whose context name travels as a
+      placeholder. A question sensor is named by the user's own question text, which
+      is theirs to write and cannot be translated by anyone else. The conversation
+      agent and the AI Task entity take the device name, which is what every core
+      provider of either does, and the ten sentences the agent speaks itself go
+      through the common translation category, so a Dutch pipeline answers in Dutch.
   exception-translations:
     status: done
     comment: >-
-      Fourteen keys, including the library's own limit errors, which are re-raised
-      with the real numbers as placeholders rather than passed through in English.
-      A test asserts every key raised in code exists in every language file, and a
-      check asserts no raise anywhere carries a bare string.
+      Twenty-eight keys, including the library's own limit errors, which are
+      re-raised with the real numbers as placeholders rather than passed through in
+      English. The coordinator's UpdateFailed and setup's ConfigEntryNotReady and
+      ConfigEntryAuthFailed are translated too, since both reach the integrations
+      page. tests/test_translations.py asserts that every key raised in code exists
+      in every language file, and walks the syntax tree of every module to assert
+      that no Home Assistant exception is raised with a bare string.
   icon-translations:
     status: done
     comment: >-
@@ -145,7 +155,8 @@ rules:
     status: done
     comment: >-
       The API key and the API address can both be replaced without losing entities
-      or their history.
+      or their history. An empty key field keeps the stored key while the address
+      stays the same.
   repair-issues:
     status: done
     comment: The daily budget raises a repair issue naming the budget and what was used.
@@ -165,4 +176,4 @@ rules:
       Assistant ships aiohttp and httpx, not httpx2.
   strict-typing:
     status: done
-    comment: mypy --strict passes on all 12 modules, enforced in CI.
+    comment: mypy --strict passes on all 20 modules, enforced in CI.

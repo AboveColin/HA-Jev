@@ -149,6 +149,36 @@ about 110 tokens each, but the fixed question text is roughly 1,300 tokens, so a
 with 5 exposed entities pays mostly for the questions and one with 150 pays mostly for
 the entities.
 
+## Bytes per input token
+
+The daily budget has to refuse a call before it is sent, and the only token count
+there is comes back with the reply. So the size of the request is measured locally and
+divided by a bytes-per-token ratio.
+
+The cold-start ratio comes from the two readings above. The conversation payload with
+5 exposed entities and 7 questions is 3,142 bytes, and the same shape against the live
+API reported 1,329 to 1,371 input tokens per command:
+
+| | |
+|---|---|
+| 3,142 / 1,371 | 2.29 bytes per token |
+| 3,142 / 1,329 | 2.36 bytes per token |
+
+2.29 is the seed, because the lower ratio is the larger token estimate and an estimate
+that refuses slightly early beats one that lets a call through.
+
+This is a derivation across two runs rather than one payload counted both ways: the
+byte figures were measured locally with no API call, and the token figures came from a
+different set of sixteen live commands on the same fixtures. That is exactly why the
+ratio is a seed and not a constant. Every answered call replaces it with its own
+payload bytes divided by the input tokens the endpoint reported, so a different
+tokenizer, a gateway, or OpenRouter is measured rather than assumed, and the assumption
+lasts one call.
+
+The estimate carries a 1.2 margin. Input tokens across those sixteen commands varied by
+3.2%, 1,329 to 1,371 for the same seven questions, so 20% sits well past anything
+measured. A budget you can trip by 4% of drift is a budget that goes off for no reason.
+
 ## A command that is already done reads as a low-confidence one
 
 Three runs per starting state, one sentence, one entity, nothing else changed:

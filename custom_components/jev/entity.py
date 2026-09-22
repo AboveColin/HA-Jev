@@ -7,6 +7,10 @@ load order.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -25,6 +29,23 @@ def build_device_info(entry_id: str, runtime: JevRuntimeData) -> DeviceInfo:
         sw_version=runtime.model_version,
         configuration_url="https://docs.typesafe.ai/introduction",
     )
+
+
+@callback
+def async_remove_stale_entities(
+    hass: HomeAssistant, entry_id: str, domain: str, entities: Iterable[Entity]
+) -> None:
+    """Remove what this entry once provided on one platform and no longer does.
+
+    A question deleted in the form, a threshold cleared or a YAML question taken
+    out otherwise leaves its entity in the registry, restored and unavailable,
+    until somebody deletes it by hand.
+    """
+    current = {entity.unique_id for entity in entities}
+    registry = er.async_get(hass)
+    for registered in er.async_entries_for_config_entry(registry, entry_id):
+        if registered.domain == domain and registered.unique_id not in current:
+            registry.async_remove(registered.entity_id)
 
 
 class JevQuestionEntity(CoordinatorEntity[JevCoordinator]):

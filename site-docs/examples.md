@@ -50,3 +50,7 @@ The division of labour is the same each time. Jev decides, in about 300 ms for a
 fraction of a cent, and returns a number your code branches on. The LLM writes prose
 or handles what Jev is not sure about, and costs a hundred times more per call.
 Putting the cheap typed decision in front of the expensive one is the whole point.
+
+The voice command router in example 13 follows TypeSafe's own
+[smart home demo](https://docs.typesafe.ai/demos/smart-home). It builds its device
+options from your entity registry, so each answer is an `entity_id` you can act on.

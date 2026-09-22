@@ -40,6 +40,10 @@ CONTROLLABLE = (
     "script",
 )
 
+# Covers that open a way into the house, left out for the reason lock is: "open the
+# garage" matched at the 0.6 default floor would open it.
+ENTRANCE_COVERS = ("door", "garage", "gate")
+
 
 @dataclass(slots=True)
 class ExposedEntity:
@@ -50,6 +54,8 @@ class ExposedEntity:
     domain: str
     area: str | None
     state: str
+    # Home Assistant matches areas by id, and the model reads them by name.
+    area_id: str | None = None
 
     def as_option(self) -> str:
         where = f", in the {self.area}" if self.area else ""
@@ -116,14 +122,16 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
         return None
 
     found: list[ExposedEntity] = []
-    used_area_ids: set[str] = set()
     for state in hass.states.async_all(CONTROLLABLE):
         if not async_should_expose(hass, CONVERSATION_DOMAIN, state.entity_id):
             continue
+        if (
+            state.domain == "cover"
+            and state.attributes.get("device_class") in ENTRANCE_COVERS
+        ):
+            continue
         area_id = area_id_of(state.entity_id)
         area = areas.async_get_area(area_id) if area_id else None
-        if area is not None:
-            used_area_ids.add(area.id)
         found.append(
             ExposedEntity(
                 entity_id=state.entity_id,
@@ -131,20 +139,16 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
                 domain=state.domain,
                 area=area.name if area else None,
                 state=state.state,
+                area_id=area.id if area else None,
             )
         )
     # Sorted so the option list is stable between requests, which makes a trace
     # readable when the same command is tried twice.
     found.sort(key=lambda e: e.entity_id)
     found = found[:limit]
-    # Recount after the cap, so a room that only had entities past the limit is not
+    # Counted after the cap, so a room that only had entities past the limit is not
     # offered as somewhere the command could go.
-    used_area_ids &= {
-        area.id
-        for e in found
-        if (area_id := area_id_of(e.entity_id))
-        and (area := areas.async_get_area(area_id)) is not None
-    }
+    used_area_ids = {e.area_id for e in found if e.area_id}
 
     # Only rooms that hold something the agent may act on.
     #

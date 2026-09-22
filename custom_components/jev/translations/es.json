@@ -29,6 +29,9 @@
         "description": "TypeSafe ha rechazado la clave guardada. Pega una que funcione. La dirección de la API se queda como está; usa Reconfigurar para cambiarla.",
         "data": {
           "api_key": "Clave API"
+        },
+        "data_description": {
+          "api_key": "Las peticiones van a la dirección de la API que ya está guardada."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Clave API"
         },
         "data_description": {
-          "api_key": "La clave con la que se envían las solicitudes. Déjala vacía solo para un endpoint propio que no necesite ninguna."
+          "api_key": "Déjalo vacío para conservar la clave actual mientras la dirección no cambie. Una dirección nueva no recibe ninguna clave si no escribes una."
         },
         "sections": {
           "advanced": {
@@ -58,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe ha rechazado esta clave.",
       "cannot_connect": "Home Assistant no ha podido acceder a la API en esa dirección.",
+      "not_found": "El servidor respondió HTTP 404. Jev añade /v1/systemone a la dirección, así que introduce solo la parte anterior. Para OpenRouter es {openrouter_url}.",
       "invalid_url": "Esa no es una dirección de API utilizable. Necesita un esquema y un host, y no puede llevar un espacio, una consulta, un fragmento, un usuario ni una contraseña.",
       "invalid_model": "Ese id de modelo no se aceptó. Revísalo, o deja el campo vacío para usar el predeterminado.",
       "key_required": "La API de TypeSafe necesita una clave. Una clave vacía solo funciona con una dirección propia que no necesite ninguna."
@@ -79,6 +83,13 @@
           "fallback_agent": "Recurrir a este agente",
           "min_confidence": "Actuar solo por encima de esta confianza (de 0 a 1)",
           "allow_whole_home": "Permitir órdenes que no nombren ninguna habitación ni dispositivo"
+        },
+        "data_description": {
+          "daily_token_budget": "Se cuenta desde la medianoche en la zona horaria de Home Assistant. 0 significa sin límite.",
+          "price_per_million": "Fija el sensor de coste estimado y el coste en la vista previa de la pregunta. Nada de lo que se envía depende de ello.",
+          "fallback_agent": "Recibe la frase entera cuando Jev no está seguro de qué hacer.",
+          "min_confidence": "Por debajo de este valor, Jev no hace nada y pasa el comando al agente de respaldo.",
+          "allow_whole_home": "Apagarlo todo siempre está permitido, con o sin esta opción."
         }
       }
     }
@@ -86,7 +97,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev ha dejado de evaluar: presupuesto diario alcanzado",
-      "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}, así que no se envían más preguntas. Las respuestas conservan su último valor hasta mañana. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
+      "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}. La siguiente evaluación, del contexto {context}, necesita unos {estimate} más y no cabe, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que una llamada vuelva a caber. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
+    },
+    "daily_budget_spent": {
+      "title": "Jev ha dejado de evaluar: presupuesto diario alcanzado",
+      "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que empiece un nuevo día o se suba el presupuesto. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
     }
   },
   "services": {
@@ -228,6 +243,9 @@
       },
       "context_latency": {
         "name": "Latencia de {context}"
+      },
+      "context_payload": {
+        "name": "Tamaño de la petición de {context}"
       }
     },
     "binary_sensor": {
@@ -242,6 +260,9 @@
     },
     "no_entry": {
       "message": "No hay ninguna entrada de configuración de Jev cargada con la que preguntar. Añade primero la integración, o elige una en Clave API cuando haya más de una configurada."
+    },
+    "entry_ambiguous": {
+      "message": "Hay más de una entrada de Jev cargada: {entries}. Elige una en Clave API, porque cada entrada tiene su propia clave y su propio presupuesto."
     },
     "missing_targets": {
       "message": "Estos objetivos no existen: {targets}. Preguntar por el resto respondería a una pregunta distinta de la que escribiste."
@@ -278,6 +299,48 @@
     },
     "unreadable_answer": {
       "message": "TypeSafe ha devuelto una respuesta de tipo {kind} que esta versión no sabe leer. Actualiza la integración."
+    },
+    "task_needs_structure": {
+      "message": "La tarea {task} pide texto libre, y Jev solo responde preguntas tipadas. Da a la acción una estructura cuyos campos sean boolean, select o number."
+    },
+    "task_over_budget": {
+      "message": "La tarea {task} cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o borra el presupuesto en las opciones de la integración para continuar."
+    },
+    "reserved_field": {
+      "message": "El campo {field} no se puede usar, porque el resultado lleva bajo ese nombre la confianza detrás de cada respuesta. Cambia el nombre del campo."
+    },
+    "no_fields": {
+      "message": "La estructura no declara ningún campo."
+    },
+    "answer_missing": {
+      "message": "La respuesta no trae nada para {field}."
+    },
+    "unsupported_field": {
+      "message": "El campo {field} usa un {selector}, y Jev responde una pregunta de sí/no, una elección de una lista o una puntuación en una escala. Da al campo un boolean, un select con sus opciones o un number con min y max."
+    },
+    "field_options_out_of_range": {
+      "message": "El campo {field} ofrece {count} opciones, y una elección necesita de {min} a {max}."
+    },
+    "field_needs_scale": {
+      "message": "El campo {field} es un número sin {bound}. Una puntuación necesita los dos extremos de la escala."
+    },
+    "field_scale_not_ordered": {
+      "message": "El campo {field} tiene min {min} y max {max}, y eso no es una escala."
+    },
+    "answer_does_not_fit": {
+      "message": "La respuesta para {field} volvió como {answer}, que no encaja en un {selector}."
+    },
+    "context_template_failed": {
+      "message": "La plantilla de estado del contexto {context} falló: {reason}"
+    },
+    "context_targets_failed": {
+      "message": "Contexto {context}: {reason}"
+    },
+    "context_over_budget": {
+      "message": "Evaluar el contexto {context} cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o borra el presupuesto en las opciones de la integración para continuar."
+    },
+    "rate_limited": {
+      "message": "TypeSafe limitó la solicitud: {reason}"
     }
   },
   "common": {
@@ -301,6 +364,9 @@
     "preview_mismatched": "La API ha respondido, pero no a la pregunta que se le hizo.",
     "preview_template_error": "La plantilla no se procesa: {reason}",
     "query_not_found": "No he podido encontrarlo.",
+    "budget_spent": "El presupuesto diario de tokens se ha agotado, así que hoy no puedo hacerlo.",
+    "auth_failed": "TypeSafe rechazó la clave de API. Revísala en los ajustes de Jev.",
+    "unavailable": "TypeSafe no respondió. Inténtalo de nuevo en un momento.",
     "preview_over_budget": "El presupuesto diario de tokens está agotado, así que no hay respuesta de prueba. La pregunta sí se guarda.",
     "preview_nothing_yet": "Sin respuesta de prueba: todavía no hay nada sobre lo que preguntar."
   },
@@ -328,13 +394,10 @@
             "target": "Qué mirar",
             "state": "Nota extra o plantilla",
             "background": "Datos fijos sobre las lecturas",
-            "include_attributes": "Enviar también todos los atributos",
-            "scan_interval": "Con qué frecuencia preguntar",
             "true_means": "Qué significa un número alto",
             "false_means": "Qué significa un número bajo",
             "threshold": "Crear también un sensor binario por encima de",
-            "advanced": "Avanzado",
-            "trigger_entities": "Despertar con estas en su lugar"
+            "advanced": "Avanzado"
           },
           "data_description": {
             "name": "Da nombre al sensor que crea esta pregunta.",
@@ -342,18 +405,25 @@
             "target": "Elige entidades, dispositivos, áreas o etiquetas y sus lecturas se envían por ti. Déjalo vacío si la nota de abajo es todo el estado.",
             "state": "Texto o una plantilla, sola o junto a las lecturas.",
             "background": "Se integra en `instructions`, de modo que viaja con la pregunta y no con el estado.",
-            "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación.",
-            "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
             "true_means": "Opcional. Afina hacia qué lado apunta la respuesta.",
             "false_means": "Opcional.",
             "threshold": "Déjalo vacío para tener solo el sensor de probabilidad.",
-            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
-            "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos."
+            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
           },
           "sections": {
             "advanced": {
               "name": "Avanzado",
-              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
+              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
+              "data": {
+                "trigger_entities": "Despertar con estas en su lugar",
+                "scan_interval": "Con qué frecuencia preguntar",
+                "include_attributes": "Enviar también todos los atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos.",
+                "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
+                "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación."
+              }
             }
           }
         },
@@ -365,11 +435,8 @@
             "target": "Qué mirar",
             "state": "Nota extra o plantilla",
             "background": "Datos fijos sobre las lecturas",
-            "include_attributes": "Enviar también todos los atributos",
-            "scan_interval": "Con qué frecuencia preguntar",
             "options": "Tus opciones, una por línea",
-            "advanced": "Avanzado",
-            "trigger_entities": "Despertar con estas en su lugar"
+            "advanced": "Avanzado"
           },
           "data_description": {
             "name": "Da nombre al sensor que crea esta pregunta.",
@@ -377,16 +444,23 @@
             "target": "Elige entidades, dispositivos, áreas o etiquetas y sus lecturas se envían por ti. Déjalo vacío si la nota de abajo es todo el estado.",
             "state": "Texto o una plantilla, sola o junto a las lecturas.",
             "background": "Se integra en `instructions`, de modo que viaja con la pregunta y no con el estado.",
-            "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación.",
-            "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
             "options": "Se envía a la API como `criteria`. Una por línea, como `nombre: qué significa`. La descripción es opcional.",
-            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
-            "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos."
+            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
           },
           "sections": {
             "advanced": {
               "name": "Avanzado",
-              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
+              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
+              "data": {
+                "trigger_entities": "Despertar con estas en su lugar",
+                "scan_interval": "Con qué frecuencia preguntar",
+                "include_attributes": "Enviar también todos los atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos.",
+                "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
+                "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación."
+              }
             }
           }
         },
@@ -398,11 +472,8 @@
             "target": "Qué mirar",
             "state": "Nota extra o plantilla",
             "background": "Datos fijos sobre las lecturas",
-            "include_attributes": "Enviar también todos los atributos",
-            "scan_interval": "Con qué frecuencia preguntar",
             "levels": "Tus niveles, el más bajo primero, uno por línea",
-            "advanced": "Avanzado",
-            "trigger_entities": "Despertar con estas en su lugar"
+            "advanced": "Avanzado"
           },
           "data_description": {
             "name": "Da nombre al sensor que crea esta pregunta.",
@@ -410,16 +481,23 @@
             "target": "Elige entidades, dispositivos, áreas o etiquetas y sus lecturas se envían por ti. Déjalo vacío si la nota de abajo es todo el estado.",
             "state": "Texto o una plantilla, sola o junto a las lecturas.",
             "background": "Se integra en `instructions`, de modo que viaja con la pregunta y no con el estado.",
-            "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación.",
-            "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
             "levels": "Se envía a la API como `criteria`. Uno por línea, el más bajo primero. Entre 2 y 10 de ellos.",
-            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
-            "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos."
+            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
           },
           "sections": {
             "advanced": {
               "name": "Avanzado",
-              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
+              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
+              "data": {
+                "trigger_entities": "Despertar con estas en su lugar",
+                "scan_interval": "Con qué frecuencia preguntar",
+                "include_attributes": "Enviar también todos los atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos.",
+                "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
+                "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación."
+              }
             }
           }
         },
@@ -431,15 +509,12 @@
             "target": "Qué mirar",
             "state": "Nota extra o plantilla",
             "background": "Datos fijos sobre las lecturas",
-            "include_attributes": "Enviar también todos los atributos",
-            "scan_interval": "Con qué frecuencia preguntar",
             "true_means": "Qué significa un número alto",
             "false_means": "Qué significa un número bajo",
             "threshold": "Crear también un sensor binario por encima de",
             "options": "Tus opciones, una por línea",
             "levels": "Tus niveles, el más bajo primero, uno por línea",
-            "advanced": "Avanzado",
-            "trigger_entities": "Despertar con estas en su lugar"
+            "advanced": "Avanzado"
           },
           "data_description": {
             "name": "Da nombre al sensor que crea esta pregunta.",
@@ -447,20 +522,27 @@
             "target": "Elige entidades, dispositivos, áreas o etiquetas y sus lecturas se envían por ti. Déjalo vacío si la nota de abajo es todo el estado.",
             "state": "Texto o una plantilla, sola o junto a las lecturas.",
             "background": "Se integra en `instructions`, de modo que viaja con la pregunta y no con el estado.",
-            "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación.",
-            "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
             "true_means": "Opcional. Afina hacia qué lado apunta la respuesta.",
             "false_means": "Opcional.",
             "threshold": "Déjalo vacío para tener solo el sensor de probabilidad.",
             "options": "Se envía a la API como `criteria`. Una por línea, como `nombre: qué significa`. La descripción es opcional.",
             "levels": "Se envía a la API como `criteria`. Uno por línea, el más bajo primero. Entre 2 y 10 de ellos.",
-            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
-            "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos."
+            "advanced": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
           },
           "sections": {
             "advanced": {
               "name": "Avanzado",
-              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta."
+              "description": "Una programación, y qué más se envía. Los valores por defecto sirven para una primera pregunta.",
+              "data": {
+                "trigger_entities": "Despertar con estas en su lugar",
+                "scan_interval": "Con qué frecuencia preguntar",
+                "include_attributes": "Enviar también todos los atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Evalúa cuando estas cambien, además de la programación de abajo. Con un antirrebote de 5 segundos.",
+                "scan_interval": "Las preguntas que miran lo mismo con la misma frecuencia se envían en una sola solicitud, lo que cuesta tokens pero casi nada de tiempo extra.",
+                "include_attributes": "Desactivado por defecto. Una previsión meteorológica llega a miles de tokens en cada evaluación."
+              }
             }
           }
         },

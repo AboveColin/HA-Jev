@@ -24,6 +24,13 @@ This integration puts that in three places in Home Assistant.
 
     [Actions](actions.md)
 
+-   **An AI Task entity**
+
+    `ai_task.generate_data` against `ai_task.jev`, so a script gets the answer in the
+    same step instead of waiting for a sensor.
+
+    [AI Task](ai-task.md)
+
 -   **A conversation agent**
 
     Point Assist at Jev. One request per sentence, mapped onto Home Assistant's own

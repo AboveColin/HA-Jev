@@ -32,11 +32,16 @@ from .const import DOMAIN, MAX_TARGET_ENTITIES
 # forecast or a media player's picture is thousands of tokens of noise, and the
 # caller pays for every one of them.
 _ALWAYS = (ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT)
+# Left out even when every attribute is asked for. A camera's access token is a live
+# credential, an entity picture URL often carries one, and a location is where the
+# person is. None of them helps Jev judge a state, and all of them are billed.
+_NEVER = frozenset(
+    {"access_token", "entity_picture", "latitude", "longitude", "gps_accuracy"}
+)
 
 
 @callback
 def _area_name(
-    hass: HomeAssistant,
     entity_id: str,
     entities: er.EntityRegistry,
     devices: dr.DeviceRegistry,
@@ -57,7 +62,6 @@ def _area_name(
 
 @callback
 def _describe(
-    hass: HomeAssistant,
     state: State,
     entities: er.EntityRegistry,
     devices: dr.DeviceRegistry,
@@ -78,14 +82,14 @@ def _describe(
     for attribute in _ALWAYS:
         if (value := state.attributes.get(attribute)) is not None:
             record[attribute] = value
-    if area := _area_name(hass, state.entity_id, entities, devices, areas):
+    if area := _area_name(state.entity_id, entities, devices, areas):
         record["area"] = area
     record["changed"] = dt_util.get_age(state.last_changed) + " ago"
     if include_attributes:
         record["attributes"] = {
             k: v
             for k, v in state.attributes.items()
-            if k not in (ATTR_FRIENDLY_NAME, *_ALWAYS)
+            if k not in (ATTR_FRIENDLY_NAME, *_ALWAYS) and k not in _NEVER
         }
     return record
 
@@ -135,8 +139,12 @@ def async_entity_records(
     for entity_id in entity_ids:
         if (state := hass.states.get(entity_id)) is None:
             continue
-        records.append(
-            _describe(hass, state, entities, devices, areas, include_attributes)
+        records.append(_describe(state, entities, devices, areas, include_attributes))
+    # Entity ids that exist in no state are referenced without being missing, so
+    # the check above lets them through. Asking about an empty list is still billed.
+    if not records:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key="empty_target"
         )
     return records
 

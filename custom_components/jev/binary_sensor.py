@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+)
+from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
@@ -15,7 +18,7 @@ from jevclient import NoulAnswer
 
 from .const import CONF_THRESHOLD
 from .coordinator import JevCoordinator, JevRuntimeData
-from .entity import JevQuestionEntity, JevUsageEntity
+from .entity import JevQuestionEntity, JevUsageEntity, async_remove_stale_entities
 from .models import QuestionConfig
 
 # Same as the sensor platform: these read answers a coordinator already
@@ -39,7 +42,12 @@ async def async_setup_entry(
             for question in coordinator.context_config.questions
             if question.wants_binary_sensor
         )
+    async_remove_stale_entities(hass, entry.entry_id, BINARY_SENSOR_DOMAIN, entities)
     async_add_entities(entities)
+
+
+def threshold_unique_id(entry_id: str, question: QuestionConfig) -> str:
+    return f"{entry_id}_{question.key}_threshold"
 
 
 class JevThresholdSensor(JevQuestionEntity, BinarySensorEntity):
@@ -59,7 +67,7 @@ class JevThresholdSensor(JevQuestionEntity, BinarySensorEntity):
         # reported off. Only a missing threshold takes the default.
         self._threshold = 0.5 if question.threshold is None else question.threshold
         self._attr_name = question.name
-        self._attr_unique_id = f"{entry_id}_{question.key}_threshold"
+        self._attr_unique_id = threshold_unique_id(entry_id, question)
 
     @property
     def is_on(self) -> bool | None:

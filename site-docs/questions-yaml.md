@@ -3,6 +3,9 @@
 The UI and `configuration.yaml` work side by side. YAML is not deprecated, and
 nothing migrates behind your back.
 
+YAML names no entry, so with more than one Jev entry the contexts belong to the first
+enabled one. They are asked once and billed to that entry's budget.
+
 ```yaml
 jev:
   - name: Laundry
@@ -31,7 +34,7 @@ jev:
 | `entities` | one of these two | Entities, devices, areas, floors or labels to read |
 | `state` | one of these two | Text or a template, alone or as a note beside the entities |
 | `scan_interval` | no | Seconds between evaluations, minimum 30, default 300 |
-| `trigger_entities` | no | Wake on these instead of on whatever `entities` names |
+| `trigger_entities` | no | Wake on these instead of on whatever `entities` names, at most once every 30 seconds |
 | `include_attributes` | no | Send every attribute of the picked entities, off by default |
 | `questions` | yes | The questions asked about this state |
 

@@ -31,6 +31,7 @@ from jevclient import (
     JevAuthError,
     JevClient,
     JevError,
+    JevResponseError,
     JevValidationError,
     Noul,
 )
@@ -46,10 +47,14 @@ from .const import (
     CONF_PRICE_PER_MILLION,
     DEFAULT_MIN_CONFIDENCE,
     DOMAIN,
+    OPENROUTER_BASE_URL,
     SUBENTRY_QUESTION,
 )
 from .identity import entry_unique_id
 from .subentry import JevQuestionSubentryFlow
+
+# The placeholders every form that can show the not_found error needs.
+FORM_PLACEHOLDERS = {"openrouter_url": OPENROUTER_BASE_URL}
 
 # Collapsed, so the common setup is one field. Both of these only matter to
 # someone running their own endpoint, and either one cleared is the default.
@@ -197,14 +202,24 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             # The probe's question is fixed, so the model id is the only part of
             # this request a typo can reach.
             return "invalid_model"
+        except JevResponseError as err:
+            # A 404 means the host answered and has nothing on that path, which
+            # "could not reach the API" describes wrongly. It is what an address
+            # carrying the request path already, or a gateway mounted elsewhere,
+            # comes back as. jevclient does not expose the status, only its own
+            # message, so tests/test_config_flow.py drives a real JevClient
+            # against a 404 body: a message change fails there, not in the field.
+            if str(err).startswith("HTTP 404"):
+                return "not_found"
+            return "cannot_connect"
         except JevError:
             return "cannot_connect"
         return None
 
-    async def _async_swap_key(
+    async def _async_update_credentials(
         self, entry: ConfigEntry, updates: dict[str, Any]
     ) -> ConfigFlowResult:
-        """Store a validated key on an existing entry, unique id and all.
+        """Store validated credentials on an existing entry, unique id and all.
 
         The unique id is the hash of the endpoint and the key, so a swap of
         either has to move it. Left where it was, it went on guarding the retired
@@ -260,6 +275,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 {CONF_ADVANCED: user_input.get(CONF_ADVANCED, {})} if user_input else {},
             ),
             errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -271,14 +287,23 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             entry = self._get_reauth_entry()
-            if error := await self._async_validate(
-                user_input[CONF_API_KEY], *_stored(entry)
-            ):
+            base_url, model = _stored(entry)
+            # The same rules as the first form. A pasted key with a trailing
+            # newline was stored as it was and hashed into the unique id with it.
+            api_key = (user_input.get(CONF_API_KEY) or "").strip()
+            if not api_key and base_url == DEFAULT_BASE_URL:
+                errors[CONF_API_KEY] = "key_required"
+            elif error := await self._async_validate(api_key, base_url, model):
                 errors["base"] = error
             else:
-                return await self._async_swap_key(entry, user_input)
+                return await self._async_update_credentials(
+                    entry, {CONF_API_KEY: api_key}
+                )
         return self.async_show_form(
-            step_id="reauth_confirm", data_schema=STEP_REAUTH_SCHEMA, errors=errors
+            step_id="reauth_confirm",
+            data_schema=STEP_REAUTH_SCHEMA,
+            errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     async def async_step_reconfigure(
@@ -289,11 +314,18 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_key, base_url, model, errors = _credentials(user_input)
+            # The form never shows the key back, so an empty field while the
+            # address stays put means keep it. A new address gets no key it was not
+            # given, because the key would travel to a host the user did not pick
+            # it for.
+            if not api_key and base_url == _stored(entry)[0]:
+                api_key = entry.data.get(CONF_API_KEY, "")
+                errors.pop(CONF_API_KEY, None)
             if not errors:
                 if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
                 else:
-                    return await self._async_swap_key(
+                    return await self._async_update_credentials(
                         entry,
                         {
                             CONF_API_KEY: api_key,
@@ -311,6 +343,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 _suggest(*_stored(entry)),
             ),
             errors=errors,
+            description_placeholders=FORM_PLACEHOLDERS,
         )
 
     @staticmethod

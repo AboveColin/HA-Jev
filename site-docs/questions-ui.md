@@ -23,7 +23,7 @@ Under **Advanced**:
 
 | Field | Default | Notes |
 |---|---|---|
-| Wake on these instead | none | Evaluate when these entities change rather than on the clock, debounced by 5 seconds |
+| Wake on these instead | none | Evaluate when these entities change rather than on the clock, debounced by 5 seconds and at most once every 30 seconds |
 | Ask this often | 300 s | Minimum 30 |
 | Send every attribute as well | off | A weather forecast runs to thousands of tokens per evaluation |
 

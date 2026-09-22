@@ -61,6 +61,26 @@ async def test_attributes_are_left_out_unless_asked_for(hass):
     assert len(full["attributes"]["forecast"]) == 40
 
 
+async def test_credentials_and_locations_never_leave_the_house(hass):
+    """A camera's token is a live credential and a tracker's position is a person's."""
+    hass.states.async_set(
+        "camera.door",
+        "idle",
+        {
+            "access_token": "0123456789abcdef",
+            "entity_picture": "/api/camera_proxy/camera.door?token=0123456789abcdef",
+            "latitude": 52.0,
+            "longitude": 5.0,
+            "gps_accuracy": 10,
+            "brand": "Acme",
+        },
+    )
+    [record] = async_entity_records(
+        hass, {"entity_id": ["camera.door"]}, include_attributes=True
+    )
+    assert record["attributes"] == {"brand": "Acme"}
+
+
 async def test_a_target_that_no_longer_exists_is_refused(hass):
     with pytest.raises(ServiceValidationError) as err:
         async_entity_records(hass, {"area_id": ["a-room-that-was-deleted"]})

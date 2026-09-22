@@ -9,7 +9,6 @@ several questions about the same state, answered in one request.
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -26,6 +25,7 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.template import Template
+from homeassistant.util import dt as dt_util
 from jevclient import (
     MAX_CHOICE_OPTIONS,
     MAX_SCORE_LEVELS,
@@ -71,13 +71,11 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
-from .models import compose_instructions
+from .models import ENTRY, build_question, compose_instructions
+from .payload import payload_bytes
 from .statebuilder import async_build_state
 
-# instructions and criteria values accept a string, an object or an array.
 _LOGGER = logging.getLogger(__name__)
-
-ENTRY = vol.Any(cv.string, dict, list)
 
 # What the target picker puts in call.data, which must not reach the question body.
 TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
@@ -120,7 +118,10 @@ SCORE_SCHEMA = vol.Schema(
 ASK_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
-        vol.Required(ATTR_QUESTIONS): vol.Schema({cv.string: dict}),
+        # An empty mapping is still a billed request, answered with nothing.
+        vol.Required(ATTR_QUESTIONS): vol.All(
+            vol.Schema({cv.string: dict}), vol.Length(min=1)
+        ),
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
         vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
         **cv.TARGET_SERVICE_FIELDS,
@@ -179,6 +180,16 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> JevConfigEntry:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="no_entry"
         )
+    # Each entry has its own key and budget, so taking the first would bill
+    # whichever one happened to load first.
+    if len(entries) > 1:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="entry_ambiguous",
+            translation_placeholders={
+                "entries": ", ".join(sorted(e.title for e in entries))
+            },
+        )
     return entries[0]
 
 
@@ -206,9 +217,11 @@ async def _ask(
         type(state).__name__,
         state,
     )
+    request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
     try:
         response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:
+        entry.async_start_reauth(hass)
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="auth_rejected",
@@ -221,8 +234,8 @@ async def _ask(
             translation_placeholders={"reason": str(err)},
         ) from err
     usage = entry.runtime_data.usage
-    usage.roll_over(date.today())
-    usage.record(response.usage.input_tokens)
+    usage.roll_over(dt_util.now().date())
+    usage.record(response.usage.input_tokens, request_bytes)
     entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
     usage.notify()
     return response
@@ -347,8 +360,6 @@ def async_register_services(hass: HomeAssistant) -> None:
         }
 
     async def _ask_many(call: ServiceCall) -> ServiceResponse:
-        from .models import build_question
-
         questions: dict[str, Question] = {}
         for key, raw in call.data[ATTR_QUESTIONS].items():
             if "type" not in raw or CONF_INSTRUCTIONS not in raw:
