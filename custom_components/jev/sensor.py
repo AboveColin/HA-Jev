@@ -124,26 +124,40 @@ class JevQuestionSensor(JevQuestionEntity, SensorEntity):
         return None
 
 
-class JevLatencySensor(JevQuestionEntity, SensorEntity):
-    """How long the last evaluation of this context took."""
+class _JevContextSensor(JevQuestionEntity, SensorEntity):
+    """A diagnostic sensor about one context as a whole, not one of its questions."""
+
+    _suffix: str
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Off by default. The payload sensor's attributes carry the whole request, and
+    # a 150 entity target renders about 17 kB of state, which every open dashboard
+    # would then be pushed on every evaluation. Somebody auditing a context turns
+    # these on; nobody else pays for them.
     _attr_entity_registry_enabled_default = False
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator: JevCoordinator, entry_id: str) -> None:
         super().__init__(coordinator, entry_id, question_key="")
         # The context name is the user's own word, so it travels as a placeholder
         # rather than being baked into an untranslatable string.
-        self._attr_translation_key = "context_latency"
+        self._attr_translation_key = f"context_{self._suffix}"
         self._attr_translation_placeholders = {"context": coordinator.context_config.name}
-        self._attr_unique_id = f"{entry_id}_{coordinator.context_config.key}_latency"
+        self._attr_unique_id = (
+            f"{entry_id}_{coordinator.context_config.key}_{self._suffix}"
+        )
 
     @property
     def available(self) -> bool:
         return self.coordinator.last_update_success
+
+
+class JevLatencySensor(_JevContextSensor):
+    """How long the last evaluation of this context took."""
+
+    _suffix = "latency"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
 
     @property
     def native_value(self) -> float | None:
@@ -152,7 +166,7 @@ class JevLatencySensor(JevQuestionEntity, SensorEntity):
         return round(self.coordinator.last_latency_ms)
 
 
-class JevPayloadSensor(JevQuestionEntity, SensorEntity):
+class JevPayloadSensor(_JevContextSensor):
     """What this context last sent, and how big it was.
 
     The rendered state was only in the diagnostics download until now, which means
@@ -170,25 +184,9 @@ class JevPayloadSensor(JevQuestionEntity, SensorEntity):
     # exact text this integration exists to keep an eye on.
     _unrecorded_attributes = frozenset({ATTR_STATE_TEXT, ATTR_QUESTIONS})
 
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    # Off by default, like the latency sensor beside it. The attributes carry the
-    # whole request, and a 150 entity target renders about 17 kB of state, which
-    # every open dashboard would then be pushed on every evaluation. Somebody
-    # auditing what a context sends turns it on; nobody else pays for it.
-    _attr_entity_registry_enabled_default = False
+    _suffix = "payload"
     _attr_device_class = SensorDeviceClass.DATA_SIZE
     _attr_native_unit_of_measurement = UnitOfInformation.BYTES
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, coordinator: JevCoordinator, entry_id: str) -> None:
-        super().__init__(coordinator, entry_id, question_key="")
-        self._attr_translation_key = "context_payload"
-        self._attr_translation_placeholders = {"context": coordinator.context_config.name}
-        self._attr_unique_id = f"{entry_id}_{coordinator.context_config.key}_payload"
-
-    @property
-    def available(self) -> bool:
-        return self.coordinator.last_update_success
 
     @property
     def native_value(self) -> int | None:

@@ -216,10 +216,10 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             return "cannot_connect"
         return None
 
-    async def _async_swap_key(
+    async def _async_update_credentials(
         self, entry: ConfigEntry, updates: dict[str, Any]
     ) -> ConfigFlowResult:
-        """Store a validated key on an existing entry, unique id and all.
+        """Store validated credentials on an existing entry, unique id and all.
 
         The unique id is the hash of the endpoint and the key, so a swap of
         either has to move it. Left where it was, it went on guarding the retired
@@ -296,7 +296,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             elif error := await self._async_validate(api_key, base_url, model):
                 errors["base"] = error
             else:
-                return await self._async_swap_key(entry, {CONF_API_KEY: api_key})
+                return await self._async_update_credentials(
+                    entry, {CONF_API_KEY: api_key}
+                )
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=STEP_REAUTH_SCHEMA,
@@ -323,7 +325,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error
                 else:
-                    return await self._async_swap_key(
+                    return await self._async_update_credentials(
                         entry,
                         {
                             CONF_API_KEY: api_key,

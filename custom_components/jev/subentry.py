@@ -491,7 +491,6 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
     """Add or edit one question without touching a file."""
 
     _pending: dict[str, Any]
-    _pending_kind: str
     _editing: str | None = None
 
     async def async_step_user(
@@ -522,50 +521,44 @@ class JevQuestionSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Edit an existing question, on the form for the type it already is."""
         current = self._get_reconfigure_subentry()
-        kind = current.data["type"]
-        if user_input is None:
-            return self.async_show_form(
-                step_id="reconfigure",
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(dict(current.data))
-                ),
-                description_placeholders={"type": kind},
-            )
-        user_input = flatten(user_input)
-        errors = _validate(kind, user_input)
-        if errors:
-            return self.async_show_form(
-                step_id="reconfigure",
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(user_input)
-                ),
-                errors=errors,
-                description_placeholders={"type": kind},
-            )
-        self._pending = {**user_input, "type": kind}
-        self._pending_kind = kind
-        self._editing = current.subentry_id
-        return await self.async_step_preview()
+        return await self._async_question_form(
+            "reconfigure",
+            current.data["type"],
+            user_input,
+            editing=current.subentry_id,
+            suggested=dict(current.data),
+        )
 
     async def _async_type_step(
         self, kind: str, user_input: dict[str, Any] | None
     ) -> SubentryFlowResult:
-        if user_input is None:
-            return self.async_show_form(step_id=kind, data_schema=SCHEMAS[kind])
-        user_input = flatten(user_input)
-        errors = _validate(kind, user_input)
-        if errors:
-            return self.async_show_form(
-                step_id=kind,
-                data_schema=self.add_suggested_values_to_schema(
-                    SCHEMAS[kind], nest(user_input)
-                ),
-                errors=errors,
-            )
-        self._pending = {**user_input, "type": kind}
-        self._pending_kind = kind
-        self._editing = None
-        return await self.async_step_preview()
+        return await self._async_question_form(kind, kind, user_input)
+
+    async def _async_question_form(
+        self,
+        step_id: str,
+        kind: str,
+        user_input: dict[str, Any] | None,
+        *,
+        editing: str | None = None,
+        suggested: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Show the form for one kind of question, check it, then go to the preview."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            user_input = flatten(user_input)
+            errors = _validate(kind, user_input)
+            if not errors:
+                self._pending = {**user_input, "type": kind}
+                self._editing = editing
+                return await self.async_step_preview()
+            suggested = user_input
+        schema = SCHEMAS[kind]
+        if suggested is not None:
+            schema = self.add_suggested_values_to_schema(schema, nest(suggested))
+        return self.async_show_form(
+            step_id=step_id, data_schema=schema, errors=errors or None
+        )
 
     async def async_step_preview(
         self, user_input: dict[str, Any] | None = None

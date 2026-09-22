@@ -51,6 +51,9 @@ into a token estimate, and a call that would not fit in what is left of the budg
 never sent. A budget is a limit on what gets spent, and one that only notices after
 the spending is a report.
 
+The estimate divides the request size by the bytes per token of the last answered
+call. A question, an action and an AI Task all update that ratio.
+
 When it trips:
 
 - the call is refused, so it costs nothing

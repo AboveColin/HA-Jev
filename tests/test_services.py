@@ -9,6 +9,7 @@ from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import DOMAIN
+from custom_components.jev.payload import payload_bytes
 
 from .conftest import build_response
 
@@ -37,6 +38,22 @@ async def test_noul_returns_the_probability_and_the_threshold(
     assert response["threshold"] == 0.7
     assert response["usage"]["input_tokens"] == 321
     assert response["model"] == "jev-1.13.0"
+
+
+async def test_an_action_teaches_the_budget_how_big_a_token_is(
+    hass, loaded_entry, mock_client
+):
+    """The budget estimate divides request bytes by this ratio, so every call counts."""
+    mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.81))
+    await call(
+        hass,
+        "noul",
+        {"state": "The machine has drawn 1.2 W.", "instructions": "Is it done?"},
+    )
+    state, questions = mock_client.ask.call_args.args
+    runtime = loaded_entry.runtime_data
+    sent = payload_bytes(state, questions, runtime.model)
+    assert runtime.usage.bytes_per_token == sent / 321
 
 
 async def test_the_threshold_is_the_callers_and_nothing_else(

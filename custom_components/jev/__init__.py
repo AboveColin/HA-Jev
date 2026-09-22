@@ -68,7 +68,7 @@ from .const import (
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
 from .identity import entry_unique_id
-from .models import ContextConfig, build_question_config
+from .models import ENTRY, ContextConfig, build_question_config
 from .services import async_register_services
 from .subentry import async_contexts_from_subentries
 
@@ -82,10 +82,6 @@ PLATFORMS = [
 ]
 
 type JevConfigEntry = ConfigEntry[JevRuntimeData]
-
-
-# Anywhere the API takes a string, an object or an array.
-ENTRY = vol.Any(cv.string, dict, list)
 
 
 def _check_question_shape(raw: dict[str, Any]) -> dict[str, Any]:

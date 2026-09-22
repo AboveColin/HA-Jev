@@ -71,13 +71,11 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
-from .models import compose_instructions
+from .models import ENTRY, build_question, compose_instructions
+from .payload import payload_bytes
 from .statebuilder import async_build_state
 
-# instructions and criteria values accept a string, an object or an array.
 _LOGGER = logging.getLogger(__name__)
-
-ENTRY = vol.Any(cv.string, dict, list)
 
 # What the target picker puts in call.data, which must not reach the question body.
 TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
@@ -219,6 +217,7 @@ async def _ask(
         type(state).__name__,
         state,
     )
+    request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
     try:
         response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:
@@ -236,7 +235,7 @@ async def _ask(
         ) from err
     usage = entry.runtime_data.usage
     usage.roll_over(dt_util.now().date())
-    usage.record(response.usage.input_tokens)
+    usage.record(response.usage.input_tokens, request_bytes)
     entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
     usage.notify()
     return response
@@ -361,8 +360,6 @@ def async_register_services(hass: HomeAssistant) -> None:
         }
 
     async def _ask_many(call: ServiceCall) -> ServiceResponse:
-        from .models import build_question
-
         questions: dict[str, Question] = {}
         for key, raw in call.data[ATTR_QUESTIONS].items():
             if "type" not in raw or CONF_INSTRUCTIONS not in raw:

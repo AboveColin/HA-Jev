@@ -42,7 +42,6 @@ _NEVER = frozenset(
 
 @callback
 def _area_name(
-    hass: HomeAssistant,
     entity_id: str,
     entities: er.EntityRegistry,
     devices: dr.DeviceRegistry,
@@ -63,7 +62,6 @@ def _area_name(
 
 @callback
 def _describe(
-    hass: HomeAssistant,
     state: State,
     entities: er.EntityRegistry,
     devices: dr.DeviceRegistry,
@@ -84,7 +82,7 @@ def _describe(
     for attribute in _ALWAYS:
         if (value := state.attributes.get(attribute)) is not None:
             record[attribute] = value
-    if area := _area_name(hass, state.entity_id, entities, devices, areas):
+    if area := _area_name(state.entity_id, entities, devices, areas):
         record["area"] = area
     record["changed"] = dt_util.get_age(state.last_changed) + " ago"
     if include_attributes:
@@ -141,9 +139,7 @@ def async_entity_records(
     for entity_id in entity_ids:
         if (state := hass.states.get(entity_id)) is None:
             continue
-        records.append(
-            _describe(hass, state, entities, devices, areas, include_attributes)
-        )
+        records.append(_describe(state, entities, devices, areas, include_attributes))
     # Entity ids that exist in no state are referenced without being missing, so
     # the check above lets them through. Asking about an empty list is still billed.
     if not records:
