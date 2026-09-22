@@ -8,9 +8,9 @@
 # Jev for Home Assistant
 
 Ask [TypeSafe Jev](https://typesafe.ai) questions about your house and get numbers
-back. Jev is a decision model rather than a chat model, so it answers a typed
-question with a probability, a choice or a score, and this integration turns each
-answer into an entity you can automate on.
+back. Jev is a decision model, not a chat model. It answers a typed question with a
+probability, a choice or a score, and this integration turns each answer into an
+entity you can automate on.
 
 **[Full documentation](https://jev.cdevries.dev)**
 
@@ -21,20 +21,19 @@ Not affiliated with TypeSafe. The API client is
 
 ## What it does
 
-- Questions become sensors: a probability, one of your options with its
-  distribution, or a number that can land between levels. Add them in the UI,
-  or in `configuration.yaml`, or both.
-- Four actions answer inside an automation and return a response variable:
-  `jev.noul`, `jev.choice`, `jev.score` and `jev.ask`.
-- An AI Task entity, so `ai_task.generate_data` can ask Jev and act on the answer in
-  the same step. A boolean, select or number field becomes the matching question.
-- Point a question at entities, devices, areas, floors or labels in the normal
-  picker and the state is built for you, so no template is needed.
-- A conversation agent for Assist, so spoken commands are routed by the same model
-  and counted against the same budget.
-- Reports what it spends: calls, input tokens and estimated cost per day, plus a
-  daily token budget. A request that would not fit in what is left is refused before
-  it is sent, not counted afterwards.
+- [Questions](https://jev.cdevries.dev/questions-ui/) become sensors: a probability,
+  one of your options with its distribution, or a number on a scale. Add them in the
+  UI, [in YAML](https://jev.cdevries.dev/questions-yaml/), or both.
+- Four [actions](https://jev.cdevries.dev/actions/), `jev.noul`, `jev.choice`,
+  `jev.score` and `jev.ask`, answer inside an automation and return a response
+  variable.
+- An [AI Task](https://jev.cdevries.dev/ai-task/) entity answers
+  `ai_task.generate_data` when it is called. A boolean, select or number field
+  becomes the matching question.
+- A [conversation agent](https://jev.cdevries.dev/conversation/) for Assist routes
+  spoken commands through the same model.
+- It [reports what it spends](https://jev.cdevries.dev/cost/): calls, input tokens and
+  estimated cost per day, against a daily token budget.
 - Fifteen worked [examples](examples/), four of them pairing Jev with an LLM.
 
 ```yaml
@@ -58,9 +57,7 @@ Requires Home Assistant 2026.9 or newer and an API key from
 
 ### HACS
 
-Not in the HACS default list yet, so add it as a custom repository once.
-[hacs/default#11052](https://github.com/hacs/default/pull/11052) is queued; when it
-merges, steps 1 and 2 go away.
+Jev is not in the HACS default list, so add it as a custom repository once.
 
 1. HACS, then the three dot menu, then **Custom repositories**.
 2. Paste `https://github.com/AboveColin/HA-Jev`, set Type to **Integration**, **Add**.
@@ -73,333 +70,40 @@ merges, steps 1 and 2 go away.
 
 Copy `custom_components/jev` from the
 [latest release](https://github.com/AboveColin/HA-Jev/releases/latest) into your
-`config/custom_components/` directory and restart. HACS will not update a copy
+`config/custom_components/` directory and restart. HACS does not update a copy
 installed this way.
 
-## Configuration
+## Setup
 
-Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. It asks for
-an API key and the address to send it to, and both are checked before the entry is
-created. The address already holds the TypeSafe API, so a key is all most people fill
-in.
+Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. Enter your
+API key. The address field already holds the TypeSafe API.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
-| Option | Where | Default | Description |
-|---|---|---|---|
-| API key | config flow | none | Your TypeSafe key |
-| API address | config flow | `https://api.typesafe.ai` | Where the requests go. Leave it alone unless you run something of your own that speaks the same API |
-| Daily input token budget | options | 0 | Stops evaluating for the day once spent. 0 means no limit |
-| Price per million input tokens | options | 0.042 | Only affects the estimated cost sensor |
-| Fall back to this agent | options | none | Where unrouted sentences go. Empty means the agent says it did not understand |
-| Act only above this confidence | options | 0.6 | Below it, the sentence goes to the fallback instead |
-| Allow whole-house commands | options | off | Commands naming no room or device. Turning everything off is always allowed |
+To use an OpenRouter key, set the address to `https://openrouter.ai/api` and the model
+to `~typesafe/jev-latest`. The [install page](https://jev.cdevries.dev/install/) has
+every option, and how to point the integration at a proxy.
 
-Use Reconfigure to replace the key or the address later, which keeps your entities
-and history.
+Then [ask your first question](https://jev.cdevries.dev/first-question/).
 
-### Pointing it somewhere else
+## Documentation
 
-The address is checked before the entry is created, the same way the key is, so a
-wrong one fails there rather than later. Anything that answers `POST /v1/systemone`
-the way TypeSafe does will do: a proxy that holds the key, caches answers or meters
-what is spent across more than just Home Assistant. A path is kept as a prefix, so
-`http://gateway.local:8093/jev` becomes `http://gateway.local:8093/jev/v1/systemone`.
-
-The key is sent as a bearer header. Over `http` that puts it on the wire in clear,
-where anything on the same network can read it, so the log says so once per setup
-unless the address is loopback. Leaving the field empty goes back to TypeSafe.
-
-Give the address without the request path. An address that already carries
-`/v1/systemone` ends up asking for it twice and setup fails with "The server answered
-HTTP 404", which the form reports separately from a host it could not reach.
-
-**Through OpenRouter.** [OpenRouter](https://openrouter.ai) resells the model.
-Use `https://openrouter.ai/api` as the address, an OpenRouter key, and
-`~typesafe/jev-latest` as the model. The leading `~` is part of the id, and is how
-OpenRouter names the newest model in a family. Set the price per million in the
-options to OpenRouter's, or read the cost sensor as tokens only.
-
-### Actions
-
-```yaml
-- action: jev.noul
-  response_variable: laundry
-  target:
-    entity_id: sensor.washing_machine_power
-  data:
-    instructions: Is the laundry finished but still sitting in the machine?
-    background: >-
-      This machine draws under 5 W when idle and over 300 W while a programme runs.
-    threshold: 0.7
-- if: "{{ laundry.is_true }}"
-  then:
-    - action: notify.mobile_app
-      data: { message: The washing is done and still in the machine. }
-```
-
-The same thing in the automation editor, and what a run of it looks like:
-
-| | |
+| Page | What it covers |
 |---|---|
-| ![A question becomes a binary sensor you trigger on](docs/images/auto-simple.png) | ![Six questions in one request, then three branches](docs/images/auto-advanced.png) |
-
-The right-hand one is [example 15](examples/15_doorbell_triage_ui.yaml). Six questions
-go in one request and five are thrown away, the action targets entities instead of
-building a template, and nothing acts until the confidence clears a bar. Its trace on
-a real instance, API call included:
-
-![The trace of one run, 0.31 seconds end to end](docs/images/auto-trace.png)
-
-| Action | You give it | You get back |
-|---|---|---|
-| `jev.noul` | a yes/no question | `noul` 0 to 1, `is_true` against your threshold |
-| `jev.choice` | `options:`, 2 to 255 | `choice`, `probabilities`, `confidence` |
-| `jev.score` | `levels:`, 2 to 10, lowest first | `score`, `normalized`, `nearest_level`, `legend`, `probabilities`, `confidence` |
-| `jev.ask` | any mix, under your own keys | the same, under `answers` |
-
-All four take a template in `state`, or an object, or a list. They also take
-`background:` for standing facts about how to read the state, which is
-[worth more attached to the question than to the state](docs/measurements.md).
-
-They send whatever you target, whether or not it is exposed to Assist. An
-automation names its entities on purpose, so the Assist exposure list is not
-consulted here. It is consulted for the conversation agent below. Watch that with
-`include_attributes: true` on a `device_tracker`, which puts coordinates in the
-request.
-
-### AI Task
-
-`ai_task.jev` answers a structured task at the moment it is called, which is what a
-script wants: a question subentry lands in a sensor on a schedule, and inside a script
-that sensor can still hold the answer from before the change that started it.
-
-```yaml
-- action: ai_task.generate_data
-  response_variable: triage
-  data:
-    task_name: doorbell triage
-    entity_id: ai_task.jev
-    instructions: "{{ states('sensor.intercom_transcript') }}"
-    structure:
-      caller:
-        description: Who is at the door?
-        selector:
-          select:
-            options: [delivery, visitor, cold caller]
-      urgency:
-        description: How urgently does somebody need to go, 0 not at all and 10 immediately?
-        selector:
-          number: { min: 0, max: 10, step: 1 }
-```
-
-| Field selector | Question | What lands in `data` |
-|---|---|---|
-| `boolean` | a noul | `true` at probability 0.5 or above |
-| `select`, 2 to 255 options | a choice | the option value you wrote |
-| `number` with `min` and `max` | a score | a number on your own scale |
-
-The field's `description:` is the question. Any other selector, a number missing an
-end of its scale, a task with no structure at all, and a request that would not fit
-the daily budget are refused before anything is sent, each naming what to change.
-
-`generate_data` returns the fields and nothing else, so the confidence behind each one
-comes back under `data.jev`: `jev.answers.<field>.confidence`, the full distribution,
-and `nearest_level` for a number. A field of your own named `jev` is refused rather
-than overwritten. Full page: [AI Task](https://jev.cdevries.dev/ai-task/).
-
-### Questions
-
-Settings, Devices and services, **Jev**, then **Add question**. Pick what kind of
-answer you want back:
-
-![Three kinds of answer](docs/images/flow-menu.png)
-
-Name it, ask one thing, and say what it should look at. The schedule and the rest
-sit in a collapsed Advanced section, so a first question is four fields.
-
-![The form for a choice question](docs/images/flow-form.png)
-
-Before it saves, it shows you what it will send **and what that answers right now**:
-
-![The preview, with the trial answer](docs/images/flow-preview.png)
-
-That last screen is worth the click. A question that reads a perfect state and
-still answers 0.5 is the common disappointment, and this is where you find that out
-rather than after the sensor exists. The trial costs one request, which the footer
-reports: 350 input tokens and $0.000015 in the shot above.
-
-It also names which other questions it will share a request with. Questions that
-look at the same thing on the same schedule are sent as one call, because the API
-takes one state per request. You never declare that grouping, and this is where you
-see it.
-
-#### Two worked examples
-
-A washing machine that has finished but not been emptied. The readings are 1.4 W,
-the door shut, and 14 minutes since the programme ended, and the `background` field
-says what those numbers mean:
-
-![The laundry question answering 0.86](docs/images/example-laundry.png)
-
-A cable modem where one reading sits near its limit. Downstream SNR of 31.2 dB is
-under the healthy 33, upstream power of 50.4 dBmV is near the 51 ceiling, and there
-are 1,184 uncorrected errors:
-
-![The connection question answering degraded](docs/images/example-connection.png)
-
-Worth reading that second one closely. It answers `degraded` at 0.59 with `marginal`
-right behind at 0.40, and a confidence of 0.46. That is the model saying the data is
-genuinely ambiguous rather than pretending otherwise, and it is why the actions
-return confidence at all: an automation can require 0.8 before it wakes anyone.
-
-Both are sample data on a throwaway instance, not a real house.
-
-### Questions in YAML
-
-The same thing in a file, which keeps working and is not deprecated:
-
-```yaml
-jev:
-  - name: Laundry
-    scan_interval: 300
-    entities:
-      - sensor.washing_machine_power
-      - binary_sensor.laundry_door
-    questions:
-      - name: Laundry forgotten
-        type: noul
-        instructions: Is the laundry finished but still sitting in the machine?
-        background: >-
-          This machine draws under 5 W when idle and over 300 W while a programme runs.
-        threshold: 0.7
-      - name: Nudge urgency
-        type: score
-        instructions: How urgently should someone be reminded?
-        criteria: [Not at all, When convenient, Right now]
-```
-
-| Key | Required | Description |
-|---|---|---|
-| `name` | yes | Names the context and prefixes its entities |
-| `entities` | one of these two | Entities, devices, areas, floors or labels to read |
-| `state` | one of these two | Text or a template, alone or as a note beside the entities |
-| `scan_interval` | no | Seconds between evaluations, minimum 30, default 300 |
-| `trigger_entities` | no | Wake on these instead of on whatever `entities` names |
-| `include_attributes` | no | Send every attribute of the picked entities, off by default |
-| `questions` | yes | Each with `name`, `type`, `instructions`, and `criteria` for choice and score |
-
-A context is one request, so keep related questions together. It is evaluated on
-`scan_interval`, or when an entity it watches changes, debounced by 5 seconds. Adding
-`threshold:` to a noul also creates a binary sensor to trigger on.
-
-### Voice
-
-The integration adds a conversation agent. Settings, Voice assistants, pick your
-pipeline, set Conversation agent to **Jev**.
-
-![Assist answering through Jev](docs/images/assist.png)
-
-It sends one request per sentence, describing only the entities you exposed to
-Assist, and runs Home Assistant's own intents with what comes back. It turns things
-on and off, toggles them, sets a light's brightness and answers what something is
-set to. Anything else, anything phrased as two commands, and anything it is not
-confident about goes to the fallback agent whole, with nothing done first.
-
-Locks are not among them and are never described to the model. Home Assistant reads
-turn_on on a lock as lock and turn_off as unlock, which is the opposite way round
-from how the command is spoken, and a probability with no reasoning should not be
-deciding whether a door opens. Lock sentences go to the fallback agent.
-
-Against the built-in sentence matcher, it understands a command phrased a way
-nobody wrote a template for, and it returns a confidence the router can refuse to
-act on. Against an LLM agent, it is cheaper and it stops on its own: a command works
-out at about $0.0001 with 20 entities exposed and $0.0007 at the 150 entity cap,
-derived from the measured token cost per entity, and every one counts against the
-same daily budget as the sensors. A satellite that mishears a wake word all night
-trips that budget instead of running up a bill.
-
-Brightness comes out of a regex, not out of a question, because Jev judges and does
-not calculate. `40 percent`, `40%` and `40 procent` all work.
-
-Commands naming no room and no device are refused unless you allow them, except
-turning everything off, whose worst case is a dark house.
-
-## Examples
-
-| | |
-|---|---|
-| [01 laundry reminder](examples/01_laundry_reminder.yaml) | one question, one threshold, one binary sensor |
-| [02 alert triage](examples/02_alert_triage.yaml) | three questions in one call, three notification paths |
-| [03 doorbell triage](examples/03_doorbell_triage.yaml) | a choice on an intercom transcript |
-| [04 situation layer](examples/04_situation_layer.yaml) | named situations other automations trigger on |
-| [05 confidence gating](examples/05_confidence_gating.yaml) | act, ask, or stay quiet |
-| [06 composite score](examples/06_composite_score.yaml) | several scores combined with your own weights |
-| [07 Jev gates the LLM](examples/07_llm_jev_gate.yaml) | a cheap typed decision in front of an expensive call |
-| [08 cascade](examples/08_llm_cascade.yaml) | low confidence escalates to a reasoning model |
-| [09 guardrail](examples/09_llm_guardrail.yaml) | the LLM writes, Jev checks it against the source |
-| [10 extract then verify](examples/10_llm_extract_verify.yaml) | the LLM pulls fields, Jev verifies each one |
-| [11 post and parcels](examples/11_post_and_parcels.yaml) | one attention queue across several channels |
-| [12 energy window](examples/12_energy_window.yaml) | where to keep arithmetic and where to ask |
-| [13 voice commands](examples/13_voice_commands.yaml) | a command router, 12 questions per request |
-| [14 conversation agent](examples/14_conversation_agent.yaml) | watching what the agent spends, and routing text Assist never saw |
-
-The LLM examples use `ai_task.generate_data`, so they work with Google Generative AI,
-OpenAI, Anthropic or a local Ollama. Jev now answers that action too, so the same
-automation can be pointed at `ai_task.jev` for the typed half of the work. The voice command router follows TypeSafe's own
-[smart home demo](https://docs.typesafe.ai/demos/smart-home) and builds its device
-options from your entity registry, so the answer is an `entity_id` you can act on.
-
-## Measurements
-
-[docs/measurements.md](docs/measurements.md) has what was measured against the live
-API: what an entity costs in tokens, why batching is nearly free, real latency from
-Europe against the published figure, and the two findings that changed this code.
-
-## Known limitations
-
-- Answers carry no reasoning, so there is nothing to audit afterwards.
-- Confidence has no published calibration evidence. Treat 0.9 as higher than 0.6
-  until you have measured it on your own questions.
-- Slower from Europe than the published 70 to 500 ms. Fine for a doorbell, too slow
-  for a tight loop.
-- Not for safety decisions. A probability with no explanation should not hold a lock,
-  a heater or a smoke alarm.
-- The conversation agent handles on, off, toggle, brightness and state questions.
-  Locks, climate setpoints, anything needing words written and anything phrased as
-  two commands go to the fallback agent.
-- Diagnostics include the last 20 sentences the agent routed. Read the file before
-  pasting it into a public issue.
-
-## Troubleshooting
-
-Turn on debug logging first. It prints every state sent, which is usually the answer:
-
-```yaml
-logger:
-  logs:
-    custom_components.jev: debug
-```
-
-| Symptom | Cause |
-|---|---|
-| An answer barely moves with the world | The state does not say what you assumed, or it holds a number the model is being asked to compare |
-| Answers sit near 0.5 with low confidence | The question measures more than one thing. Split it |
-| Entities unavailable, budget sensor on | The daily budget stopped evaluation |
-| Entities unavailable, budget sensor off | Look for one line saying TypeSafe is not answering |
-| Setup fails with "TypeSafe did not answer" | Connectivity, not configuration. Home Assistant retries |
-| Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
-| Voice acts on the wrong device | The names and areas in the entity registry are what the model reads |
-| An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
-| Setup fails with "The server answered HTTP 404" | The address carries the request path. `/v1/systemone` is added for you |
+| [The three answers](https://jev.cdevries.dev/primitives/) | noul, choice and score, and what confidence means |
+| [Writing a question that works](https://jev.cdevries.dev/writing-questions/) | how to tell it to read the numbers, and asking one thing at a time |
+| [What it costs](https://jev.cdevries.dev/cost/) | what questions and calls cost, and the daily budget |
+| [Measurements](https://jev.cdevries.dev/measurements/) | what was measured against the live API |
+| [Troubleshooting](https://jev.cdevries.dev/troubleshooting/) | symptoms and their causes |
+| [Limitations](https://jev.cdevries.dev/limitations/) | what it cannot do, and what it is not for |
 
 ## Contributing
 
-Issues and pull requests welcome.
+Issues and pull requests are welcome. [AGENTS.md](AGENTS.md) has the rules and the full
+check a change must pass.
 
-Python 3.14. The pinned `pytest-homeassistant-custom-component` requires it, and CI
-runs the same version, so 3.13 fails at install with "No matching distribution
-found".
+Use Python 3.14. The pinned `pytest-homeassistant-custom-component` requires it, and
+3.13 fails at install with "No matching distribution found".
 
 ```bash
 pip install -r requirements-test.txt
@@ -407,8 +111,7 @@ pytest
 ```
 
 The tests run the integration inside a real Home Assistant with the API client
-replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
-Assistant's quality scale, and `mypy --strict` runs in CI.
+replaced, so the suite spends nothing.
 
 ## Changelog
 

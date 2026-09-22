@@ -6,9 +6,7 @@ set up without one.
 
 ## Through HACS
 
-Not in the HACS default list yet, so add it as a custom repository once.
-[hacs/default#11052](https://github.com/hacs/default/pull/11052) is queued; when it
-merges, steps 1 and 2 go away.
+Jev is not in the HACS default list, so add it as a custom repository once.
 
 1. Open HACS, then the three dot menu, then **Custom repositories**
 2. Paste `https://github.com/AboveColin/HA-Jev`, set Type to **Integration**, **Add**
