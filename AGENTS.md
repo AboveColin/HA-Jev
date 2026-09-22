@@ -45,8 +45,9 @@ whole answer.
 ## The three ways to hurt yourself
 
 1. **Running `tests/live`.** It drives a real Home Assistant with a real API key and
-   spends real tokens. Run it only when the maintainer asks. `pytest.ini` keeps it out
-   of collection with `norecursedirs`, and that line stays.
+   spends real tokens. It exists only on the maintainer's machine, and `.gitignore`
+   keeps it out of the repository. Run it only when the maintainer asks. `pytest.ini`
+   keeps it out of collection with `norecursedirs`, and that line stays.
 2. **Publishing the maintainer's home.** The repository is public. In code, tests,
    docs and examples, use addresses from `192.0.2.0/24` and generic entity ids such as
    `sensor.washing_machine_power`. Real hostnames, LAN addresses, room names and keys

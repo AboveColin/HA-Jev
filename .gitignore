@@ -7,3 +7,6 @@ __pycache__/
 
 # mkdocs build output
 site/
+
+# Scripts that drive a real instance, kept on the maintainer's machine only
+tests/live/
