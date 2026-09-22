@@ -2,8 +2,11 @@
 
 import pytest
 import voluptuous as vol
+from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import DOMAIN
 
@@ -333,6 +336,10 @@ async def test_a_rejected_key_during_an_action_says_so(hass, loaded_entry, mock_
     with pytest.raises(HomeAssistantError) as err:
         await call(hass, "noul", {"state": "x", "instructions": "y"})
     assert err.value.translation_key == "auth_rejected"
+    # Setup and the coordinators asked for a new key, and an action did not.
+    await hass.async_block_till_done()
+    [flow] = loaded_entry.async_get_active_flows(hass, {SOURCE_REAUTH})
+    assert flow["step_id"] == "reauth_confirm"
 
 
 async def test_a_transport_failure_during_an_action_says_so(
@@ -384,3 +391,32 @@ async def test_a_target_that_names_only_absent_entities_is_refused(
         )
     assert err.value.translation_key == "empty_target"
     assert mock_client.ask.await_count == 0
+
+
+async def test_an_action_with_two_entries_and_none_named_is_refused(
+    hass, loaded_entry, mock_client
+):
+    """Each entry has its own key and budget, and the first one loaded paid."""
+    second = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev guest",
+        data={CONF_API_KEY: "another-key-not-a-real-one"},
+        unique_id="fedcba9876543210",
+    )
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+    mock_client.ask.reset_mock()
+
+    with pytest.raises(ServiceValidationError) as err:
+        await call(hass, "noul", {"state": "x", "instructions": "y"})
+    assert err.value.translation_key == "entry_ambiguous"
+    assert err.value.translation_placeholders == {"entries": "Jev, Jev guest"}
+    assert mock_client.ask.await_count == 0
+
+    named = await call(
+        hass,
+        "noul",
+        {"state": "x", "instructions": "y", "config_entry": second.entry_id},
+    )
+    assert "noul" in named

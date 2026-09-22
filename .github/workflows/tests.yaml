@@ -13,12 +13,16 @@ jobs:
       - uses: actions/checkout@v4
       # src, not paths in args: the action appends the workspace to args, so a
       # path there makes it lint the whole checkout including the README.
+      # Pinned, so a new ruff release cannot fail a commit that passed locally.
+      # Raise it here and locally together.
       - uses: astral-sh/ruff-action@v3
         with:
+          version: "0.16.8"
           args: check
           src: "./custom_components ./tests"
       - uses: astral-sh/ruff-action@v3
         with:
+          version: "0.16.8"
           args: format --check
           src: "./custom_components ./tests"
 
@@ -44,6 +48,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-      - run: pip install -r requirements-test.txt mypy
+      - run: pip install -r requirements-test.txt mypy==2.3.1
       # Platinum's strict-typing rule. Worth enforcing rather than claiming.
       - run: mypy --strict --ignore-missing-imports custom_components/jev

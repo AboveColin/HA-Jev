@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
@@ -349,6 +350,9 @@ async def test_a_rejected_key_is_said_out_loud(hass, house, mock_client):
     mock_client.ask.side_effect = JevAuthError("bad key")
     result = await converse(hass, "kitchen light on")
     assert "rejected the API key" in result.response.speech["plain"]["speech"]
+    await hass.async_block_till_done()
+    [flow] = house.async_get_active_flows(hass, {SOURCE_REAUTH})
+    assert flow["step_id"] == "reauth_confirm"
 
 
 async def test_the_fallback_never_points_at_another_jev_agent(hass, house, mock_client):

@@ -29,6 +29,9 @@
         "description": "TypeSafe weigert de opgeslagen sleutel. Plak een werkende sleutel. Het API-adres blijft zoals het is; gebruik Herconfigureren om dat te wijzigen.",
         "data": {
           "api_key": "API-sleutel"
+        },
+        "data_description": {
+          "api_key": "Verzoeken gaan naar het API-adres dat al is opgeslagen."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd. Laat dit alleen leeg bij een eigen endpoint dat geen sleutel nodig heeft."
+          "api_key": "Laat leeg om de huidige sleutel te houden zolang het adres gelijk blijft. Een nieuw adres krijgt geen sleutel, tenzij je er een invult."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Val terug op deze agent",
           "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
           "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen"
+        },
+        "data_description": {
+          "daily_token_budget": "Geteld vanaf middernacht in de tijdzone van Home Assistant. 0 betekent geen limiet.",
+          "price_per_million": "Bepaalt de sensor voor de geschatte kosten en de kosten in het voorbeeld van een vraag. Niets van wat wordt verstuurd hangt ervan af.",
+          "fallback_agent": "Krijgt de hele zin wanneer Jev niet zeker weet wat te doen.",
+          "min_confidence": "Daaronder doet Jev niets en geeft het de opdracht door aan de terugvalagent.",
+          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Geen geladen Jev-configuratie om mee te vragen. Voeg de integratie eerst toe, of kies er een onder API-sleutel als er meer dan een is."
     },
+    "entry_ambiguous": {
+      "message": "Er is meer dan één Jev-configuratie geladen: {entries}. Kies er een onder API-sleutel, want elke configuratie heeft een eigen sleutel en een eigen budget."
+    },
     "missing_targets": {
       "message": "Deze doelen bestaan niet: {targets}. De rest beoordelen zou een andere vraag beantwoorden dan je stelde."
     },
@@ -381,13 +394,10 @@
             "target": "Waar het naar kijkt",
             "state": "Extra notitie of template",
             "background": "Vaste feiten over de metingen",
-            "include_attributes": "Stuur ook elk attribuut mee",
-            "scan_interval": "Hoe vaak vragen",
             "true_means": "Wat een hoog getal betekent",
             "false_means": "Wat een laag getal betekent",
             "threshold": "Maak ook een binaire sensor boven",
-            "advanced": "Geavanceerd",
-            "trigger_entities": "Wek hierop in plaats van het schema"
+            "advanced": "Geavanceerd"
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
@@ -395,18 +405,25 @@
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
             "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
-            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
-            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
             "false_means": "Optioneel.",
             "threshold": "Laat leeg voor alleen de kans-sensor.",
-            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
           },
           "sections": {
             "advanced": {
               "name": "Geavanceerd",
-              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+              "data": {
+                "trigger_entities": "Wek hierop in plaats van het schema",
+                "scan_interval": "Hoe vaak vragen",
+                "include_attributes": "Stuur ook elk attribuut mee"
+              },
+              "data_description": {
+                "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt.",
+                "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+                "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Waar het naar kijkt",
             "state": "Extra notitie of template",
             "background": "Vaste feiten over de metingen",
-            "include_attributes": "Stuur ook elk attribuut mee",
-            "scan_interval": "Hoe vaak vragen",
             "options": "Je opties, een per regel",
-            "advanced": "Geavanceerd",
-            "trigger_entities": "Wek hierop in plaats van het schema"
+            "advanced": "Geavanceerd"
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
@@ -430,16 +444,23 @@
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
             "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
-            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
-            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
-            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
           },
           "sections": {
             "advanced": {
               "name": "Geavanceerd",
-              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+              "data": {
+                "trigger_entities": "Wek hierop in plaats van het schema",
+                "scan_interval": "Hoe vaak vragen",
+                "include_attributes": "Stuur ook elk attribuut mee"
+              },
+              "data_description": {
+                "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt.",
+                "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+                "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Waar het naar kijkt",
             "state": "Extra notitie of template",
             "background": "Vaste feiten over de metingen",
-            "include_attributes": "Stuur ook elk attribuut mee",
-            "scan_interval": "Hoe vaak vragen",
             "levels": "Je niveaus, laagste eerst, een per regel",
-            "advanced": "Geavanceerd",
-            "trigger_entities": "Wek hierop in plaats van het schema"
+            "advanced": "Geavanceerd"
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
@@ -463,16 +481,23 @@
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
             "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
-            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
-            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
-            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
           },
           "sections": {
             "advanced": {
               "name": "Geavanceerd",
-              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+              "data": {
+                "trigger_entities": "Wek hierop in plaats van het schema",
+                "scan_interval": "Hoe vaak vragen",
+                "include_attributes": "Stuur ook elk attribuut mee"
+              },
+              "data_description": {
+                "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt.",
+                "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+                "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Waar het naar kijkt",
             "state": "Extra notitie of template",
             "background": "Vaste feiten over de metingen",
-            "include_attributes": "Stuur ook elk attribuut mee",
-            "scan_interval": "Hoe vaak vragen",
             "true_means": "Wat een hoog getal betekent",
             "false_means": "Wat een laag getal betekent",
             "threshold": "Maak ook een binaire sensor boven",
             "options": "Je opties, een per regel",
             "levels": "Je niveaus, laagste eerst, een per regel",
-            "advanced": "Geavanceerd",
-            "trigger_entities": "Wek hierop in plaats van het schema"
+            "advanced": "Geavanceerd"
           },
           "data_description": {
             "name": "Geeft de sensor die deze vraag maakt zijn naam.",
@@ -500,20 +522,27 @@
             "target": "Kies entiteiten, apparaten, ruimtes of labels; hun metingen worden voor je meegestuurd. Laat leeg als de notitie hieronder de hele staat is.",
             "state": "Tekst of een template, los of naast de metingen.",
             "background": "Wordt in `instructions` gevouwen, zodat het met de vraag meereist en niet met de staat.",
-            "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie.",
-            "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
             "true_means": "Optioneel. Maakt scherper welke kant het antwoord op wijst.",
             "false_means": "Optioneel.",
             "threshold": "Laat leeg voor alleen de kans-sensor.",
             "options": "Gaat als `criteria` naar de API. Een per regel, als `naam: wat het betekent`. De beschrijving is optioneel.",
             "levels": "Gaat als `criteria` naar de API. Een per regel, laagste eerst. Tussen de 2 en 10 stuks.",
-            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
-            "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt."
+            "advanced": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
           },
           "sections": {
             "advanced": {
               "name": "Geavanceerd",
-              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag."
+              "description": "Een schema, en wat er verder meegaat. De standaardwaarden voldoen voor een eerste vraag.",
+              "data": {
+                "trigger_entities": "Wek hierop in plaats van het schema",
+                "scan_interval": "Hoe vaak vragen",
+                "include_attributes": "Stuur ook elk attribuut mee"
+              },
+              "data_description": {
+                "trigger_entities": "Evalueer ook als deze veranderen, bovenop het schema hieronder. Vijf seconden gedempt.",
+                "scan_interval": "Vragen die naar hetzelfde kijken op hetzelfde schema gaan als een verzoek, wat tokens kost maar vrijwel geen extra tijd.",
+                "include_attributes": "Standaard uit. Een weersverwachting kost duizenden tokens per evaluatie."
+              }
             }
           }
         },

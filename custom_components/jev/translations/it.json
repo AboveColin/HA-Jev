@@ -29,6 +29,9 @@
         "description": "TypeSafe ha rifiutato la chiave salvata. Incolla una chiave funzionante. L'indirizzo API resta com'è; usa Riconfigura per cambiarlo.",
         "data": {
           "api_key": "Chiave API"
+        },
+        "data_description": {
+          "api_key": "Le richieste vanno all'indirizzo API già salvato."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Chiave API"
         },
         "data_description": {
-          "api_key": "La chiave con cui vengono inviate le richieste. Lascia il campo vuoto solo per un endpoint tuo che non richiede una chiave."
+          "api_key": "Lascia vuoto per mantenere la chiave attuale finché l'indirizzo resta lo stesso. Un nuovo indirizzo non riceve nessuna chiave se non ne scrivi una."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Ripiega su questo agente",
           "min_confidence": "Agisci solo sopra questa confidenza (da 0 a 1)",
           "allow_whole_home": "Consenti comandi che non nominano una stanza o un dispositivo"
+        },
+        "data_description": {
+          "daily_token_budget": "Conteggiato dalla mezzanotte nel fuso orario di Home Assistant. 0 significa nessun limite.",
+          "price_per_million": "Determina il sensore del costo stimato e il costo nell'anteprima della domanda. Niente di ciò che viene inviato dipende da questo.",
+          "fallback_agent": "Riceve l'intera frase quando Jev non è sicuro di cosa fare.",
+          "min_confidence": "Sotto questo valore Jev non fa nulla e passa il comando all'agente di riserva.",
+          "allow_whole_home": "Spegnere tutto è sempre consentito, con o senza questa opzione."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Nessuna voce di configurazione Jev caricata con cui fare la domanda. Aggiungi prima l'integrazione, oppure scegline una sotto Chiave API quando ne è configurata più di una."
     },
+    "entry_ambiguous": {
+      "message": "È caricata più di una voce Jev: {entries}. Scegline una in Chiave API, perché ogni voce ha la propria chiave e il proprio budget."
+    },
     "missing_targets": {
       "message": "Queste destinazioni non esistono: {targets}. Valutare il resto risponderebbe a una domanda diversa da quella che hai scritto."
     },
@@ -381,13 +394,10 @@
             "target": "Che cosa guardare",
             "state": "Nota o template aggiuntivo",
             "background": "Fatti fissi sulle letture",
-            "include_attributes": "Invia anche ogni attributo",
-            "scan_interval": "Chiedi con questa frequenza",
             "true_means": "Che cosa significa un numero alto",
             "false_means": "Che cosa significa un numero basso",
             "threshold": "Crea anche un sensore binario sopra",
-            "advanced": "Avanzate",
-            "trigger_entities": "Attiva su queste invece"
+            "advanced": "Avanzate"
           },
           "data_description": {
             "name": "Dà il nome al sensore creato da questa domanda.",
@@ -395,18 +405,25 @@
             "target": "Scegli entità, dispositivi, aree o etichette e le loro letture vengono inviate per te. Lascia vuoto se la nota qui sotto è tutto lo stato.",
             "state": "Testo o un template, da solo o accanto alle letture.",
             "background": "Ripiegate dentro `instructions`, così viaggiano con la domanda e non con lo stato.",
-            "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione.",
-            "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
             "true_means": "Facoltativo. Rende più netto da che parte punta la risposta.",
             "false_means": "Facoltativo.",
             "threshold": "Lascia vuoto per il solo sensore di probabilità.",
-            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
-            "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi."
+            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
           },
           "sections": {
             "advanced": {
               "name": "Avanzate",
-              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
+              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
+              "data": {
+                "trigger_entities": "Attiva su queste invece",
+                "scan_interval": "Chiedi con questa frequenza",
+                "include_attributes": "Invia anche ogni attributo"
+              },
+              "data_description": {
+                "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi.",
+                "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
+                "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Che cosa guardare",
             "state": "Nota o template aggiuntivo",
             "background": "Fatti fissi sulle letture",
-            "include_attributes": "Invia anche ogni attributo",
-            "scan_interval": "Chiedi con questa frequenza",
             "options": "Le tue opzioni, una per riga",
-            "advanced": "Avanzate",
-            "trigger_entities": "Attiva su queste invece"
+            "advanced": "Avanzate"
           },
           "data_description": {
             "name": "Dà il nome al sensore creato da questa domanda.",
@@ -430,16 +444,23 @@
             "target": "Scegli entità, dispositivi, aree o etichette e le loro letture vengono inviate per te. Lascia vuoto se la nota qui sotto è tutto lo stato.",
             "state": "Testo o un template, da solo o accanto alle letture.",
             "background": "Ripiegate dentro `instructions`, così viaggiano con la domanda e non con lo stato.",
-            "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione.",
-            "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
             "options": "Inviate all'API come `criteria`. Una per riga, come `nome: che cosa significa`. La descrizione è facoltativa.",
-            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
-            "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi."
+            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
           },
           "sections": {
             "advanced": {
               "name": "Avanzate",
-              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
+              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
+              "data": {
+                "trigger_entities": "Attiva su queste invece",
+                "scan_interval": "Chiedi con questa frequenza",
+                "include_attributes": "Invia anche ogni attributo"
+              },
+              "data_description": {
+                "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi.",
+                "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
+                "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Che cosa guardare",
             "state": "Nota o template aggiuntivo",
             "background": "Fatti fissi sulle letture",
-            "include_attributes": "Invia anche ogni attributo",
-            "scan_interval": "Chiedi con questa frequenza",
             "levels": "I tuoi livelli, dal più basso, uno per riga",
-            "advanced": "Avanzate",
-            "trigger_entities": "Attiva su queste invece"
+            "advanced": "Avanzate"
           },
           "data_description": {
             "name": "Dà il nome al sensore creato da questa domanda.",
@@ -463,16 +481,23 @@
             "target": "Scegli entità, dispositivi, aree o etichette e le loro letture vengono inviate per te. Lascia vuoto se la nota qui sotto è tutto lo stato.",
             "state": "Testo o un template, da solo o accanto alle letture.",
             "background": "Ripiegate dentro `instructions`, così viaggiano con la domanda e non con lo stato.",
-            "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione.",
-            "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
             "levels": "Inviati all'API come `criteria`. Uno per riga, dal più basso. Tra 2 e 10.",
-            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
-            "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi."
+            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
           },
           "sections": {
             "advanced": {
               "name": "Avanzate",
-              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
+              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
+              "data": {
+                "trigger_entities": "Attiva su queste invece",
+                "scan_interval": "Chiedi con questa frequenza",
+                "include_attributes": "Invia anche ogni attributo"
+              },
+              "data_description": {
+                "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi.",
+                "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
+                "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Che cosa guardare",
             "state": "Nota o template aggiuntivo",
             "background": "Fatti fissi sulle letture",
-            "include_attributes": "Invia anche ogni attributo",
-            "scan_interval": "Chiedi con questa frequenza",
             "true_means": "Che cosa significa un numero alto",
             "false_means": "Che cosa significa un numero basso",
             "threshold": "Crea anche un sensore binario sopra",
             "options": "Le tue opzioni, una per riga",
             "levels": "I tuoi livelli, dal più basso, uno per riga",
-            "advanced": "Avanzate",
-            "trigger_entities": "Attiva su queste invece"
+            "advanced": "Avanzate"
           },
           "data_description": {
             "name": "Dà il nome al sensore creato da questa domanda.",
@@ -500,20 +522,27 @@
             "target": "Scegli entità, dispositivi, aree o etichette e le loro letture vengono inviate per te. Lascia vuoto se la nota qui sotto è tutto lo stato.",
             "state": "Testo o un template, da solo o accanto alle letture.",
             "background": "Ripiegate dentro `instructions`, così viaggiano con la domanda e non con lo stato.",
-            "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione.",
-            "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
             "true_means": "Facoltativo. Rende più netto da che parte punta la risposta.",
             "false_means": "Facoltativo.",
             "threshold": "Lascia vuoto per il solo sensore di probabilità.",
             "options": "Inviate all'API come `criteria`. Una per riga, come `nome: che cosa significa`. La descrizione è facoltativa.",
             "levels": "Inviati all'API come `criteria`. Uno per riga, dal più basso. Tra 2 e 10.",
-            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
-            "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi."
+            "advanced": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
           },
           "sections": {
             "advanced": {
               "name": "Avanzate",
-              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda."
+              "description": "Una pianificazione, e che altro inviare. I valori predefiniti vanno bene per una prima domanda.",
+              "data": {
+                "trigger_entities": "Attiva su queste invece",
+                "scan_interval": "Chiedi con questa frequenza",
+                "include_attributes": "Invia anche ogni attributo"
+              },
+              "data_description": {
+                "trigger_entities": "Valuta quando queste cambiano, oltre alla pianificazione qui sotto. Con un antirimbalzo di 5 secondi.",
+                "scan_interval": "Le domande che guardano la stessa cosa con la stessa pianificazione vengono inviate in un'unica richiesta, il che costa token ma quasi nessun tempo in più.",
+                "include_attributes": "Disattivo per impostazione predefinita. Una previsione meteo arriva a migliaia di token a ogni valutazione."
+              }
             }
           }
         },

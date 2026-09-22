@@ -4,7 +4,7 @@ import asyncio
 import copy
 import hashlib
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1072,3 +1072,41 @@ async def test_the_day_is_the_house_day_not_the_machine_day(
     await setup_with_context(hass, config_entry)
 
     assert config_entry.runtime_data.usage.day == date(2026, 9, 23)
+
+
+async def test_the_usage_sensors_turn_over_at_midnight_with_nothing_asked(
+    hass, mock_client, config_entry, freezer
+):
+    """They held yesterday's spend until the first call of the new day."""
+    await hass.config.async_set_time_zone("Europe/Amsterdam")
+    freezer.move_to("2026-09-22 23:59:50+02:00")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.jev_input_tokens_today").state == str(PROBE_TOKENS)
+
+    freezer.move_to("2026-09-23 00:00:00+02:00")
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+
+    assert config_entry.runtime_data.usage.day == date(2026, 9, 23)
+    assert hass.states.get("sensor.jev_input_tokens_today").state == "0"
+    assert hass.states.get("sensor.jev_calls_today").state == "0"
+
+
+async def test_the_cost_sensor_keeps_statistics_that_start_each_day(
+    hass, mock_client, config_entry, freezer
+):
+    """With no state class, the recorder kept no history of what was spent."""
+    await hass.config.async_set_time_zone("Europe/Amsterdam")
+    freezer.move_to("2026-09-22 15:00:00+02:00")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.jev_estimated_cost_today")
+    assert state.attributes["state_class"] == "total"
+    # Midnight in Amsterdam, which is 22:00 UTC the evening before.
+    assert dt_util.parse_datetime(state.attributes["last_reset"]) == datetime(
+        2026, 9, 21, 22, tzinfo=UTC
+    )

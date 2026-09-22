@@ -29,6 +29,9 @@
         "description": "O TypeSafe rejeitou a chave armazenada. Cole uma que funcione. O endereço da API fica como está; use Reconfigurar para mudá-lo.",
         "data": {
           "api_key": "Chave de API"
+        },
+        "data_description": {
+          "api_key": "As solicitações vão para o endereço da API que já está salvo."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Chave de API"
         },
         "data_description": {
-          "api_key": "A chave com a qual as requisições são enviadas. Deixe em branco apenas para um endpoint seu que não precise de chave."
+          "api_key": "Deixe vazio para manter a chave atual enquanto o endereço for o mesmo. Um endereço novo não recebe chave nenhuma se você não digitar uma."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Recorrer a este agente",
           "min_confidence": "Agir apenas acima desta confiança (0 a 1)",
           "allow_whole_home": "Permitir comandos que não citam cômodo nem dispositivo"
+        },
+        "data_description": {
+          "daily_token_budget": "Contado a partir da meia-noite no fuso horário do Home Assistant. 0 significa sem limite.",
+          "price_per_million": "Define o sensor de custo estimado e o custo na prévia da pergunta. Nada do que é enviado depende disso.",
+          "fallback_agent": "Recebe a frase inteira quando o Jev não tem certeza do que fazer.",
+          "min_confidence": "Abaixo disso, o Jev não faz nada e passa o comando para o agente reserva.",
+          "allow_whole_home": "Desligar tudo é sempre permitido, com ou sem esta opção."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Nenhuma entrada de configuração do Jev carregada para perguntar. Adicione a integração primeiro ou escolha uma em Chave de API quando houver mais de uma configurada."
     },
+    "entry_ambiguous": {
+      "message": "Há mais de uma entrada do Jev carregada: {entries}. Escolha uma em Chave de API, porque cada entrada tem a própria chave e o próprio orçamento."
+    },
     "missing_targets": {
       "message": "Estes alvos não existem: {targets}. Perguntar sobre o resto responderia uma pergunta diferente da que você escreveu."
     },
@@ -381,13 +394,10 @@
             "target": "O que observar",
             "state": "Nota extra ou template",
             "background": "Fatos permanentes sobre as leituras",
-            "include_attributes": "Enviar também todos os atributos",
-            "scan_interval": "Perguntar com esta frequência",
             "true_means": "O que um número alto significa",
             "false_means": "O que um número baixo significa",
             "threshold": "Criar também um sensor binário acima de",
-            "advanced": "Avançado",
-            "trigger_entities": "Despertar com estas em vez disso"
+            "advanced": "Avançado"
           },
           "data_description": {
             "name": "Dá nome ao sensor que esta pergunta cria.",
@@ -395,18 +405,25 @@
             "target": "Escolha entidades, dispositivos, áreas ou etiquetas e as leituras delas são enviadas para você. Deixe vazio se a nota abaixo for o estado inteiro.",
             "state": "Texto ou um template, sozinho ou junto com as leituras.",
             "background": "Incorporado a `instructions`, para viajar com a pergunta e não com o estado.",
-            "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação.",
-            "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
             "true_means": "Opcional. Torna mais nítido para que lado a resposta aponta.",
             "false_means": "Opcional.",
             "threshold": "Deixe vazio para ter apenas o sensor de probabilidade.",
-            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
-            "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos."
+            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
           },
           "sections": {
             "advanced": {
               "name": "Avançado",
-              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
+              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
+              "data": {
+                "trigger_entities": "Despertar com estas em vez disso",
+                "scan_interval": "Perguntar com esta frequência",
+                "include_attributes": "Enviar também todos os atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos.",
+                "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
+                "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "O que observar",
             "state": "Nota extra ou template",
             "background": "Fatos permanentes sobre as leituras",
-            "include_attributes": "Enviar também todos os atributos",
-            "scan_interval": "Perguntar com esta frequência",
             "options": "Suas opções, uma por linha",
-            "advanced": "Avançado",
-            "trigger_entities": "Despertar com estas em vez disso"
+            "advanced": "Avançado"
           },
           "data_description": {
             "name": "Dá nome ao sensor que esta pergunta cria.",
@@ -430,16 +444,23 @@
             "target": "Escolha entidades, dispositivos, áreas ou etiquetas e as leituras delas são enviadas para você. Deixe vazio se a nota abaixo for o estado inteiro.",
             "state": "Texto ou um template, sozinho ou junto com as leituras.",
             "background": "Incorporado a `instructions`, para viajar com a pergunta e não com o estado.",
-            "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação.",
-            "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
             "options": "Enviado à API como `criteria`. Uma por linha, como `nome: o que significa`. A descrição é opcional.",
-            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
-            "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos."
+            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
           },
           "sections": {
             "advanced": {
               "name": "Avançado",
-              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
+              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
+              "data": {
+                "trigger_entities": "Despertar com estas em vez disso",
+                "scan_interval": "Perguntar com esta frequência",
+                "include_attributes": "Enviar também todos os atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos.",
+                "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
+                "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "O que observar",
             "state": "Nota extra ou template",
             "background": "Fatos permanentes sobre as leituras",
-            "include_attributes": "Enviar também todos os atributos",
-            "scan_interval": "Perguntar com esta frequência",
             "levels": "Seus níveis, do mais baixo para o mais alto, um por linha",
-            "advanced": "Avançado",
-            "trigger_entities": "Despertar com estas em vez disso"
+            "advanced": "Avançado"
           },
           "data_description": {
             "name": "Dá nome ao sensor que esta pergunta cria.",
@@ -463,16 +481,23 @@
             "target": "Escolha entidades, dispositivos, áreas ou etiquetas e as leituras delas são enviadas para você. Deixe vazio se a nota abaixo for o estado inteiro.",
             "state": "Texto ou um template, sozinho ou junto com as leituras.",
             "background": "Incorporado a `instructions`, para viajar com a pergunta e não com o estado.",
-            "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação.",
-            "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
             "levels": "Enviado à API como `criteria`. Um por linha, do mais baixo para o mais alto. Entre 2 e 10 deles.",
-            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
-            "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos."
+            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
           },
           "sections": {
             "advanced": {
               "name": "Avançado",
-              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
+              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
+              "data": {
+                "trigger_entities": "Despertar com estas em vez disso",
+                "scan_interval": "Perguntar com esta frequência",
+                "include_attributes": "Enviar também todos os atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos.",
+                "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
+                "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "O que observar",
             "state": "Nota extra ou template",
             "background": "Fatos permanentes sobre as leituras",
-            "include_attributes": "Enviar também todos os atributos",
-            "scan_interval": "Perguntar com esta frequência",
             "true_means": "O que um número alto significa",
             "false_means": "O que um número baixo significa",
             "threshold": "Criar também um sensor binário acima de",
             "options": "Suas opções, uma por linha",
             "levels": "Seus níveis, do mais baixo para o mais alto, um por linha",
-            "advanced": "Avançado",
-            "trigger_entities": "Despertar com estas em vez disso"
+            "advanced": "Avançado"
           },
           "data_description": {
             "name": "Dá nome ao sensor que esta pergunta cria.",
@@ -500,20 +522,27 @@
             "target": "Escolha entidades, dispositivos, áreas ou etiquetas e as leituras delas são enviadas para você. Deixe vazio se a nota abaixo for o estado inteiro.",
             "state": "Texto ou um template, sozinho ou junto com as leituras.",
             "background": "Incorporado a `instructions`, para viajar com a pergunta e não com o estado.",
-            "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação.",
-            "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
             "true_means": "Opcional. Torna mais nítido para que lado a resposta aponta.",
             "false_means": "Opcional.",
             "threshold": "Deixe vazio para ter apenas o sensor de probabilidade.",
             "options": "Enviado à API como `criteria`. Uma por linha, como `nome: o que significa`. A descrição é opcional.",
             "levels": "Enviado à API como `criteria`. Um por linha, do mais baixo para o mais alto. Entre 2 e 10 deles.",
-            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
-            "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos."
+            "advanced": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
           },
           "sections": {
             "advanced": {
               "name": "Avançado",
-              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta."
+              "description": "Um agendamento, e o que mais enviar. Os padrões servem para uma primeira pergunta.",
+              "data": {
+                "trigger_entities": "Despertar com estas em vez disso",
+                "scan_interval": "Perguntar com esta frequência",
+                "include_attributes": "Enviar também todos os atributos"
+              },
+              "data_description": {
+                "trigger_entities": "Avaliar quando estas mudarem, além do agendamento abaixo. Com debounce de 5 segundos.",
+                "scan_interval": "Perguntas que observam a mesma coisa no mesmo agendamento são enviadas como uma requisição, o que custa tokens mas quase nenhum tempo a mais.",
+                "include_attributes": "Desligado por padrão. Uma previsão do tempo chega a milhares de tokens em cada avaliação."
+              }
             }
           }
         },

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+from datetime import datetime
 from typing import Any
 
 import voluptuous as vol
@@ -20,11 +21,12 @@ from homeassistant.const import (
     CONF_URL,
     Platform,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -391,6 +393,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
     runtime = JevRuntimeData(client=client, usage=usage, model=model)
     entry.runtime_data = runtime
+
+    # The day otherwise turns over at the first call after midnight, so a quiet
+    # night kept yesterday's spend on the usage sensors, and a spent budget kept
+    # its repair issue, until something asked.
+    @callback
+    def _new_day(now: datetime) -> None:
+        usage.roll_over(now.date())
+        usage.notify()
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _new_day, hour=0, minute=0, second=0)
+    )
 
     # Prove the service answers before entities appear. One noul against a two word
     # state costs about 40 input tokens, well under a thousandth of a cent, and it

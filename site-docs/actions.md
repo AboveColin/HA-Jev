@@ -55,6 +55,12 @@ consulted here; it is consulted for the [conversation agent](conversation.md).
 `include_attributes: true` never sends access tokens, entity pictures or coordinates,
 so a camera or a `device_tracker` is safe to target.
 
+## More than one entry
+
+Each Jev entry has its own key and budget. With more than one loaded, an action has
+to name the one to ask with under **API key** (`config_entry:` in YAML). An action
+that names none is refused before anything is sent, and the error lists the entries.
+
 ## Ask several things at once
 
 `jev.ask` takes any mix under your own keys, in one request:

@@ -69,7 +69,9 @@ The connection check at setup is a billed call too. It counts in the day's total
 and when the budget is already spent, setup skips it.
 
 It resets at midnight in the time zone Home Assistant is set to, not the clock of the
-machine it runs on. The totals survive a restart or a reload, because a daily budget
+machine it runs on, and the usage sensors show the new day at midnight even when
+nothing asks. The estimated cost sensor keeps long-term statistics, one total per
+day. The totals survive a restart or a reload, because a daily budget
 that either of those cleared would not be a daily budget.
 
 ## Calls that are never sent

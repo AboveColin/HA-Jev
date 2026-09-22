@@ -182,6 +182,16 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> JevConfigEntry:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="no_entry"
         )
+    # Each entry has its own key and budget, so taking the first would bill
+    # whichever one happened to load first.
+    if len(entries) > 1:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="entry_ambiguous",
+            translation_placeholders={
+                "entries": ", ".join(sorted(e.title for e in entries))
+            },
+        )
     return entries[0]
 
 
@@ -212,6 +222,7 @@ async def _ask(
     try:
         response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:
+        entry.async_start_reauth(hass)
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="auth_rejected",

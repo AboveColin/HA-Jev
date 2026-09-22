@@ -26,6 +26,7 @@ from homeassistant.util import dt as dt_util
 from jevclient import (
     Answer,
     ChoiceAnswer,
+    JevAuthError,
     JevError,
     JevResponse,
     NoulAnswer,
@@ -66,6 +67,7 @@ class JevAITaskEntity(ai_task.AITaskEntity):
     _attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
 
     def __init__(self, entry: JevConfigEntry) -> None:
+        self._entry = entry
         self._runtime: JevRuntimeData = entry.runtime_data
         self._attr_unique_id = f"{entry.entry_id}_ai_task"
         self._attr_device_info = build_device_info(entry.entry_id, self._runtime)
@@ -100,6 +102,13 @@ class JevAITaskEntity(ai_task.AITaskEntity):
         try:
             with usage.reservation(estimate):
                 response = await self._runtime.client.ask(task.instructions, questions)
+        except JevAuthError as err:
+            self._entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="auth_rejected",
+                translation_placeholders={"reason": str(err)},
+            ) from err
         except JevError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

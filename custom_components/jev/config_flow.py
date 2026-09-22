@@ -312,6 +312,13 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_key, base_url, model, errors = _credentials(user_input)
+            # The form never shows the key back, so an empty field while the
+            # address stays put means keep it. A new address gets no key it was not
+            # given, because the key would travel to a host the user did not pick
+            # it for.
+            if not api_key and base_url == _stored(entry)[0]:
+                api_key = entry.data.get(CONF_API_KEY, "")
+                errors.pop(CONF_API_KEY, None)
             if not errors:
                 if error := await self._async_validate(api_key, base_url, model):
                     errors["base"] = error

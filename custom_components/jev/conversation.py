@@ -173,6 +173,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             response = await runtime.client.ask(state, questions)
         except JevAuthError as err:
             _LOGGER.error("TypeSafe rejected the API key: %s", err)
+            self._entry.async_start_reauth(self.hass)
             return await self._fall_back(
                 user_input, "the API key was rejected", "auth_failed"
             )

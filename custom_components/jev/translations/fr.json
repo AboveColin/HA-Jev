@@ -29,6 +29,9 @@
         "description": "TypeSafe rejette la clé actuellement enregistrée. Collez-en une qui fonctionne. L'adresse de l'API reste telle quelle ; utilisez Reconfigurer pour la modifier.",
         "data": {
           "api_key": "Clé API"
+        },
+        "data_description": {
+          "api_key": "Les requêtes vont à l'adresse d'API déjà enregistrée."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Clé API"
         },
         "data_description": {
-          "api_key": "La clé avec laquelle les requêtes sont envoyées. Ne la laissez vide que pour un point de terminaison à vous qui n'en demande aucune."
+          "api_key": "Laissez vide pour garder la clé actuelle tant que l'adresse ne change pas. Une nouvelle adresse ne reçoit aucune clé si vous n'en saisissez pas."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Se replier sur cet agent",
           "min_confidence": "N'agir qu'au-dessus de cette confiance (0 à 1)",
           "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil"
+        },
+        "data_description": {
+          "daily_token_budget": "Compté à partir de minuit dans le fuseau horaire de Home Assistant. 0 signifie aucune limite.",
+          "price_per_million": "Détermine le capteur de coût estimé et le coût dans l'aperçu de la question. Rien de ce qui est envoyé n'en dépend.",
+          "fallback_agent": "Reçoit la phrase entière quand Jev ne sait pas quoi faire.",
+          "min_confidence": "En dessous, Jev ne fait rien et transmet la commande à l'agent de secours.",
+          "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Aucune entrée de configuration Jev chargée pour poser la question. Ajoutez d'abord l'intégration, ou choisissez-en une sous Clé API si plusieurs sont configurées."
     },
+    "entry_ambiguous": {
+      "message": "Plusieurs entrées Jev sont chargées : {entries}. Choisissez-en une sous Clé API, car chaque entrée a sa propre clé et son propre budget."
+    },
     "missing_targets": {
       "message": "Ces cibles n'existent pas : {targets}. Interroger le reste répondrait à une autre question que celle que vous avez écrite."
     },
@@ -381,13 +394,10 @@
             "target": "Ce qu'il faut examiner",
             "state": "Note ou modèle supplémentaire",
             "background": "Faits permanents sur les mesures",
-            "include_attributes": "Envoyer aussi tous les attributs",
-            "scan_interval": "Poser la question à cette fréquence",
             "true_means": "Ce que signifie un nombre élevé",
             "false_means": "Ce que signifie un nombre faible",
             "threshold": "Créer aussi un capteur binaire à partir de ce seuil",
-            "advanced": "Avancé",
-            "trigger_entities": "Se déclencher sur celles-ci à la place"
+            "advanced": "Avancé"
           },
           "data_description": {
             "name": "Donne son nom au capteur que cette question crée.",
@@ -395,18 +405,25 @@
             "target": "Choisissez des entités, des appareils, des zones ou des étiquettes et leurs mesures sont envoyées pour vous. Laissez vide si la note ci-dessous constitue tout l'état.",
             "state": "Du texte ou un modèle, seul ou en plus des mesures.",
             "background": "Intégré à `instructions` pour voyager avec la question plutôt qu'avec l'état.",
-            "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation.",
-            "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
             "true_means": "Facultatif. Précise dans quel sens pointe la réponse.",
             "false_means": "Facultatif.",
             "threshold": "Laissez vide pour n'avoir que le capteur de probabilité.",
-            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
-            "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes."
+            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
           },
           "sections": {
             "advanced": {
               "name": "Avancé",
-              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
+              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
+              "data": {
+                "trigger_entities": "Se déclencher sur celles-ci à la place",
+                "scan_interval": "Poser la question à cette fréquence",
+                "include_attributes": "Envoyer aussi tous les attributs"
+              },
+              "data_description": {
+                "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes.",
+                "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
+                "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Ce qu'il faut examiner",
             "state": "Note ou modèle supplémentaire",
             "background": "Faits permanents sur les mesures",
-            "include_attributes": "Envoyer aussi tous les attributs",
-            "scan_interval": "Poser la question à cette fréquence",
             "options": "Vos options, une par ligne",
-            "advanced": "Avancé",
-            "trigger_entities": "Se déclencher sur celles-ci à la place"
+            "advanced": "Avancé"
           },
           "data_description": {
             "name": "Donne son nom au capteur que cette question crée.",
@@ -430,16 +444,23 @@
             "target": "Choisissez des entités, des appareils, des zones ou des étiquettes et leurs mesures sont envoyées pour vous. Laissez vide si la note ci-dessous constitue tout l'état.",
             "state": "Du texte ou un modèle, seul ou en plus des mesures.",
             "background": "Intégré à `instructions` pour voyager avec la question plutôt qu'avec l'état.",
-            "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation.",
-            "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
             "options": "Envoyées à l'API en tant que `criteria`. Une par ligne, sous la forme `nom: ce que cela signifie`. La description est facultative.",
-            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
-            "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes."
+            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
           },
           "sections": {
             "advanced": {
               "name": "Avancé",
-              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
+              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
+              "data": {
+                "trigger_entities": "Se déclencher sur celles-ci à la place",
+                "scan_interval": "Poser la question à cette fréquence",
+                "include_attributes": "Envoyer aussi tous les attributs"
+              },
+              "data_description": {
+                "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes.",
+                "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
+                "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Ce qu'il faut examiner",
             "state": "Note ou modèle supplémentaire",
             "background": "Faits permanents sur les mesures",
-            "include_attributes": "Envoyer aussi tous les attributs",
-            "scan_interval": "Poser la question à cette fréquence",
             "levels": "Vos niveaux, du plus bas au plus haut, un par ligne",
-            "advanced": "Avancé",
-            "trigger_entities": "Se déclencher sur celles-ci à la place"
+            "advanced": "Avancé"
           },
           "data_description": {
             "name": "Donne son nom au capteur que cette question crée.",
@@ -463,16 +481,23 @@
             "target": "Choisissez des entités, des appareils, des zones ou des étiquettes et leurs mesures sont envoyées pour vous. Laissez vide si la note ci-dessous constitue tout l'état.",
             "state": "Du texte ou un modèle, seul ou en plus des mesures.",
             "background": "Intégré à `instructions` pour voyager avec la question plutôt qu'avec l'état.",
-            "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation.",
-            "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
             "levels": "Envoyés à l'API en tant que `criteria`. Un par ligne, du plus bas au plus haut. Entre 2 et 10.",
-            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
-            "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes."
+            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
           },
           "sections": {
             "advanced": {
               "name": "Avancé",
-              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
+              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
+              "data": {
+                "trigger_entities": "Se déclencher sur celles-ci à la place",
+                "scan_interval": "Poser la question à cette fréquence",
+                "include_attributes": "Envoyer aussi tous les attributs"
+              },
+              "data_description": {
+                "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes.",
+                "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
+                "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Ce qu'il faut examiner",
             "state": "Note ou modèle supplémentaire",
             "background": "Faits permanents sur les mesures",
-            "include_attributes": "Envoyer aussi tous les attributs",
-            "scan_interval": "Poser la question à cette fréquence",
             "true_means": "Ce que signifie un nombre élevé",
             "false_means": "Ce que signifie un nombre faible",
             "threshold": "Créer aussi un capteur binaire à partir de ce seuil",
             "options": "Vos options, une par ligne",
             "levels": "Vos niveaux, du plus bas au plus haut, un par ligne",
-            "advanced": "Avancé",
-            "trigger_entities": "Se déclencher sur celles-ci à la place"
+            "advanced": "Avancé"
           },
           "data_description": {
             "name": "Donne son nom au capteur que cette question crée.",
@@ -500,20 +522,27 @@
             "target": "Choisissez des entités, des appareils, des zones ou des étiquettes et leurs mesures sont envoyées pour vous. Laissez vide si la note ci-dessous constitue tout l'état.",
             "state": "Du texte ou un modèle, seul ou en plus des mesures.",
             "background": "Intégré à `instructions` pour voyager avec la question plutôt qu'avec l'état.",
-            "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation.",
-            "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
             "true_means": "Facultatif. Précise dans quel sens pointe la réponse.",
             "false_means": "Facultatif.",
             "threshold": "Laissez vide pour n'avoir que le capteur de probabilité.",
             "options": "Envoyées à l'API en tant que `criteria`. Une par ligne, sous la forme `nom: ce que cela signifie`. La description est facultative.",
             "levels": "Envoyés à l'API en tant que `criteria`. Un par ligne, du plus bas au plus haut. Entre 2 et 10.",
-            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
-            "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes."
+            "advanced": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
           },
           "sections": {
             "advanced": {
               "name": "Avancé",
-              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question."
+              "description": "Une fréquence, et ce qu'il faut envoyer en plus. Les valeurs par défaut conviennent pour une première question.",
+              "data": {
+                "trigger_entities": "Se déclencher sur celles-ci à la place",
+                "scan_interval": "Poser la question à cette fréquence",
+                "include_attributes": "Envoyer aussi tous les attributs"
+              },
+              "data_description": {
+                "trigger_entities": "Évaluer quand celles-ci changent, en plus de la fréquence ci-dessous. Anti-rebond de 5 secondes.",
+                "scan_interval": "Les questions qui examinent la même chose à la même fréquence sont envoyées en une seule requête, ce qui coûte des jetons mais presque pas de temps supplémentaire.",
+                "include_attributes": "Désactivé par défaut. Une prévision météo représente des milliers de jetons à chaque évaluation."
+              }
             }
           }
         },

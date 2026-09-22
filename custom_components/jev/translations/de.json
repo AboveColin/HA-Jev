@@ -29,6 +29,9 @@
         "description": "TypeSafe hat den gespeicherten Schlüssel abgelehnt. Füge einen funktionierenden ein. Die API-Adresse bleibt, wie sie ist; nutze Neu konfigurieren, um sie zu ändern.",
         "data": {
           "api_key": "API-Schlüssel"
+        },
+        "data_description": {
+          "api_key": "Anfragen gehen an die bereits gespeicherte API-Adresse."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden. Nur bei einem eigenen Endpunkt, der keinen Schlüssel braucht, bleibt das Feld leer."
+          "api_key": "Leer lassen, um den aktuellen Schlüssel zu behalten, solange die Adresse gleich bleibt. Eine neue Adresse bekommt keinen Schlüssel, wenn du keinen eingibst."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Auf diesen Agenten zurückfallen",
           "min_confidence": "Nur oberhalb dieser Konfidenz handeln (0 bis 1)",
           "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen"
+        },
+        "data_description": {
+          "daily_token_budget": "Gezählt ab Mitternacht in der Zeitzone von Home Assistant. 0 bedeutet kein Limit.",
+          "price_per_million": "Bestimmt den Sensor für die geschätzten Kosten und die Kosten in der Vorschau einer Frage. Nichts, was gesendet wird, hängt davon ab.",
+          "fallback_agent": "Bekommt den ganzen Satz, wenn Jev nicht sicher ist, was zu tun ist.",
+          "min_confidence": "Darunter tut Jev nichts und gibt den Befehl an den Ersatz-Agenten weiter.",
+          "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Kein geladener Jev-Konfigurationseintrag zum Fragen da. Füge zuerst die Integration hinzu, oder wähle unter API-Schlüssel einen aus, wenn mehr als einer eingerichtet ist."
     },
+    "entry_ambiguous": {
+      "message": "Mehr als ein Jev-Eintrag ist geladen: {entries}. Wähle einen unter API-Schlüssel aus, denn jeder Eintrag hat seinen eigenen Schlüssel und sein eigenes Budget."
+    },
     "missing_targets": {
       "message": "Diese Ziele gibt es nicht: {targets}. Nach dem Rest zu fragen würde eine andere Frage beantworten als die, die du geschrieben hast."
     },
@@ -381,13 +394,10 @@
             "target": "Was angesehen wird",
             "state": "Zusätzliche Notiz oder Vorlage",
             "background": "Feste Angaben zu den Messwerten",
-            "include_attributes": "Auch jedes Attribut senden",
-            "scan_interval": "So oft fragen",
             "true_means": "Was eine hohe Zahl bedeutet",
             "false_means": "Was eine niedrige Zahl bedeutet",
             "threshold": "Zusätzlich einen Binärsensor erstellen ab",
-            "advanced": "Erweitert",
-            "trigger_entities": "Stattdessen hierauf reagieren"
+            "advanced": "Erweitert"
           },
           "data_description": {
             "name": "Benennt den Sensor, den diese Frage anlegt.",
@@ -395,18 +405,25 @@
             "target": "Wähle Entitäten, Geräte, Bereiche oder Labels, und ihre Messwerte werden für dich mitgesendet. Lass es leer, wenn die Notiz unten der ganze Zustand ist.",
             "state": "Text oder eine Vorlage, allein oder neben den Messwerten.",
             "background": "Wird in `instructions` eingefügt, damit es mit der Frage mitreist und nicht mit dem Zustand.",
-            "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens.",
-            "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
             "true_means": "Optional. Schärft, in welche Richtung die Antwort zeigt.",
             "false_means": "Optional.",
             "threshold": "Leer lassen, wenn du nur den Wahrscheinlichkeitssensor willst.",
-            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
-            "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt."
+            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
           },
           "sections": {
             "advanced": {
               "name": "Erweitert",
-              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
+              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
+              "data": {
+                "trigger_entities": "Stattdessen hierauf reagieren",
+                "scan_interval": "So oft fragen",
+                "include_attributes": "Auch jedes Attribut senden"
+              },
+              "data_description": {
+                "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt.",
+                "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
+                "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Was angesehen wird",
             "state": "Zusätzliche Notiz oder Vorlage",
             "background": "Feste Angaben zu den Messwerten",
-            "include_attributes": "Auch jedes Attribut senden",
-            "scan_interval": "So oft fragen",
             "options": "Deine Optionen, eine pro Zeile",
-            "advanced": "Erweitert",
-            "trigger_entities": "Stattdessen hierauf reagieren"
+            "advanced": "Erweitert"
           },
           "data_description": {
             "name": "Benennt den Sensor, den diese Frage anlegt.",
@@ -430,16 +444,23 @@
             "target": "Wähle Entitäten, Geräte, Bereiche oder Labels, und ihre Messwerte werden für dich mitgesendet. Lass es leer, wenn die Notiz unten der ganze Zustand ist.",
             "state": "Text oder eine Vorlage, allein oder neben den Messwerten.",
             "background": "Wird in `instructions` eingefügt, damit es mit der Frage mitreist und nicht mit dem Zustand.",
-            "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens.",
-            "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
             "options": "Geht als `criteria` an die API. Eine pro Zeile, als `Name: was sie bedeutet`. Die Beschreibung ist optional.",
-            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
-            "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt."
+            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
           },
           "sections": {
             "advanced": {
               "name": "Erweitert",
-              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
+              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
+              "data": {
+                "trigger_entities": "Stattdessen hierauf reagieren",
+                "scan_interval": "So oft fragen",
+                "include_attributes": "Auch jedes Attribut senden"
+              },
+              "data_description": {
+                "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt.",
+                "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
+                "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Was angesehen wird",
             "state": "Zusätzliche Notiz oder Vorlage",
             "background": "Feste Angaben zu den Messwerten",
-            "include_attributes": "Auch jedes Attribut senden",
-            "scan_interval": "So oft fragen",
             "levels": "Deine Stufen, niedrigste zuerst, eine pro Zeile",
-            "advanced": "Erweitert",
-            "trigger_entities": "Stattdessen hierauf reagieren"
+            "advanced": "Erweitert"
           },
           "data_description": {
             "name": "Benennt den Sensor, den diese Frage anlegt.",
@@ -463,16 +481,23 @@
             "target": "Wähle Entitäten, Geräte, Bereiche oder Labels, und ihre Messwerte werden für dich mitgesendet. Lass es leer, wenn die Notiz unten der ganze Zustand ist.",
             "state": "Text oder eine Vorlage, allein oder neben den Messwerten.",
             "background": "Wird in `instructions` eingefügt, damit es mit der Frage mitreist und nicht mit dem Zustand.",
-            "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens.",
-            "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
             "levels": "Geht als `criteria` an die API. Eine pro Zeile, niedrigste zuerst. Zwischen 2 und 10 davon.",
-            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
-            "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt."
+            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
           },
           "sections": {
             "advanced": {
               "name": "Erweitert",
-              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
+              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
+              "data": {
+                "trigger_entities": "Stattdessen hierauf reagieren",
+                "scan_interval": "So oft fragen",
+                "include_attributes": "Auch jedes Attribut senden"
+              },
+              "data_description": {
+                "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt.",
+                "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
+                "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Was angesehen wird",
             "state": "Zusätzliche Notiz oder Vorlage",
             "background": "Feste Angaben zu den Messwerten",
-            "include_attributes": "Auch jedes Attribut senden",
-            "scan_interval": "So oft fragen",
             "true_means": "Was eine hohe Zahl bedeutet",
             "false_means": "Was eine niedrige Zahl bedeutet",
             "threshold": "Zusätzlich einen Binärsensor erstellen ab",
             "options": "Deine Optionen, eine pro Zeile",
             "levels": "Deine Stufen, niedrigste zuerst, eine pro Zeile",
-            "advanced": "Erweitert",
-            "trigger_entities": "Stattdessen hierauf reagieren"
+            "advanced": "Erweitert"
           },
           "data_description": {
             "name": "Benennt den Sensor, den diese Frage anlegt.",
@@ -500,20 +522,27 @@
             "target": "Wähle Entitäten, Geräte, Bereiche oder Labels, und ihre Messwerte werden für dich mitgesendet. Lass es leer, wenn die Notiz unten der ganze Zustand ist.",
             "state": "Text oder eine Vorlage, allein oder neben den Messwerten.",
             "background": "Wird in `instructions` eingefügt, damit es mit der Frage mitreist und nicht mit dem Zustand.",
-            "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens.",
-            "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
             "true_means": "Optional. Schärft, in welche Richtung die Antwort zeigt.",
             "false_means": "Optional.",
             "threshold": "Leer lassen, wenn du nur den Wahrscheinlichkeitssensor willst.",
             "options": "Geht als `criteria` an die API. Eine pro Zeile, als `Name: was sie bedeutet`. Die Beschreibung ist optional.",
             "levels": "Geht als `criteria` an die API. Eine pro Zeile, niedrigste zuerst. Zwischen 2 und 10 davon.",
-            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
-            "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt."
+            "advanced": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
           },
           "sections": {
             "advanced": {
               "name": "Erweitert",
-              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage."
+              "description": "Ein Zeitplan, und was sonst noch mitgeht. Die Voreinstellungen reichen für eine erste Frage.",
+              "data": {
+                "trigger_entities": "Stattdessen hierauf reagieren",
+                "scan_interval": "So oft fragen",
+                "include_attributes": "Auch jedes Attribut senden"
+              },
+              "data_description": {
+                "trigger_entities": "Auswerten, wenn diese sich ändern, zusätzlich zum Zeitplan unten. Um 5 Sekunden entprellt.",
+                "scan_interval": "Fragen, die zum selben Zeitplan auf dasselbe schauen, gehen als eine Anfrage raus, was Tokens kostet, aber fast keine zusätzliche Zeit.",
+                "include_attributes": "Standardmäßig aus. Eine Wettervorhersage kostet bei jeder Auswertung Tausende von Tokens."
+              }
             }
           }
         },

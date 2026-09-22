@@ -8,11 +8,12 @@ from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from jevclient import ChoiceAnswer, JevError, NoulAnswer, ScoreAnswer
+from jevclient import ChoiceAnswer, JevAuthError, JevError, NoulAnswer, ScoreAnswer
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.jev.const import CONF_DAILY_TOKEN_BUDGET, DOMAIN
@@ -167,6 +168,16 @@ async def test_a_refused_request_says_what_the_service_said(
     mock_client.ask = AsyncMock(side_effect=JevError("no answer from the endpoint"))
     with pytest.raises(HomeAssistantError, match="no answer from the endpoint"):
         await generate(hass, BOOLEAN_STRUCTURE)
+
+
+async def test_a_rejected_key_asks_for_a_new_one(hass, mock_client, task_entry):
+    mock_client.ask = AsyncMock(side_effect=JevAuthError("revoked"))
+    with pytest.raises(HomeAssistantError) as err:
+        await generate(hass, BOOLEAN_STRUCTURE)
+    assert err.value.translation_key == "auth_rejected"
+    await hass.async_block_till_done()
+    [flow] = task_entry.async_get_active_flows(hass, {SOURCE_REAUTH})
+    assert flow["step_id"] == "reauth_confirm"
 
 
 async def test_what_the_task_spends_lands_in_the_day_s_usage(

@@ -29,6 +29,9 @@
         "description": "TypeSafe odrzucił zapisany klucz. Wklej działający. Adres API zostaje bez zmian; użyj opcji Skonfiguruj ponownie, żeby go zmienić.",
         "data": {
           "api_key": "Klucz API"
+        },
+        "data_description": {
+          "api_key": "Żądania trafiają na zapisany już adres API."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania. Zostaw puste tylko dla własnego punktu końcowego, który nie wymaga klucza."
+          "api_key": "Zostaw puste, aby zachować obecny klucz, dopóki adres się nie zmienia. Nowy adres nie dostaje żadnego klucza, jeśli go nie wpiszesz."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Agent zapasowy",
           "min_confidence": "Działaj tylko powyżej tej pewności (0 do 1)",
           "allow_whole_home": "Zezwalaj na polecenia, które nie wskazują pokoju ani urządzenia"
+        },
+        "data_description": {
+          "daily_token_budget": "Liczone od północy w strefie czasowej Home Assistanta. 0 oznacza brak limitu.",
+          "price_per_million": "Ustala czujnik szacowanego kosztu i koszt w podglądzie pytania. Nic z tego, co jest wysyłane, od tego nie zależy.",
+          "fallback_agent": "Dostaje całe zdanie, gdy Jev nie jest pewny, co zrobić.",
+          "min_confidence": "Poniżej tej wartości Jev nic nie robi i przekazuje polecenie agentowi zapasowemu.",
+          "allow_whole_home": "Wyłączenie wszystkiego jest zawsze dozwolone, z tą opcją lub bez niej."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Brak wczytanego wpisu konfiguracji Jev, którym można zapytać. Najpierw dodaj integrację albo wybierz jeden w polu Klucz API, gdy skonfigurowano więcej niż jeden."
     },
+    "entry_ambiguous": {
+      "message": "Wczytano więcej niż jeden wpis Jev: {entries}. Wybierz jeden w polu Klucz API, bo każdy wpis ma własny klucz i własny budżet."
+    },
     "missing_targets": {
       "message": "Te cele nie istnieją: {targets}. Pytanie o resztę odpowiedziałoby na inne pytanie niż Twoje."
     },
@@ -381,13 +394,10 @@
             "target": "Na co patrzeć",
             "state": "Dodatkowa notatka lub szablon",
             "background": "Stałe fakty o odczytach",
-            "include_attributes": "Wyślij też każdy atrybut",
-            "scan_interval": "Jak często pytać",
             "true_means": "Co oznacza wysoka liczba",
             "false_means": "Co oznacza niska liczba",
             "threshold": "Utwórz też sensor binarny powyżej",
-            "advanced": "Zaawansowane",
-            "trigger_entities": "Reaguj na te encje zamiast tego"
+            "advanced": "Zaawansowane"
           },
           "data_description": {
             "name": "Nadaje nazwę sensorowi, który tworzy to pytanie.",
@@ -395,18 +405,25 @@
             "target": "Wybierz encje, urządzenia, obszary lub etykiety, a ich odczyty zostaną wysłane za Ciebie. Zostaw puste, jeśli notatka poniżej jest całym stanem.",
             "state": "Tekst lub szablon, sam albo obok odczytów.",
             "background": "Wplatane w `instructions`, więc jest wysyłane z pytaniem, a nie ze stanem.",
-            "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie.",
-            "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
             "true_means": "Opcjonalne. Wyostrza, w którą stronę wskazuje odpowiedź.",
             "false_means": "Opcjonalne.",
             "threshold": "Zostaw puste, jeśli chcesz tylko sensor prawdopodobieństwa.",
-            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
-            "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund."
+            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
           },
           "sections": {
             "advanced": {
               "name": "Zaawansowane",
-              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
+              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
+              "data": {
+                "trigger_entities": "Reaguj na te encje zamiast tego",
+                "scan_interval": "Jak często pytać",
+                "include_attributes": "Wyślij też każdy atrybut"
+              },
+              "data_description": {
+                "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund.",
+                "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
+                "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Na co patrzeć",
             "state": "Dodatkowa notatka lub szablon",
             "background": "Stałe fakty o odczytach",
-            "include_attributes": "Wyślij też każdy atrybut",
-            "scan_interval": "Jak często pytać",
             "options": "Twoje opcje, jedna w wierszu",
-            "advanced": "Zaawansowane",
-            "trigger_entities": "Reaguj na te encje zamiast tego"
+            "advanced": "Zaawansowane"
           },
           "data_description": {
             "name": "Nadaje nazwę sensorowi, który tworzy to pytanie.",
@@ -430,16 +444,23 @@
             "target": "Wybierz encje, urządzenia, obszary lub etykiety, a ich odczyty zostaną wysłane za Ciebie. Zostaw puste, jeśli notatka poniżej jest całym stanem.",
             "state": "Tekst lub szablon, sam albo obok odczytów.",
             "background": "Wplatane w `instructions`, więc jest wysyłane z pytaniem, a nie ze stanem.",
-            "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie.",
-            "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
             "options": "Wysyłane do API jako `criteria`. Jedna w wierszu, w formie `nazwa: co oznacza`. Opis jest opcjonalny.",
-            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
-            "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund."
+            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
           },
           "sections": {
             "advanced": {
               "name": "Zaawansowane",
-              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
+              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
+              "data": {
+                "trigger_entities": "Reaguj na te encje zamiast tego",
+                "scan_interval": "Jak często pytać",
+                "include_attributes": "Wyślij też każdy atrybut"
+              },
+              "data_description": {
+                "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund.",
+                "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
+                "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Na co patrzeć",
             "state": "Dodatkowa notatka lub szablon",
             "background": "Stałe fakty o odczytach",
-            "include_attributes": "Wyślij też każdy atrybut",
-            "scan_interval": "Jak często pytać",
             "levels": "Twoje poziomy, od najniższego, jeden w wierszu",
-            "advanced": "Zaawansowane",
-            "trigger_entities": "Reaguj na te encje zamiast tego"
+            "advanced": "Zaawansowane"
           },
           "data_description": {
             "name": "Nadaje nazwę sensorowi, który tworzy to pytanie.",
@@ -463,16 +481,23 @@
             "target": "Wybierz encje, urządzenia, obszary lub etykiety, a ich odczyty zostaną wysłane za Ciebie. Zostaw puste, jeśli notatka poniżej jest całym stanem.",
             "state": "Tekst lub szablon, sam albo obok odczytów.",
             "background": "Wplatane w `instructions`, więc jest wysyłane z pytaniem, a nie ze stanem.",
-            "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie.",
-            "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
             "levels": "Wysyłane do API jako `criteria`. Jeden w wierszu, od najniższego. Od 2 do 10 sztuk.",
-            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
-            "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund."
+            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
           },
           "sections": {
             "advanced": {
               "name": "Zaawansowane",
-              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
+              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
+              "data": {
+                "trigger_entities": "Reaguj na te encje zamiast tego",
+                "scan_interval": "Jak często pytać",
+                "include_attributes": "Wyślij też każdy atrybut"
+              },
+              "data_description": {
+                "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund.",
+                "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
+                "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Na co patrzeć",
             "state": "Dodatkowa notatka lub szablon",
             "background": "Stałe fakty o odczytach",
-            "include_attributes": "Wyślij też każdy atrybut",
-            "scan_interval": "Jak często pytać",
             "true_means": "Co oznacza wysoka liczba",
             "false_means": "Co oznacza niska liczba",
             "threshold": "Utwórz też sensor binarny powyżej",
             "options": "Twoje opcje, jedna w wierszu",
             "levels": "Twoje poziomy, od najniższego, jeden w wierszu",
-            "advanced": "Zaawansowane",
-            "trigger_entities": "Reaguj na te encje zamiast tego"
+            "advanced": "Zaawansowane"
           },
           "data_description": {
             "name": "Nadaje nazwę sensorowi, który tworzy to pytanie.",
@@ -500,20 +522,27 @@
             "target": "Wybierz encje, urządzenia, obszary lub etykiety, a ich odczyty zostaną wysłane za Ciebie. Zostaw puste, jeśli notatka poniżej jest całym stanem.",
             "state": "Tekst lub szablon, sam albo obok odczytów.",
             "background": "Wplatane w `instructions`, więc jest wysyłane z pytaniem, a nie ze stanem.",
-            "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie.",
-            "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
             "true_means": "Opcjonalne. Wyostrza, w którą stronę wskazuje odpowiedź.",
             "false_means": "Opcjonalne.",
             "threshold": "Zostaw puste, jeśli chcesz tylko sensor prawdopodobieństwa.",
             "options": "Wysyłane do API jako `criteria`. Jedna w wierszu, w formie `nazwa: co oznacza`. Opis jest opcjonalny.",
             "levels": "Wysyłane do API jako `criteria`. Jeden w wierszu, od najniższego. Od 2 do 10 sztuk.",
-            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
-            "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund."
+            "advanced": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
           },
           "sections": {
             "advanced": {
               "name": "Zaawansowane",
-              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie."
+              "description": "Harmonogram i to, co jeszcze wysłać. Domyślne ustawienia wystarczą na pierwsze pytanie.",
+              "data": {
+                "trigger_entities": "Reaguj na te encje zamiast tego",
+                "scan_interval": "Jak często pytać",
+                "include_attributes": "Wyślij też każdy atrybut"
+              },
+              "data_description": {
+                "trigger_entities": "Oceniaj, gdy te się zmienią, oprócz harmonogramu poniżej. Tłumione przez 5 sekund.",
+                "scan_interval": "Pytania, które patrzą na to samo w tym samym harmonogramie, są wysyłane jako jedno żądanie, co kosztuje tokeny, ale prawie nie zabiera dodatkowego czasu.",
+                "include_attributes": "Domyślnie wyłączone. Prognoza pogody to tysiące tokenów przy każdej ocenie."
+              }
             }
           }
         },

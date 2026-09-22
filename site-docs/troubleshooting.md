@@ -24,6 +24,8 @@ logger:
 | Voice acts on the wrong device | The names and areas in your entity registry are what the model reads |
 | A question you expected to batch went alone | Its target, template, schedule or triggers differ from the others. The preview says which |
 | An action says the target holds no entities | Every entity it names has no state, often because it was renamed or removed |
+| Home Assistant asks for a new API key | TypeSafe rejected the key. Setup, the questions, an action, an AI Task or a voice command can all start this |
+| An action is refused and lists your entries | More than one Jev entry is loaded. Name one under API key |
 | Reauthentication says a key is required | The hosted API needs a key. A key of only spaces counts as none |
 
 ## The answer does not track the world

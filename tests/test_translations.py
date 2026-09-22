@@ -144,3 +144,91 @@ def test_every_language_keeps_every_placeholder():
             assert source.count("\n") == target.count("\n"), (
                 f"{path.name}:{key} changed its paragraph breaks"
             )
+
+
+def _unlabelled(schema, strings: dict) -> list[str]:
+    """Fields with no label or no help text where the frontend looks for them.
+
+    A field inside a section is labelled under that section, not under the step. A
+    label at step level for such a field is never read, and the form shows the raw
+    key instead.
+    """
+    from homeassistant.data_entry_flow import section
+
+    missing = []
+    for key, value in schema.schema.items():
+        name = str(key.schema)
+        if isinstance(value, section):
+            inner = strings.get("sections", {}).get(name, {})
+            missing += [f"{name}.{m}" for m in _unlabelled(value.schema, inner)]
+            continue
+        missing += [
+            f"{part}.{name}"
+            for part in ("data", "data_description")
+            if name not in strings.get(part, {})
+        ]
+    return missing
+
+
+async def test_every_form_field_has_a_label_and_help_text(hass, mock_client):
+    from homeassistant.config_entries import SOURCE_USER
+    from homeassistant.const import CONF_API_KEY
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.jev.const import DOMAIN, SUBENTRY_QUESTION
+
+    from .test_subentry import question
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_API_KEY: "test-key-not-a-real-one"},
+        subentries_data=[
+            question("Yes or no"),
+            question("Which", kind="choice", options="a: one\nb: two"),
+            question("How much", kind="score", levels="Low\nHigh"),
+        ],
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    forms = [
+        (
+            "config",
+            await hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_USER}
+            ),
+        ),
+        ("config", await entry.start_reauth_flow(hass)),
+        ("config", await entry.start_reconfigure_flow(hass)),
+        ("options", await hass.config_entries.options.async_init(entry.entry_id)),
+    ]
+    for kind in ("noul", "choice", "score"):
+        menu = await hass.config_entries.subentries.async_init(
+            (entry.entry_id, SUBENTRY_QUESTION), context={"source": SOURCE_USER}
+        )
+        forms.append(
+            (
+                "config_subentries",
+                await hass.config_entries.subentries.async_configure(
+                    menu["flow_id"], {"next_step_id": kind}
+                ),
+            )
+        )
+    for subentry_id in entry.subentries:
+        forms.append(
+            (
+                "config_subentries",
+                await entry.start_subentry_reconfigure_flow(hass, subentry_id),
+            )
+        )
+
+    missing = {}
+    for area, form in forms:
+        steps = STRINGS[area]
+        if area == "config_subentries":
+            steps = steps[SUBENTRY_QUESTION]
+        step = steps["step"][form["step_id"]]
+        if gaps := _unlabelled(form["data_schema"], step):
+            missing.setdefault(f"{area}.{form['step_id']}", set()).update(gaps)
+    assert not missing, missing

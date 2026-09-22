@@ -29,6 +29,9 @@
         "description": "TypeSafe odmítl uložený klíč. Vložte funkční klíč. Adresa API zůstává beze změny; pro její změnu použijte Překonfigurovat.",
         "data": {
           "api_key": "Klíč API"
+        },
+        "data_description": {
+          "api_key": "Požadavky jdou na adresu API, která je už uložená."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky. Nechte prázdné jen u vlastního endpointu, který klíč nepotřebuje."
+          "api_key": "Nechte prázdné, aby zůstal současný klíč, dokud se adresa nemění. Nová adresa nedostane žádný klíč, pokud ho nezadáte."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Záložní agent",
           "min_confidence": "Jednat jen nad touto jistotou (0 až 1)",
           "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení"
+        },
+        "data_description": {
+          "daily_token_budget": "Počítá se od půlnoci v časovém pásmu Home Assistantu. 0 znamená bez limitu.",
+          "price_per_million": "Určuje senzor odhadované ceny a cenu v náhledu otázky. Nic z toho, co se odesílá, na tom nezávisí.",
+          "fallback_agent": "Dostane celou větu, když si Jev není jistý, co udělat.",
+          "min_confidence": "Pod touto hodnotou Jev nic neudělá a předá příkaz záložnímu agentovi.",
+          "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Není načtený žádný konfigurační záznam Jev, se kterým by se dalo ptát. Nejdřív přidejte integraci, nebo když je nastavený více než jeden, vyberte jeden pod Klíč API."
     },
+    "entry_ambiguous": {
+      "message": "Je načteno více položek Jev: {entries}. Vyberte jednu v poli Klíč API, protože každá položka má vlastní klíč a rozpočet."
+    },
     "missing_targets": {
       "message": "Tyto cíle neexistují: {targets}. Zeptat se na zbytek by odpovědělo na jinou otázku, než jste napsali."
     },
@@ -381,13 +394,10 @@
             "target": "Na co se dívat",
             "state": "Další poznámka nebo šablona",
             "background": "Trvale platná fakta o naměřených hodnotách",
-            "include_attributes": "Poslat také každý atribut",
-            "scan_interval": "Jak často se ptát",
             "true_means": "Co znamená vysoké číslo",
             "false_means": "Co znamená nízké číslo",
             "threshold": "Vytvořit i binární senzor nad",
-            "advanced": "Pokročilé",
-            "trigger_entities": "Budit se místo toho na těchto"
+            "advanced": "Pokročilé"
           },
           "data_description": {
             "name": "Pojmenuje senzor, který tato otázka vytvoří.",
@@ -395,18 +405,25 @@
             "target": "Vyberte entity, zařízení, oblasti nebo štítky a jejich naměřené hodnoty se odešlou za vás. Nechte prázdné, pokud je celým stavem poznámka níže.",
             "state": "Text nebo šablona, samostatně nebo vedle naměřených hodnot.",
             "background": "Vkládá se do `instructions`, takže putuje s otázkou, a ne se stavem.",
-            "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení.",
-            "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
             "true_means": "Volitelné. Zostří, kterým směrem odpověď ukazuje.",
             "false_means": "Volitelné.",
             "threshold": "Nechte prázdné, chcete-li jen senzor pravděpodobnosti.",
-            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
-            "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů."
+            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
           },
           "sections": {
             "advanced": {
               "name": "Pokročilé",
-              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
+              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
+              "data": {
+                "trigger_entities": "Budit se místo toho na těchto",
+                "scan_interval": "Jak často se ptát",
+                "include_attributes": "Poslat také každý atribut"
+              },
+              "data_description": {
+                "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů.",
+                "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
+                "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Na co se dívat",
             "state": "Další poznámka nebo šablona",
             "background": "Trvale platná fakta o naměřených hodnotách",
-            "include_attributes": "Poslat také každý atribut",
-            "scan_interval": "Jak často se ptát",
             "options": "Vaše možnosti, jedna na řádek",
-            "advanced": "Pokročilé",
-            "trigger_entities": "Budit se místo toho na těchto"
+            "advanced": "Pokročilé"
           },
           "data_description": {
             "name": "Pojmenuje senzor, který tato otázka vytvoří.",
@@ -430,16 +444,23 @@
             "target": "Vyberte entity, zařízení, oblasti nebo štítky a jejich naměřené hodnoty se odešlou za vás. Nechte prázdné, pokud je celým stavem poznámka níže.",
             "state": "Text nebo šablona, samostatně nebo vedle naměřených hodnot.",
             "background": "Vkládá se do `instructions`, takže putuje s otázkou, a ne se stavem.",
-            "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení.",
-            "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
             "options": "Posílá se do API jako `criteria`. Jedna na řádek, ve tvaru `název: co znamená`. Popis je volitelný.",
-            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
-            "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů."
+            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
           },
           "sections": {
             "advanced": {
               "name": "Pokročilé",
-              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
+              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
+              "data": {
+                "trigger_entities": "Budit se místo toho na těchto",
+                "scan_interval": "Jak často se ptát",
+                "include_attributes": "Poslat také každý atribut"
+              },
+              "data_description": {
+                "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů.",
+                "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
+                "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Na co se dívat",
             "state": "Další poznámka nebo šablona",
             "background": "Trvale platná fakta o naměřených hodnotách",
-            "include_attributes": "Poslat také každý atribut",
-            "scan_interval": "Jak často se ptát",
             "levels": "Vaše úrovně, od nejnižší, jedna na řádek",
-            "advanced": "Pokročilé",
-            "trigger_entities": "Budit se místo toho na těchto"
+            "advanced": "Pokročilé"
           },
           "data_description": {
             "name": "Pojmenuje senzor, který tato otázka vytvoří.",
@@ -463,16 +481,23 @@
             "target": "Vyberte entity, zařízení, oblasti nebo štítky a jejich naměřené hodnoty se odešlou za vás. Nechte prázdné, pokud je celým stavem poznámka níže.",
             "state": "Text nebo šablona, samostatně nebo vedle naměřených hodnot.",
             "background": "Vkládá se do `instructions`, takže putuje s otázkou, a ne se stavem.",
-            "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení.",
-            "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
             "levels": "Posílá se do API jako `criteria`. Jedna na řádek, od nejnižší. Mezi 2 a 10 z nich.",
-            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
-            "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů."
+            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
           },
           "sections": {
             "advanced": {
               "name": "Pokročilé",
-              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
+              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
+              "data": {
+                "trigger_entities": "Budit se místo toho na těchto",
+                "scan_interval": "Jak často se ptát",
+                "include_attributes": "Poslat také každý atribut"
+              },
+              "data_description": {
+                "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů.",
+                "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
+                "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Na co se dívat",
             "state": "Další poznámka nebo šablona",
             "background": "Trvale platná fakta o naměřených hodnotách",
-            "include_attributes": "Poslat také každý atribut",
-            "scan_interval": "Jak často se ptát",
             "true_means": "Co znamená vysoké číslo",
             "false_means": "Co znamená nízké číslo",
             "threshold": "Vytvořit i binární senzor nad",
             "options": "Vaše možnosti, jedna na řádek",
             "levels": "Vaše úrovně, od nejnižší, jedna na řádek",
-            "advanced": "Pokročilé",
-            "trigger_entities": "Budit se místo toho na těchto"
+            "advanced": "Pokročilé"
           },
           "data_description": {
             "name": "Pojmenuje senzor, který tato otázka vytvoří.",
@@ -500,20 +522,27 @@
             "target": "Vyberte entity, zařízení, oblasti nebo štítky a jejich naměřené hodnoty se odešlou za vás. Nechte prázdné, pokud je celým stavem poznámka níže.",
             "state": "Text nebo šablona, samostatně nebo vedle naměřených hodnot.",
             "background": "Vkládá se do `instructions`, takže putuje s otázkou, a ne se stavem.",
-            "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení.",
-            "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
             "true_means": "Volitelné. Zostří, kterým směrem odpověď ukazuje.",
             "false_means": "Volitelné.",
             "threshold": "Nechte prázdné, chcete-li jen senzor pravděpodobnosti.",
             "options": "Posílá se do API jako `criteria`. Jedna na řádek, ve tvaru `název: co znamená`. Popis je volitelný.",
             "levels": "Posílá se do API jako `criteria`. Jedna na řádek, od nejnižší. Mezi 2 a 10 z nich.",
-            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
-            "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů."
+            "advanced": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
           },
           "sections": {
             "advanced": {
               "name": "Pokročilé",
-              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty."
+              "description": "Rozvrh a co dalšího se posílá. Pro první otázku stačí výchozí hodnoty.",
+              "data": {
+                "trigger_entities": "Budit se místo toho na těchto",
+                "scan_interval": "Jak často se ptát",
+                "include_attributes": "Poslat také každý atribut"
+              },
+              "data_description": {
+                "trigger_entities": "Vyhodnotit, když se tyto změní, navíc k rozvrhu níže. S pětisekundovým tlumením zákmitů.",
+                "scan_interval": "Otázky, které se dívají na totéž ve stejném rozvrhu, se posílají jako jeden požadavek, což stojí tokeny, ale téměř žádný čas navíc.",
+                "include_attributes": "Ve výchozím stavu vypnuto. Předpověď počasí vydá na tisíce tokenů při každém vyhodnocení."
+              }
             }
           }
         },

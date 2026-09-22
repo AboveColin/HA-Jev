@@ -725,3 +725,30 @@ async def test_reauth_takes_the_key_the_way_the_first_form_does(
     assert config_entry.data[CONF_API_KEY] == "a-pasted-key"
     assert config_entry.unique_id == _entry_id("a-pasted-key")
     await hass.async_block_till_done()
+
+
+async def test_reconfigure_keeps_the_key_when_the_field_is_left_empty(
+    hass, mock_client, loaded_entry
+):
+    """The form never shows the key back, so changing only the model cleared it."""
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="", model=MODEL)
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_API_KEY] == API_KEY
+    assert loaded_entry.data[CONF_MODEL] == MODEL
+
+
+async def test_reconfigure_sends_no_stored_key_to_a_new_address(
+    hass, mock_client, loaded_entry
+):
+    """A gateway that needs no key gets none, rather than the key for TypeSafe."""
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], _form(key="", url=GATEWAY)
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_client.built_by_flow.call_args.args[0] == ""
+    assert loaded_entry.data[CONF_API_KEY] == ""
+    assert loaded_entry.data[CONF_URL] == GATEWAY

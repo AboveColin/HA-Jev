@@ -29,6 +29,9 @@
         "description": "TypeSafe avvisade nyckeln som är sparad. Klistra in en som fungerar. API-adressen lämnas som den är; använd Konfigurera om för att ändra den.",
         "data": {
           "api_key": "API-nyckel"
+        },
+        "data_description": {
+          "api_key": "Förfrågningar går till den API-adress som redan är sparad."
         }
       },
       "reconfigure": {
@@ -38,7 +41,7 @@
           "api_key": "API-nyckel"
         },
         "data_description": {
-          "api_key": "Nyckeln som förfrågningarna skickas med. Lämna det tomt endast för en egen slutpunkt som inte behöver någon nyckel."
+          "api_key": "Lämna tomt för att behålla den nuvarande nyckeln så länge adressen är densamma. En ny adress får ingen nyckel om du inte skriver in en."
         },
         "sections": {
           "advanced": {
@@ -80,6 +83,13 @@
           "fallback_agent": "Fall tillbaka på den här agenten",
           "min_confidence": "Agera bara över den här säkerheten (0 till 1)",
           "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet"
+        },
+        "data_description": {
+          "daily_token_budget": "Räknas från midnatt i Home Assistants tidszon. 0 betyder ingen gräns.",
+          "price_per_million": "Styr sensorn för uppskattad kostnad och kostnaden i förhandsvisningen av frågan. Inget av det som skickas beror på den.",
+          "fallback_agent": "Får hela meningen när Jev inte är säker på vad som ska göras.",
+          "min_confidence": "Under detta värde gör Jev ingenting och skickar kommandot vidare till reservagenten.",
+          "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val."
         }
       }
     }
@@ -251,6 +261,9 @@
     "no_entry": {
       "message": "Ingen laddad Jev-konfigurationspost att fråga med. Lägg till integrationen först, eller välj en under API-nyckel när fler än en är konfigurerad."
     },
+    "entry_ambiguous": {
+      "message": "Mer än en Jev-post är inläst: {entries}. Välj en under API-nyckel, eftersom varje post har en egen nyckel och en egen budget."
+    },
     "missing_targets": {
       "message": "De här målen finns inte: {targets}. Att fråga om resten skulle svara på en annan fråga än den du skrev."
     },
@@ -381,13 +394,10 @@
             "target": "Vad den ska titta på",
             "state": "Extra anteckning eller mall",
             "background": "Fasta fakta om mätvärdena",
-            "include_attributes": "Skicka med alla attribut också",
-            "scan_interval": "Fråga så här ofta",
             "true_means": "Vad ett högt tal betyder",
             "false_means": "Vad ett lågt tal betyder",
             "threshold": "Gör även en binär sensor över",
-            "advanced": "Avancerat",
-            "trigger_entities": "Vakna på de här i stället"
+            "advanced": "Avancerat"
           },
           "data_description": {
             "name": "Namnger sensorn som den här frågan skapar.",
@@ -395,18 +405,25 @@
             "target": "Välj entiteter, enheter, områden eller etiketter så skickas deras mätvärden åt dig. Lämna tomt om anteckningen nedan är hela tillståndet.",
             "state": "Text eller en mall, ensam eller vid sidan av mätvärdena.",
             "background": "Vävs in i `instructions` så att det följer med frågan i stället för med tillståndet.",
-            "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering.",
-            "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
             "true_means": "Valfritt. Skärper åt vilket håll svaret pekar.",
             "false_means": "Valfritt.",
             "threshold": "Lämna tomt för bara sannolikhetssensorn.",
-            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
-            "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder."
+            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
           },
           "sections": {
             "advanced": {
               "name": "Avancerat",
-              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
+              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
+              "data": {
+                "trigger_entities": "Vakna på de här i stället",
+                "scan_interval": "Fråga så här ofta",
+                "include_attributes": "Skicka med alla attribut också"
+              },
+              "data_description": {
+                "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder.",
+                "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
+                "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering."
+              }
             }
           }
         },
@@ -418,11 +435,8 @@
             "target": "Vad den ska titta på",
             "state": "Extra anteckning eller mall",
             "background": "Fasta fakta om mätvärdena",
-            "include_attributes": "Skicka med alla attribut också",
-            "scan_interval": "Fråga så här ofta",
             "options": "Dina alternativ, ett per rad",
-            "advanced": "Avancerat",
-            "trigger_entities": "Vakna på de här i stället"
+            "advanced": "Avancerat"
           },
           "data_description": {
             "name": "Namnger sensorn som den här frågan skapar.",
@@ -430,16 +444,23 @@
             "target": "Välj entiteter, enheter, områden eller etiketter så skickas deras mätvärden åt dig. Lämna tomt om anteckningen nedan är hela tillståndet.",
             "state": "Text eller en mall, ensam eller vid sidan av mätvärdena.",
             "background": "Vävs in i `instructions` så att det följer med frågan i stället för med tillståndet.",
-            "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering.",
-            "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
             "options": "Skickas till API:et som `criteria`. Ett per rad, som `namn: vad det betyder`. Beskrivningen är valfri.",
-            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
-            "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder."
+            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
           },
           "sections": {
             "advanced": {
               "name": "Avancerat",
-              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
+              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
+              "data": {
+                "trigger_entities": "Vakna på de här i stället",
+                "scan_interval": "Fråga så här ofta",
+                "include_attributes": "Skicka med alla attribut också"
+              },
+              "data_description": {
+                "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder.",
+                "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
+                "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering."
+              }
             }
           }
         },
@@ -451,11 +472,8 @@
             "target": "Vad den ska titta på",
             "state": "Extra anteckning eller mall",
             "background": "Fasta fakta om mätvärdena",
-            "include_attributes": "Skicka med alla attribut också",
-            "scan_interval": "Fråga så här ofta",
             "levels": "Dina nivåer, lägsta först, en per rad",
-            "advanced": "Avancerat",
-            "trigger_entities": "Vakna på de här i stället"
+            "advanced": "Avancerat"
           },
           "data_description": {
             "name": "Namnger sensorn som den här frågan skapar.",
@@ -463,16 +481,23 @@
             "target": "Välj entiteter, enheter, områden eller etiketter så skickas deras mätvärden åt dig. Lämna tomt om anteckningen nedan är hela tillståndet.",
             "state": "Text eller en mall, ensam eller vid sidan av mätvärdena.",
             "background": "Vävs in i `instructions` så att det följer med frågan i stället för med tillståndet.",
-            "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering.",
-            "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
             "levels": "Skickas till API:et som `criteria`. En per rad, lägsta först. Mellan 2 och 10 stycken.",
-            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
-            "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder."
+            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
           },
           "sections": {
             "advanced": {
               "name": "Avancerat",
-              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
+              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
+              "data": {
+                "trigger_entities": "Vakna på de här i stället",
+                "scan_interval": "Fråga så här ofta",
+                "include_attributes": "Skicka med alla attribut också"
+              },
+              "data_description": {
+                "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder.",
+                "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
+                "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering."
+              }
             }
           }
         },
@@ -484,15 +509,12 @@
             "target": "Vad den ska titta på",
             "state": "Extra anteckning eller mall",
             "background": "Fasta fakta om mätvärdena",
-            "include_attributes": "Skicka med alla attribut också",
-            "scan_interval": "Fråga så här ofta",
             "true_means": "Vad ett högt tal betyder",
             "false_means": "Vad ett lågt tal betyder",
             "threshold": "Gör även en binär sensor över",
             "options": "Dina alternativ, ett per rad",
             "levels": "Dina nivåer, lägsta först, en per rad",
-            "advanced": "Avancerat",
-            "trigger_entities": "Vakna på de här i stället"
+            "advanced": "Avancerat"
           },
           "data_description": {
             "name": "Namnger sensorn som den här frågan skapar.",
@@ -500,20 +522,27 @@
             "target": "Välj entiteter, enheter, områden eller etiketter så skickas deras mätvärden åt dig. Lämna tomt om anteckningen nedan är hela tillståndet.",
             "state": "Text eller en mall, ensam eller vid sidan av mätvärdena.",
             "background": "Vävs in i `instructions` så att det följer med frågan i stället för med tillståndet.",
-            "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering.",
-            "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
             "true_means": "Valfritt. Skärper åt vilket håll svaret pekar.",
             "false_means": "Valfritt.",
             "threshold": "Lämna tomt för bara sannolikhetssensorn.",
             "options": "Skickas till API:et som `criteria`. Ett per rad, som `namn: vad det betyder`. Beskrivningen är valfri.",
             "levels": "Skickas till API:et som `criteria`. En per rad, lägsta först. Mellan 2 och 10 stycken.",
-            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
-            "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder."
+            "advanced": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
           },
           "sections": {
             "advanced": {
               "name": "Avancerat",
-              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga."
+              "description": "Ett schema, och vad som mer ska skickas. Standardvärdena duger för en första fråga.",
+              "data": {
+                "trigger_entities": "Vakna på de här i stället",
+                "scan_interval": "Fråga så här ofta",
+                "include_attributes": "Skicka med alla attribut också"
+              },
+              "data_description": {
+                "trigger_entities": "Utvärdera när de här ändras, utöver schemat nedan. Dämpad med 5 sekunder.",
+                "scan_interval": "Frågor som tittar på samma sak enligt samma schema skickas som en förfrågan, vilket kostar token men nästan ingen extra tid.",
+                "include_attributes": "Av som standard. En väderprognos blir tusentals token vid varje utvärdering."
+              }
             }
           }
         },

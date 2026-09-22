@@ -80,10 +80,14 @@ rules:
       One error when the outage starts, one info when it ends. A 30 s context would
       otherwise write 2,880 identical lines a day.
   parallel-updates: done
-  reauthentication-flow: done
+  reauthentication-flow:
+    status: done
+    comment: >-
+      Setup, the questions, the actions, the AI Task entity and the conversation
+      agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 97% measured across 382 tests, enforced in CI.
+    comment: 97% measured across 403 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -151,7 +155,8 @@ rules:
     status: done
     comment: >-
       The API key and the API address can both be replaced without losing entities
-      or their history.
+      or their history. An empty key field keeps the stored key while the address
+      stays the same.
   repair-issues:
     status: done
     comment: The daily budget raises a repair issue naming the budget and what was used.

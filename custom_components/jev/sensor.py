@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
@@ -12,6 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from .const import (
@@ -262,6 +264,10 @@ class JevCostSensor(JevUsageEntity, SensorEntity):
     _attr_translation_key = "estimated_cost_today"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.MONETARY
+    # Monetary allows total only. A price change moves today's figure both ways,
+    # so it is not total_increasing either. last_reset tells statistics where
+    # each day starts.
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = "USD"
     _attr_suggested_display_precision = 4
 
@@ -272,6 +278,10 @@ class JevCostSensor(JevUsageEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         return round(self._runtime.usage.estimated_cost, 6)
+
+    @property
+    def last_reset(self) -> datetime:
+        return dt_util.start_of_local_day(self._runtime.usage.day)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
