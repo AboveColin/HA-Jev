@@ -9,7 +9,6 @@ several questions about the same state, answered in one request.
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -26,6 +25,7 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.template import Template
+from homeassistant.util import dt as dt_util
 from jevclient import (
     MAX_CHOICE_OPTIONS,
     MAX_SCORE_LEVELS,
@@ -221,7 +221,7 @@ async def _ask(
             translation_placeholders={"reason": str(err)},
         ) from err
     usage = entry.runtime_data.usage
-    usage.roll_over(date.today())
+    usage.roll_over(dt_util.now().date())
     usage.record(response.usage.input_tokens)
     entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
     usage.notify()

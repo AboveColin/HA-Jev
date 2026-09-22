@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev stopped evaluating: daily budget reached",
-      "description": "The daily budget is {budget} input tokens, {used} have been used today, and the next evaluation does not fit in what is left, so no further questions are being asked. The answer sensors go unavailable until a call fits again. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+      "description": "The daily budget is {budget} input tokens and {used} have been used today. The next evaluation, of context {context}, needs about {estimate} more and does not fit, so no further questions are being asked. The answer sensors go unavailable until a call fits again. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+    },
+    "daily_budget_spent": {
+      "title": "Jev stopped evaluating: daily budget reached",
+      "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. The answer sensors go unavailable until the day rolls over or the budget is raised. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
     }
   },
   "services": {

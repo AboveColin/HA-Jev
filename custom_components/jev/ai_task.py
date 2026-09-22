@@ -16,13 +16,13 @@ entity that does not declare SUPPORT_ATTACHMENTS.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components import ai_task, conversation
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 from jevclient import (
     Answer,
     ChoiceAnswer,
@@ -82,7 +82,7 @@ class JevAITaskEntity(ai_task.AITaskEntity):
             )
         questions = questions_from_structure(task.structure)
         usage = self._runtime.usage
-        usage.roll_over(date.today())
+        usage.roll_over(dt_util.now().date())
         request_bytes = payload_bytes(task.instructions, questions, self._runtime.model)
         estimate = usage.estimate_tokens(request_bytes)
         if usage.would_exceed_with(estimate):
@@ -98,7 +98,8 @@ class JevAITaskEntity(ai_task.AITaskEntity):
             )
 
         try:
-            response = await self._runtime.client.ask(task.instructions, questions)
+            with usage.reservation(estimate):
+                response = await self._runtime.client.ask(task.instructions, questions)
         except JevError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

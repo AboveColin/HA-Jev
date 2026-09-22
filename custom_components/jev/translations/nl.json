@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev is gestopt: daglimiet bereikt",
-      "description": "De daglimiet is {budget} invoertokens, er zijn er vandaag {used} gebruikt en de volgende evaluatie past niet meer in wat er over is, dus er worden geen vragen meer gesteld. De antwoordsensoren worden onbeschikbaar tot er weer een aanvraag past. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
+      "description": "De daglimiet is {budget} invoertokens en er zijn er vandaag {used} gebruikt. De volgende evaluatie, van context {context}, heeft ongeveer {estimate} extra nodig en past niet meer, dus er worden geen vragen meer gesteld. De antwoordsensoren worden onbeschikbaar tot er weer een aanvraag past. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
+    },
+    "daily_budget_spent": {
+      "title": "Jev is gestopt: daglimiet bereikt",
+      "description": "De daglimiet is {budget} invoertokens en er zijn er vandaag {used} gebruikt, dus er worden geen vragen meer gesteld. De antwoordsensoren worden onbeschikbaar tot de volgende dag of tot de limiet omhoog gaat. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
     }
   },
   "services": {

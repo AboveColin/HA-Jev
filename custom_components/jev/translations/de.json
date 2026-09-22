@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev wertet nicht mehr aus: Tagesbudget erreicht",
-      "description": "Das Tagesbudget beträgt {budget} Eingabe-Tokens, heute wurden {used} verbraucht und die nächste Auswertung passt nicht mehr in den Rest, es werden also keine Fragen mehr gestellt. Die Antwort-Sensoren sind nicht verfügbar, bis eine Auswertung wieder hineinpasst. Erhöhe das Budget in den Optionen der Integration, werte Kontexte seltener aus oder kürze deine Fragen."
+      "description": "Das Tagesbudget beträgt {budget} Eingabe-Tokens, heute wurden {used} verbraucht. Die nächste Auswertung, des Kontexts {context}, braucht etwa {estimate} weitere und passt nicht mehr hinein, es werden also keine Fragen mehr gestellt. Die Antwort-Sensoren sind nicht verfügbar, bis eine Auswertung wieder hineinpasst. Erhöhe das Budget in den Optionen der Integration, werte Kontexte seltener aus oder kürze deine Fragen."
+    },
+    "daily_budget_spent": {
+      "title": "Jev wertet nicht mehr aus: Tagesbudget erreicht",
+      "description": "Das Tagesbudget beträgt {budget} Eingabe-Tokens, heute wurden {used} verbraucht, es werden also keine Fragen mehr gestellt. Die Antwort-Sensoren sind nicht verfügbar, bis ein neuer Tag beginnt oder das Budget erhöht wird. Erhöhe das Budget in den Optionen der Integration, werte Kontexte seltener aus oder kürze deine Fragen."
     }
   },
   "services": {

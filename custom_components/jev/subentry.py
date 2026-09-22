@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date
 from typing import Any
 
 import voluptuous as vol
@@ -36,6 +35,7 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import selector, translation
 from homeassistant.helpers.template import Template
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from jevclient import (
     Answer,
@@ -428,7 +428,7 @@ async def try_answer(
     """
     say = await _translator(hass)
     usage = entry.runtime_data.usage
-    usage.roll_over(date.today())
+    usage.roll_over(dt_util.now().date())
     # The budget is a tripwire, and a preview that spends past it is a hole in
     # the fence. The form still saves; it just does not get a trial answer.
     if usage.would_exceed():

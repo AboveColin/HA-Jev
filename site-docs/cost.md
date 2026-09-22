@@ -58,10 +58,31 @@ When it trips:
   there is no answer for right now. The last answers are not thrown away, and the
   next call that fits replaces them
 - `binary_sensor.jev_daily_budget_exceeded` turns on
-- a repair issue explains it, naming the budget and what has been used
+- a repair issue explains it, naming the budget, what has been used, and the context
+  that was refused with the tokens it needed
 
-It resets at midnight, and the totals survive a restart or a reload, because a daily
-budget that either of those cleared would not be a daily budget.
+Two contexts that ask at the same moment cannot both spend the last of it. A call in
+flight holds its estimate against the budget until its answer comes back, so the
+second one sees the first.
+
+The connection check at setup is a billed call too. It counts in the day's totals,
+and when the budget is already spent, setup skips it.
+
+It resets at midnight in the time zone Home Assistant is set to, not the clock of the
+machine it runs on. The totals survive a restart or a reload, because a daily budget
+that either of those cleared would not be a daily budget.
+
+## Calls that are never sent
+
+- A context whose entities are all disabled is not asked. An answer nobody can read
+  is still billed.
+- A context that wakes on entity changes asks at most once every 30 seconds, however
+  often those entities change. The 5 second debounce collects a burst into one call,
+  and the 30 seconds is the same floor the scan interval has.
+- When TypeSafe answers "too many requests" and says how long to wait, the context
+  waits that long before it asks again, even when its scan interval is shorter.
+- YAML contexts name no entry, so they belong to the first enabled Jev entry. A
+  second entry does not ask them again and bill them twice.
 
 The two one-off paths, a conversation command and the preview in the question editor,
 still check what has already been spent rather than estimating the call ahead. Both

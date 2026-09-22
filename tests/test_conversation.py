@@ -26,7 +26,7 @@ from custom_components.jev.const import (
 from custom_components.jev.conversation import _render_state_answer
 from custom_components.jev.interpret import find_brightness
 
-from .conftest import build_response
+from .conftest import PROBE_TOKENS, build_response
 
 AGENT = "conversation.jev"
 
@@ -320,8 +320,11 @@ async def test_a_voice_command_counts_against_the_budget(hass, house, mock_clien
     await converse(hass, "kitchen light on")
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.jev_calls_today").state == "1"
-    assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+    # Setup's probe is the other call.
+    assert hass.states.get("sensor.jev_calls_today").state == "2"
+    assert hass.states.get("sensor.jev_input_tokens_today").state == str(
+        321 + PROBE_TOKENS
+    )
 
 
 async def test_a_spent_budget_stops_voice_too(hass, house, mock_client):

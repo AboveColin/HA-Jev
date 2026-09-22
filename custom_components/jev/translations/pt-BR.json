@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "O Jev parou de avaliar: orçamento diário atingido",
-      "description": "O orçamento diário é de {budget} tokens de entrada, {used} já foram usados hoje e a próxima avaliação não cabe no que resta, então nenhuma outra pergunta está sendo feita. Os sensores de resposta ficam indisponíveis até que uma chamada caiba de novo. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
+      "description": "O orçamento diário é de {budget} tokens de entrada e {used} já foram usados hoje. A próxima avaliação, do contexto {context}, precisa de cerca de {estimate} a mais e não cabe, então nenhuma outra pergunta está sendo feita. Os sensores de resposta ficam indisponíveis até que uma chamada caiba de novo. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
+    },
+    "daily_budget_spent": {
+      "title": "O Jev parou de avaliar: orçamento diário atingido",
+      "description": "O orçamento diário é de {budget} tokens de entrada e {used} já foram usados hoje, então nenhuma outra pergunta está sendo feita. Os sensores de resposta ficam indisponíveis até o dia seguinte ou até o orçamento ser aumentado. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
     }
   },
   "services": {

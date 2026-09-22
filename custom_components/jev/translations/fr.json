@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev a cessé d'évaluer : budget quotidien atteint",
-      "description": "Le budget quotidien est de {budget} jetons d'entrée, {used} ont été utilisés aujourd'hui et la prochaine évaluation ne tient pas dans ce qui reste, donc plus aucune question n'est posée. Les capteurs de réponse deviennent indisponibles jusqu'à ce qu'un appel tienne de nouveau. Augmentez le budget dans les options de l'intégration, évaluez les contextes moins souvent, ou raccourcissez vos questions."
+      "description": "Le budget quotidien est de {budget} jetons d'entrée et {used} ont été utilisés aujourd'hui. La prochaine évaluation, du contexte {context}, demande environ {estimate} de plus et ne tient pas, donc plus aucune question n'est posée. Les capteurs de réponse deviennent indisponibles jusqu'à ce qu'un appel tienne de nouveau. Augmentez le budget dans les options de l'intégration, évaluez les contextes moins souvent, ou raccourcissez vos questions."
+    },
+    "daily_budget_spent": {
+      "title": "Jev a cessé d'évaluer : budget quotidien atteint",
+      "description": "Le budget quotidien est de {budget} jetons d'entrée et {used} ont été utilisés aujourd'hui, donc plus aucune question n'est posée. Les capteurs de réponse deviennent indisponibles jusqu'au jour suivant ou jusqu'à ce que le budget soit augmenté. Augmentez le budget dans les options de l'intégration, évaluez les contextes moins souvent, ou raccourcissez vos questions."
     }
   },
   "services": {

@@ -26,7 +26,6 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from datetime import date
 from typing import Literal
 
 from homeassistant.components import conversation
@@ -39,6 +38,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers import template, translation
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 from homeassistant.util import language as language_util
 from jevclient import JevAuthError, JevError
 
@@ -156,7 +156,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
 
         # The budget covers voice as well as sensors, because a satellite that
         # mishears a wake word all night is exactly the runaway it exists to stop.
-        runtime.usage.roll_over(date.today())
+        runtime.usage.roll_over(dt_util.now().date())
         if runtime.usage.would_exceed():
             return await self._fall_back(
                 user_input, "the daily token budget is spent", "budget_spent"

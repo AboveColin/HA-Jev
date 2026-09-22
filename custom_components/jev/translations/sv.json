@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev har slutat utvärdera: daglig budget nådd",
-      "description": "Den dagliga budgeten är {budget} indatatoken, {used} har använts i dag och nästa utvärdering får inte plats i det som är kvar, så inga fler frågor ställs. Svarssensorerna blir otillgängliga tills ett anrop får plats igen. Höj budgeten i integrationens alternativ, utvärdera kontexter mer sällan, eller korta ner dina frågor."
+      "description": "Den dagliga budgeten är {budget} indatatoken och {used} har använts i dag. Nästa utvärdering, av kontexten {context}, behöver ungefär {estimate} till och får inte plats, så inga fler frågor ställs. Svarssensorerna blir otillgängliga tills ett anrop får plats igen. Höj budgeten i integrationens alternativ, utvärdera kontexter mer sällan, eller korta ner dina frågor."
+    },
+    "daily_budget_spent": {
+      "title": "Jev har slutat utvärdera: daglig budget nådd",
+      "description": "Den dagliga budgeten är {budget} indatatoken och {used} har använts i dag, så inga fler frågor ställs. Svarssensorerna blir otillgängliga tills en ny dag börjar eller budgeten höjs. Höj budgeten i integrationens alternativ, utvärdera kontexter mer sällan, eller korta ner dina frågor."
     }
   },
   "services": {

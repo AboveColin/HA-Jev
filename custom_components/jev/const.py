@@ -64,6 +64,8 @@ BUDGET_ESTIMATE_MARGIN: Final = 1.2
 
 # Issue raised when the daily token budget stops evaluations.
 ISSUE_BUDGET_EXCEEDED: Final = "daily_budget_exceeded"
+# The same issue raised at setup, from the restored total, before any context asks.
+ISSUE_BUDGET_SPENT: Final = "daily_budget_spent"
 
 # Usage totals are written this long after a change, so a burst of evaluations
 # makes one write rather than one per call.

@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev ha smesso di valutare: budget giornaliero raggiunto",
-      "description": "Il budget giornaliero è di {budget} token di input, oggi ne sono stati usati {used} e la prossima valutazione non rientra in quelli rimasti, quindi non vengono poste altre domande. I sensori delle risposte diventano non disponibili finché una chiamata non rientra di nuovo. Alza il budget nelle opzioni dell'integrazione, valuta i contesti meno spesso, o accorcia le domande."
+      "description": "Il budget giornaliero è di {budget} token di input e oggi ne sono stati usati {used}. La prossima valutazione, del contesto {context}, richiede circa {estimate} token in più e non rientra, quindi non vengono poste altre domande. I sensori delle risposte diventano non disponibili finché una chiamata non rientra di nuovo. Alza il budget nelle opzioni dell'integrazione, valuta i contesti meno spesso, o accorcia le domande."
+    },
+    "daily_budget_spent": {
+      "title": "Jev ha smesso di valutare: budget giornaliero raggiunto",
+      "description": "Il budget giornaliero è di {budget} token di input e oggi ne sono stati usati {used}, quindi non vengono poste altre domande. I sensori delle risposte diventano non disponibili fino al giorno successivo o finché il budget non viene alzato. Alza il budget nelle opzioni dell'integrazione, valuta i contesti meno spesso, o accorcia le domande."
     }
   },
   "services": {

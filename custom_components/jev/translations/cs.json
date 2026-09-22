@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev přestal vyhodnocovat: dosažen denní rozpočet",
-      "description": "Denní rozpočet je {budget} vstupních tokenů, dnes jich bylo spotřebováno {used} a další vyhodnocení se do zbytku nevejde, takže se další otázky nekladou. Senzory s odpověďmi budou nedostupné, dokud se nějaký dotaz znovu nevejde. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
+      "description": "Denní rozpočet je {budget} vstupních tokenů a dnes jich bylo spotřebováno {used}. Další vyhodnocení, kontextu {context}, potřebuje asi {estimate} dalších a do zbytku se nevejde, takže se další otázky nekladou. Senzory s odpověďmi budou nedostupné, dokud se nějaký dotaz znovu nevejde. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
+    },
+    "daily_budget_spent": {
+      "title": "Jev přestal vyhodnocovat: dosažen denní rozpočet",
+      "description": "Denní rozpočet je {budget} vstupních tokenů a dnes jich bylo spotřebováno {used}, takže se další otázky nekladou. Senzory s odpověďmi budou nedostupné, dokud nezačne nový den nebo se rozpočet nezvýší. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
     }
   },
   "services": {

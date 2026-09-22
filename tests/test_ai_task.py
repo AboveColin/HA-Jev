@@ -182,3 +182,21 @@ async def test_what_the_task_spends_lands_in_the_day_s_usage(
     assert int(hass.states.get("sensor.jev_input_tokens_today").state) == before + 321
     usage = task_entry.runtime_data.usage
     assert usage.day == date.today()
+
+
+async def test_a_task_in_flight_holds_its_estimate_against_the_budget(
+    hass, mock_client, task_entry
+):
+    """A context that checks the budget while a task waits must see the task."""
+    usage = task_entry.runtime_data.usage
+    held = []
+
+    async def answer(*_args, **_kwargs):
+        held.append(usage.reserved)
+        return build_response(window_open=NoulAnswer(noul=0.81))
+
+    mock_client.ask.side_effect = answer
+    await generate(hass, BOOLEAN_STRUCTURE)
+
+    assert held and held[0] > 0
+    assert usage.reserved == 0

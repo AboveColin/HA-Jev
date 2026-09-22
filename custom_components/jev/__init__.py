@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from datetime import date
 from typing import Any
 
 import voluptuous as vol
@@ -28,6 +27,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from jevclient import (
     DEFAULT_BASE_URL,
@@ -262,7 +262,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-def _build_contexts(hass: HomeAssistant) -> list[ContextConfig]:
+def _build_contexts(hass: HomeAssistant, entry: JevConfigEntry) -> list[ContextConfig]:
+    """The YAML contexts, for the one entry that owns them.
+
+    YAML does not name an entry. Given to every entry, each context was asked once
+    per entry and billed that many times, so only the first enabled entry gets them.
+    """
+    owner = next(
+        (e for e in hass.config_entries.async_entries(DOMAIN) if e.disabled_by is None),
+        None,
+    )
+    if owner is None or owner.entry_id != entry.entry_id:
+        return []
     contexts: list[ContextConfig] = []
     for raw in hass.data[DOMAIN].get("yaml", []):
         context_key = slugify(raw[CONF_NAME])
@@ -358,7 +369,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"
     )
     usage = UsageAccount(
-        day=date.today(),
+        day=dt_util.now().date(),
         budget=entry.options.get(CONF_DAILY_TOKEN_BUDGET, 0),
         price_per_million=entry.options.get(
             CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
@@ -384,9 +395,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # Prove the service answers before entities appear. One noul against a two word
     # state costs about 40 input tokens, well under a thousandth of a cent, and it
     # is the difference between a clear "cannot reach TypeSafe" and a house full of
-    # entities that never populate.
+    # entities that never populate. It is billed like any other call, so it counts
+    # against the day, and a spent budget skips it.
     try:
-        await client.ask("ok", {"probe": Noul("Is this text in English?")})
+        if not usage.would_exceed():
+            response = await client.ask("ok", {"probe": Noul("Is this text in English?")})
+            # No payload size: this request is mostly fixed overhead, and its ratio
+            # of bytes to tokens would skew the estimate for the real ones.
+            usage.record(response.usage.input_tokens)
     except JevAuthError as err:
         raise ConfigEntryAuthFailed(
             translation_domain=DOMAIN,
@@ -400,7 +416,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
             translation_placeholders={"reason": str(err)},
         ) from err
 
-    contexts = _build_contexts(hass) + async_contexts_from_subentries(hass, entry)
+    contexts = _build_contexts(hass, entry) + async_contexts_from_subentries(hass, entry)
     for context in contexts:
         coordinator = JevCoordinator(hass, entry, runtime, context)
         runtime.coordinators[context.key] = coordinator
@@ -408,8 +424,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         # the first evaluation fails, and the two ways it fails are a spent budget
         # and an unreachable API. Both are states the user needs to see explained,
         # and the budget and usage entities that explain them only exist once setup
-        # finishes. Answers stay unavailable instead.
-        await coordinator.async_refresh()
+        # finishes. Answers stay unavailable instead. A context whose entities are
+        # all disabled has no reader for the answer, so it is not asked at all.
+        if not coordinator.nobody_reads():
+            await coordinator.async_refresh()
         await coordinator.async_setup_triggers()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

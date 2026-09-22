@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev ha dejado de evaluar: presupuesto diario alcanzado",
-      "description": "El presupuesto diario es de {budget} tokens de entrada, hoy se han usado {used} y la siguiente evaluación no cabe en lo que queda, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que una llamada vuelva a caber. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
+      "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}. La siguiente evaluación, del contexto {context}, necesita unos {estimate} más y no cabe, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que una llamada vuelva a caber. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
+    },
+    "daily_budget_spent": {
+      "title": "Jev ha dejado de evaluar: presupuesto diario alcanzado",
+      "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que empiece un nuevo día o se suba el presupuesto. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
     }
   },
   "services": {

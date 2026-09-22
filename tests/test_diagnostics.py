@@ -8,7 +8,7 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
 
 from custom_components.jev.const import DOMAIN
 
-from .conftest import API_KEY
+from .conftest import API_KEY, PROBE_TOKENS
 from .test_init import CONTEXT
 
 
@@ -23,7 +23,7 @@ async def test_the_key_is_redacted(hass, hass_client, mock_client, config_entry)
 
     assert data["entry"]["data"]["api_key"] == REDACTED
     assert API_KEY not in str(data)
-    assert data["usage_today"]["input_tokens"] == 321
+    assert data["usage_today"]["input_tokens"] == 321 + PROBE_TOKENS
     assert data["contexts"][0]["name"] == "Laundry"
     # The rendered state is the first thing to look at when an answer surprises
     # someone, so it has to be in here.

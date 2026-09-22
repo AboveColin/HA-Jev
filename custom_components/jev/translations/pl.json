@@ -87,7 +87,11 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev przestał oceniać: osiągnięto dzienny limit",
-      "description": "Dzienny limit to {budget} tokenów wejściowych, dziś zużyto {used}, a kolejna ocena nie mieści się w tym, co zostało, więc kolejne pytania nie są zadawane. Czujniki odpowiedzi stają się niedostępne, dopóki kolejne zapytanie znów się nie zmieści. Zwiększ limit w opcjach integracji, oceniaj konteksty rzadziej albo skróć pytania."
+      "description": "Dzienny limit to {budget} tokenów wejściowych, a dziś zużyto {used}. Kolejna ocena, kontekstu {context}, potrzebuje około {estimate} więcej i się nie mieści, więc kolejne pytania nie są zadawane. Czujniki odpowiedzi stają się niedostępne, dopóki kolejne zapytanie znów się nie zmieści. Zwiększ limit w opcjach integracji, oceniaj konteksty rzadziej albo skróć pytania."
+    },
+    "daily_budget_spent": {
+      "title": "Jev przestał oceniać: osiągnięto dzienny limit",
+      "description": "Dzienny limit to {budget} tokenów wejściowych, a dziś zużyto {used}, więc kolejne pytania nie są zadawane. Czujniki odpowiedzi stają się niedostępne do następnego dnia albo do zwiększenia limitu. Zwiększ limit w opcjach integracji, oceniaj konteksty rzadziej albo skróć pytania."
     }
   },
   "services": {

@@ -1,6 +1,6 @@
 """Fixtures. Nothing here talks to TypeSafe: the client is replaced everywhere."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import DEFAULT, AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_API_KEY
@@ -41,6 +41,26 @@ def build_response(**answers) -> JevResponse:
     )
 
 
+PROBE_TOKENS = 40
+
+
+def probe_or_default(state, questions, *args, **kwargs):
+    """Answer setup's probe the way the API does, and anything else as configured.
+
+    The probe is billed, so it lands in the day's totals. 40 tokens is the size the
+    setup comment gives it, and it differs from an evaluation's 321 so a test can
+    tell the two apart.
+    """
+    if "probe" in questions:
+        return JevResponse(
+            model="jev-1.13.0",
+            answers={"probe": NoulAnswer(noul=0.97)},
+            usage=Usage(input_tokens=PROBE_TOKENS, output_tokens=3),
+            latency_ms=90.0,
+        )
+    return DEFAULT
+
+
 @pytest.fixture
 def answers() -> dict:
     """One answer of each type, keyed the way the single-question actions key them."""
@@ -58,6 +78,7 @@ def mock_client(answers):
     """
     client = AsyncMock()
     client.ask = AsyncMock(return_value=build_response(**answers))
+    client.ask.side_effect = probe_or_default
     client.async_close = AsyncMock()
     with (
         patch("custom_components.jev.JevClient", return_value=client) as by_setup,
