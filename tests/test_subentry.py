@@ -829,3 +829,32 @@ async def test_clearing_a_threshold_removes_its_binary_sensor(
 
     assert registry.async_get("binary_sensor.jev_first") is None
     assert registry.async_get("sensor.jev_first") is not None
+
+
+async def test_deleting_a_question_removes_its_sensors(hass, mock_client, entry_with):
+    """The entities belong to the entry, so removing the subentry left them behind."""
+    entry = entry_with(question("First", threshold=0.7), question("Second"))
+    await setup(hass, entry)
+    registry = er.async_get(hass)
+    first = next(s for s in entry.subentries.values() if s.title == "First")
+
+    hass.config_entries.async_remove_subentry(entry, first.subentry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get("sensor.jev_first") is None
+    assert registry.async_get("binary_sensor.jev_first") is None
+    assert registry.async_get("sensor.jev_second") is not None
+
+
+async def test_a_context_sensor_under_an_old_id_is_removed(hass, mock_client, entry_with):
+    """Before 1.15.0 the latency id held the context name and its position."""
+    entry = entry_with(question("First"))
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_ui_first_0_latency", config_entry=entry
+    )
+    await setup(hass, entry)
+
+    assert registry.async_get(old.entity_id) is None
+    assert registry.async_get("sensor.jev_first") is not None

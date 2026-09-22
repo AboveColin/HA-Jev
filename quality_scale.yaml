@@ -87,7 +87,7 @@ rules:
       agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 97% measured across 404 tests, enforced in CI.
+    comment: 97% measured across 406 tests, enforced in CI.
 
   # Gold
   devices: done

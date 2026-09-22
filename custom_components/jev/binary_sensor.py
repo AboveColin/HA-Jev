@@ -13,13 +13,12 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from jevclient import NoulAnswer
 
-from .const import CONF_THRESHOLD, DOMAIN
+from .const import CONF_THRESHOLD
 from .coordinator import JevCoordinator, JevRuntimeData
-from .entity import JevQuestionEntity, JevUsageEntity
+from .entity import JevQuestionEntity, JevUsageEntity, async_remove_stale_entities
 from .models import QuestionConfig
 
 # Same as the sensor platform: these read answers a coordinator already
@@ -36,20 +35,14 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime = entry.runtime_data
-    registry = er.async_get(hass)
     entities: list[Any] = [JevBudgetSensor(entry.entry_id, runtime)]
     for coordinator in runtime.coordinators.values():
-        for question in coordinator.context_config.questions:
-            if question.wants_binary_sensor:
-                entities.append(JevThresholdSensor(coordinator, entry.entry_id, question))
-            # A threshold cleared in the form leaves the old entity in the
-            # registry, restored and unavailable, until something removes it.
-            elif entity_id := registry.async_get_entity_id(
-                BINARY_SENSOR_DOMAIN,
-                DOMAIN,
-                threshold_unique_id(entry.entry_id, question),
-            ):
-                registry.async_remove(entity_id)
+        entities.extend(
+            JevThresholdSensor(coordinator, entry.entry_id, question)
+            for question in coordinator.context_config.questions
+            if question.wants_binary_sensor
+        )
+    async_remove_stale_entities(hass, entry.entry_id, BINARY_SENSOR_DOMAIN, entities)
     async_add_entities(entities)
 
 

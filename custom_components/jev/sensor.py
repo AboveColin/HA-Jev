@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -28,7 +29,7 @@ from .const import (
     TYPE_SCORE,
 )
 from .coordinator import JevCoordinator, JevRuntimeData
-from .entity import JevQuestionEntity, JevUsageEntity
+from .entity import JevQuestionEntity, JevUsageEntity, async_remove_stale_entities
 from .models import QuestionConfig
 
 # Every sensor reads an answer a coordinator already fetched, so there is
@@ -58,6 +59,7 @@ async def async_setup_entry(
             JevCostSensor(entry.entry_id, runtime),
         ]
     )
+    async_remove_stale_entities(hass, entry.entry_id, SENSOR_DOMAIN, entities)
     async_add_entities(entities)
 
 
