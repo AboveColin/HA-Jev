@@ -347,6 +347,9 @@
     "preview_mismatched": "The API answered, but not to the question that was asked.",
     "preview_template_error": "The template does not render: {reason}",
     "query_not_found": "I could not find that.",
+    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
+    "unavailable": "TypeSafe did not answer. Try again in a moment.",
     "preview_over_budget": "The daily token budget is spent, so there is no trial answer. The question still saves.",
     "preview_nothing_yet": "No trial answer: there is nothing to ask about yet."
   },

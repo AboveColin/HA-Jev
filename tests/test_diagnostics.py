@@ -37,3 +37,15 @@ async def test_system_health_reports_reachability(hass, loaded_entry):
 
     info = await system_health_info(hass)
     assert "reachable" in info
+
+
+async def test_what_was_said_to_the_house_is_redacted(hass, hass_client, loaded_entry):
+    loaded_entry.runtime_data.conversation_traces.appendleft(
+        {"text": "unlock the back door", "intent_type": "HassTurnOn"}
+    )
+
+    data = await get_diagnostics_for_config_entry(hass, hass_client, loaded_entry)
+
+    assert data["conversation_traces"] == [
+        {"text": REDACTED, "intent_type": "HassTurnOn"}
+    ]

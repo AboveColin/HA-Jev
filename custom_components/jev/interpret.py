@@ -47,13 +47,23 @@ _PERCENT_WORDS = (
     "por ?cento",  # pt-BR
     r"процент\w*",  # ru
 )
-_PERCENT = re.compile(r"(\d{1,3})\s*(?:" + "|".join(_PERCENT_WORDS) + ")", re.IGNORECASE)
+# The lookarounds keep a number whole: "1000 percent" and "12.5 percent" are not
+# brightnesses, and without them the regex found 0 and 5 inside them.
+_NUMBER = r"(?<![\d.,])(\d{1,3})(?![\d.,]\d)"
+_PERCENT = re.compile(_NUMBER + r"\s*(?:" + "|".join(_PERCENT_WORDS) + ")", re.IGNORECASE)
 # Chinese writes its marker in front of the number instead of after it.
-_PERCENT_PREFIX = re.compile(r"百分之\s*(\d{1,3})")
+_PERCENT_PREFIX = re.compile(r"百分之\s*" + _NUMBER)
 # Digit lookarounds rather than \b, because Chinese writes no space in front of
 # the number and \b never fires between two characters that are both word
 # characters. "\u628a\u706f\u8c03\u6697\u523030" has to give 30.
-_BARE_NUMBER = re.compile(r"(?<!\d)(\d{1,3})(?!\d)")
+_BARE_NUMBER = re.compile(_NUMBER)
+# "20% brighter" and "dim it by 20" change the level by an amount. HassLightSet only
+# sets a level, so these go to the fallback agent rather than being read as 20%.
+_RELATIVE = re.compile(
+    r"\b(?:brighter|dimmer|darker)\b"
+    r"|\b(?:by|met|um)\s+\d",
+    re.IGNORECASE,
+)
 
 # A bare number becomes a brightness only when the sentence also says something
 # about light level. The model already chose set_brightness by this point, so this
@@ -90,15 +100,18 @@ def find_brightness(text: str) -> int | None:
     """A percentage in the text, if there is one.
 
     Prefers an explicit percent sign, because "turn on 2 lamps" holds a number that
-    is not a brightness.
+    is not a brightness. Without one, the last number wins, because a device name
+    comes before its level: "lamp 2 brightness to 40" means 40.
     """
+    if _RELATIVE.search(text):
+        return None
     if m := _PERCENT.search(text):
         return _in_range(m.group(1))
     if m := _PERCENT_PREFIX.search(text):
         return _in_range(m.group(1))
     if _LEVEL.search(text) or any(word in text for word in _LEVEL_CJK):
-        if m := _BARE_NUMBER.search(text):
-            return _in_range(m.group(1))
+        if numbers := _BARE_NUMBER.findall(text):
+            return _in_range(numbers[-1])
     return None
 
 
@@ -221,20 +234,25 @@ def interpret(
         return answer.noul if isinstance(answer, NoulAnswer) else 0.0
 
     def out(reason: str) -> Interpretation:
-        action = response.answers.get("action")
+        # The action answer goes into the trace even on a fallback, because "action
+        # confidence 0.31" is only readable next to which action scored it.
+        action = choice("action")
         return Interpretation(
             None,
             {},
-            "",
-            0.0,
+            action.choice if action else "",
+            action.confidence if action else 0.0,
             reason,
             fallback=True,
-            action_probabilities=dict(getattr(action, "probabilities", {}) or {}),
+            action_probabilities=dict(action.probabilities or {}) if action else {},
         )
 
-    if noul("compound") > 0.8:
+    # Either one answered the wrong way means acting on part of the sentence, and a
+    # fallback costs only a slower answer. So both refuse at even odds. Neither
+    # number has a measurement behind it yet.
+    if noul("compound") >= 0.5:
         return out("several commands in one sentence")
-    if noul("free_text") > 0.6:
+    if noul("free_text") >= 0.5:
         return out("needs text written or looked up")
 
     action = choice("action")
@@ -283,11 +301,18 @@ def interpret(
         if described is None:
             return out("named a device that is not exposed")
         slots["name"] = {"value": described.name}
-        if described.area:
-            slots["preferred_area_id"] = {"value": described.area}
+        # The domain keeps a same-named entity the model was never shown, a lock
+        # called "Front door" beside a cover called "Front door", out of the match.
+        slots["domain"] = {"value": [described.domain]}
+        if described.area_id:
+            slots["preferred_area_id"] = {"value": described.area_id}
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
-    elif target is not None and target.choice == "everything":
+    elif (
+        target is not None
+        and target.choice == "everything"
+        and target.confidence >= min_confidence
+    ):
         # Home Assistant requires one of name, area or floor, and reads the literal
         # name "all" as every entity, clearing it after the check. Sending no target
         # at all failed that check on a real instance: "turn everything off"
@@ -301,20 +326,28 @@ def interpret(
     else:
         return out("no target named with enough confidence")
 
+    # An area always carries a domain. With none, Home Assistant acts on every
+    # exposed entity in the room whatever its domain, so turn_off on a hallway with a
+    # light and a lock unlocked the lock. Without a confident answer, the domains the
+    # model was shown are the bound. The whole house takes that default only when the
+    # model was shown one kind of device, otherwise the agent asks which kind.
     domain = choice("domain")
-    if (
-        domain is not None
-        and domain.choice != NONE
-        and domain.confidence >= min_confidence
-    ):
-        slots["domain"] = {"value": [domain.choice]}
+    if "domain" not in slots:
+        if (
+            domain is not None
+            and domain.choice != NONE
+            and domain.confidence >= min_confidence
+        ):
+            slots["domain"] = {"value": [domain.choice]}
+        elif not targets_everything or len(snapshot.domains) == 1:
+            slots["domain"] = {"value": snapshot.domains}
 
     if action.choice == "set_brightness":
         brightness = find_brightness(text)
         if brightness is None:
             return out("a brightness was asked for but no number was said")
         slots["brightness"] = {"value": brightness}
-        slots.setdefault("domain", {"value": ["light"]})
+        slots["domain"] = {"value": ["light"]}
 
     return Interpretation(
         intent_type=intent_type,

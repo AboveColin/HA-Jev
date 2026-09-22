@@ -83,7 +83,7 @@ rules:
   reauthentication-flow: done
   test-coverage:
     status: done
-    comment: 96% measured across 347 tests, enforced in CI.
+    comment: 96% measured across 368 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -129,7 +129,7 @@ rules:
       placeholder. A question sensor is named by the user's own question text, which
       is theirs to write and cannot be translated by anyone else. The conversation
       agent and the AI Task entity take the device name, which is what every core
-      provider of either does, and the six sentences the agent speaks itself go
+      provider of either does, and the ten sentences the agent speaks itself go
       through the common translation category, so a Dutch pipeline answers in Dutch.
   exception-translations:
     status: done

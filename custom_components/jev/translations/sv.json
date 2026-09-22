@@ -347,6 +347,9 @@
     "preview_mismatched": "API:et svarade, men inte på frågan som ställdes.",
     "preview_template_error": "Mallen renderas inte: {reason}",
     "query_not_found": "Det kunde jag inte hitta.",
+    "budget_spent": "Den dagliga tokenbudgeten är slut, så det kan jag inte göra i dag.",
+    "auth_failed": "TypeSafe avvisade API-nyckeln. Kontrollera den i inställningarna för Jev.",
+    "unavailable": "TypeSafe svarade inte. Försök igen om en stund.",
     "preview_over_budget": "Den dagliga budgeten för token är slut, så det finns inget provsvar. Frågan sparas ändå.",
     "preview_nothing_yet": "Inget provsvar: det finns inget att fråga om än."
   },

@@ -12,7 +12,19 @@ if TYPE_CHECKING:
     from . import JevConfigEntry
 
 # async_redact_data matches keys exactly, so every spelling that can appear is listed.
-TO_REDACT = {CONF_API_KEY, "api_key", "apikey", "authorization", "key"}
+TO_REDACT = {
+    CONF_API_KEY,
+    "api_key",
+    "apikey",
+    "authorization",
+    "key",
+    "token",
+    "access_token",
+}
+# What a person said to the house, and where the house is. The state builder already
+# keeps these attributes out of what it sends, so this covers a template that renders
+# them anyway.
+PRIVATE = {"text", "entity_picture", "latitude", "longitude", "gps_accuracy"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -34,10 +46,11 @@ async def async_get_config_entry_diagnostics(
             "budget_exceeded": usage.budget_exceeded,
             "estimated_cost_usd": round(usage.estimated_cost, 6),
         },
-        # The sentences the conversation agent routed, and what it made of each
-        # one. These are what was actually said to the house, so read a diagnostics
-        # file before pasting it into a public issue.
-        "conversation_traces": list(runtime.conversation_traces),
+        # What the conversation agent made of each sentence. The sentence itself is
+        # redacted, because users paste this file into public issues.
+        "conversation_traces": [
+            async_redact_data(trace, PRIVATE) for trace in runtime.conversation_traces
+        ],
         "contexts": [
             {
                 "name": coordinator.context_config.name,
@@ -47,7 +60,9 @@ async def async_get_config_entry_diagnostics(
                 "last_latency_ms": coordinator.last_latency_ms,
                 # The rendered state is the first thing to look at when an answer
                 # surprises someone, so it belongs here rather than in an attribute.
-                "last_evaluated_state": coordinator.last_state_text,
+                "last_evaluated_state": async_redact_data(
+                    coordinator.last_state_text, TO_REDACT | PRIVATE
+                ),
                 "questions": [
                     {
                         "key": question.key,

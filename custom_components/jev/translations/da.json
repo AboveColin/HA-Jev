@@ -347,6 +347,9 @@
     "preview_mismatched": "API'en svarede, men ikke på det spørgsmål, der blev stillet.",
     "preview_template_error": "Skabelonen kan ikke gengives: {reason}",
     "query_not_found": "Det kunne jeg ikke finde.",
+    "budget_spent": "Det daglige tokenbudget er brugt, så det kan jeg ikke gøre i dag.",
+    "auth_failed": "TypeSafe afviste API-nøglen. Tjek den i indstillingerne for Jev.",
+    "unavailable": "TypeSafe svarede ikke. Prøv igen om et øjeblik.",
     "preview_over_budget": "Det daglige token-budget er brugt op, så der er intet prøvesvar. Spørgsmålet bliver gemt alligevel.",
     "preview_nothing_yet": "Intet prøvesvar: der er endnu intet at spørge om."
   },

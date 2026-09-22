@@ -347,6 +347,9 @@
     "preview_mismatched": "API 作出了回答，但回答的不是所提的那个问题。",
     "preview_template_error": "模板无法渲染：{reason}",
     "query_not_found": "我找不到那个。",
+    "budget_spent": "今天的令牌预算已用完，所以今天无法执行。",
+    "auth_failed": "TypeSafe 拒绝了 API 密钥。请在 Jev 设置中检查。",
+    "unavailable": "TypeSafe 没有响应。请稍后再试。",
     "preview_over_budget": "每日令牌预算已用完，因此没有试答结果。问题仍会保存。",
     "preview_nothing_yet": "没有试答结果：目前还没有可提问的内容。"
   },

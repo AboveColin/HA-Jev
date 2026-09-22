@@ -72,6 +72,9 @@ _FALLBACK = {
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
     "query_not_found": "I could not find that.",
+    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
+    "unavailable": "TypeSafe did not answer. Try again in a moment.",
 }
 
 PARALLEL_UPDATES = 0
@@ -126,7 +129,15 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         agent = self._entry.options.get(CONF_FALLBACK_AGENT)
         # Pointing the fallback at this entity would recurse until something gave
         # way. Refusing it here is cheaper than detecting the loop later.
-        if agent in (None, "", self.entity_id):
+        if not agent or agent == self.entity_id:
+            return None
+        # Another Jev agent is the same loop one step removed: two entries that fall
+        # back to each other pass the sentence between them and pay each time.
+        registered = er.async_get(self.hass).async_get(agent)
+        entry = self.hass.config_entries.async_get_entry(agent)
+        if (registered and registered.platform == DOMAIN) or (
+            entry and entry.domain == DOMAIN
+        ):
             return None
         return str(agent)
 
@@ -147,7 +158,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         # mishears a wake word all night is exactly the runaway it exists to stop.
         runtime.usage.roll_over(date.today())
         if runtime.usage.would_exceed():
-            return await self._fall_back(user_input, "the daily token budget is spent")
+            return await self._fall_back(
+                user_input, "the daily token budget is spent", "budget_spent"
+            )
 
         snapshot = async_snapshot(self.hass, MAX_CONVERSATION_ENTITIES)
         if not snapshot.entities:
@@ -160,10 +173,14 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             response = await runtime.client.ask(state, questions)
         except JevAuthError as err:
             _LOGGER.error("TypeSafe rejected the API key: %s", err)
-            return await self._fall_back(user_input, "the API key was rejected")
+            return await self._fall_back(
+                user_input, "the API key was rejected", "auth_failed"
+            )
         except JevError as err:
             _LOGGER.warning("TypeSafe did not answer: %s", err)
-            return await self._fall_back(user_input, f"TypeSafe did not answer: {err}")
+            return await self._fall_back(
+                user_input, f"TypeSafe did not answer: {err}", "unavailable"
+            )
 
         runtime.usage.record(response.usage.input_tokens)
         runtime.model_version = response.model or runtime.model_version
@@ -223,12 +240,12 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
             return await self._speak(user_input, "intent_failed")
 
-        await _speak_the_answer(
-            self.hass,
-            intent_response,
-            user_input.language or self.hass.config.language,
-            await self._lines(user_input.language or self.hass.config.language),
-        )
+        # Only a state question needs our lines, and loading them reads translations.
+        if intent_response.response_type is ha_intent.IntentResponseType.QUERY_ANSWER:
+            language = user_input.language or self.hass.config.language
+            await _speak_the_answer(
+                self.hass, intent_response, language, await self._lines(language)
+            )
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
         )
@@ -236,13 +253,20 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
     # --- the two ways out ---
 
     async def _fall_back(
-        self, user_input: conversation.ConversationInput, why: str
+        self,
+        user_input: conversation.ConversationInput,
+        why: str,
+        line: str = "not_understood",
     ) -> conversation.ConversationResult:
-        """Hand the whole sentence to the configured agent, having done nothing."""
+        """Hand the whole sentence to the configured agent, having done nothing.
+
+        With no agent to hand it to, say why, so a spent budget or a rejected key
+        is not heard as a sentence the model failed to understand.
+        """
         agent = self._fallback_agent
         _LOGGER.debug("falling back to %s because %s", agent or "nobody", why)
         if agent is None:
-            return await self._speak(user_input, "not_understood")
+            return await self._speak(user_input, line)
         result = await conversation.async_converse(
             self.hass,
             user_input.text,

@@ -43,12 +43,9 @@ See [writing a question that works](writing-questions.md).
 diagnostics**.
 
 It contains the last evaluated state for every question, the usage account, and the
-last 20 conversation traces. The API key is redacted, and a test asserts it never
-appears.
-
-!!! warning
-    The conversation traces are sentences actually spoken in your house. Read the
-    file before pasting it into a public issue.
+last 20 conversation decisions. The API key, the spoken sentences, access tokens,
+entity pictures and coordinates are redacted, and tests assert it. Entity names and
+states stay in, so read the file before pasting it into a public issue.
 
 ## Reporting something
 

@@ -244,7 +244,8 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         )
         self.context_config = context
         self.runtime = runtime
-        self.last_state_text: str | None = None
+        # A template can render text, a selector renders records.
+        self.last_state_text: Any = None
         self.last_latency_ms: float | None = None
         self.last_payload_bytes: int | None = None
         # Log once when it goes away and once when it comes back. A context that

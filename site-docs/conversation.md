@@ -34,6 +34,13 @@ automate a lock with Jev, ask for it explicitly with `jev.choice` and call
 `lock.lock` yourself, as [example 13](https://github.com/AboveColin/HA-Jev/blob/main/examples/13_voice_commands.yaml)
 does.
 
+Covers with the `garage`, `gate` or `door` device class are left out for the same
+reason. Blinds, shades and curtains stay in.
+
+A room command always carries the kinds of device the model was shown. Home
+Assistant otherwise acts on every exposed entity in the room, so "turn off the
+hallway" would reach a lock exposed there and unlock it.
+
 ## What it refuses
 
 | Case | What happens |
@@ -41,9 +48,11 @@ does.
 | Below the confidence floor | The whole sentence goes to the fallback agent, nothing done first |
 | Two commands in one sentence | Fallback |
 | Needs words written or looked up | Fallback |
-| A lock, whatever the sentence | Fallback. The agent never describes one |
+| A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
-| No room and no device named | Refused, unless you allow it. `turn_off` is exempt |
+| No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
+| Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
+| A spent budget, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was |
 
 !!! info "It only sees what Assist sees"
     The agent describes only entities you exposed to Assist. You already decided
@@ -73,6 +82,11 @@ The percent word is read in every language the integration is translated into, s
 `40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`, `40 procent`,
 `40 процентов` and `百分之40` all give 40. A bare number needs a word about light
 level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
+With several numbers, the last one is the level: `dim bedroom 2 to 30` gives 30.
+
+A relative change gives no brightness, so `20% brighter` and `dim it by 20` go to the
+fallback agent rather than setting 20. A number over 100 or with a decimal point is
+not a percentage.
 
 ## A command that is already done
 
@@ -94,7 +108,7 @@ the top option against the current state and answers **"Desk lamp is already on"
 
 | Option | Default | What it does |
 |---|---|---|
-| Fall back to this agent | none | Where unrouted sentences go. Empty means it says it did not understand |
+| Fall back to this agent | none | Where unrouted sentences go. Empty means it says why it did nothing. Another Jev agent is refused, because two agents falling back to each other would pay for every pass |
 | Act only above this confidence | 0.6 | Below it, the sentence goes to the fallback |
 | Allow whole-house commands | off | Turning everything off is always allowed |
 
@@ -104,9 +118,6 @@ only sees what Jev could not route, which is the cheap arrangement.
 
 ## Diagnostics
 
-The last 20 sentences the agent routed are in the integration's diagnostics, with the
-reason for every decision and the action distribution behind it.
-
-!!! warning
-    Those are the sentences actually spoken in your house. Read the file before
-    pasting it into a public issue.
+The last 20 decisions the agent made are in the integration's diagnostics, with the
+reason for every decision and the action distribution behind it. The sentence itself
+is redacted, because the file is meant to be pasted into an issue.

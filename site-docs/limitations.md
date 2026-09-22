@@ -58,7 +58,8 @@ sentence has already failed.
 On, off, toggle, brightness and state questions. Locks, climate setpoints, anything
 needing words written and anything phrased as two commands go to the fallback agent.
 Locks are refused on purpose: Home Assistant reads turn_on on a lock as `lock.lock`,
-which is the opposite way round from the spoken command.
+which is the opposite way round from the spoken command. Garage, gate and door covers
+are refused for the same reason.
 
 ## It is not a core integration
 

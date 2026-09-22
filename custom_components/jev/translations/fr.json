@@ -347,6 +347,9 @@
     "preview_mismatched": "L'API a répondu, mais pas à la question qui a été posée.",
     "preview_template_error": "Le rendu du modèle échoue : {reason}",
     "query_not_found": "Je n'ai pas trouvé cela.",
+    "budget_spent": "Le budget quotidien de jetons est épuisé, je ne peux donc pas le faire aujourd'hui.",
+    "auth_failed": "TypeSafe a refusé la clé API. Vérifiez-la dans les paramètres de Jev.",
+    "unavailable": "TypeSafe n'a pas répondu. Réessayez dans un instant.",
     "preview_over_budget": "Le budget quotidien de jetons est épuisé, il n'y a donc pas de réponse d'essai. La question est quand même enregistrée.",
     "preview_nothing_yet": "Pas de réponse d'essai : il n'y a encore rien sur quoi poser la question."
   },

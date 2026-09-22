@@ -347,6 +347,9 @@
     "preview_mismatched": "La API ha respondido, pero no a la pregunta que se le hizo.",
     "preview_template_error": "La plantilla no se procesa: {reason}",
     "query_not_found": "No he podido encontrarlo.",
+    "budget_spent": "El presupuesto diario de tokens se ha agotado, así que hoy no puedo hacerlo.",
+    "auth_failed": "TypeSafe rechazó la clave de API. Revísala en los ajustes de Jev.",
+    "unavailable": "TypeSafe no respondió. Inténtalo de nuevo en un momento.",
     "preview_over_budget": "El presupuesto diario de tokens está agotado, así que no hay respuesta de prueba. La pregunta sí se guarda.",
     "preview_nothing_yet": "Sin respuesta de prueba: todavía no hay nada sobre lo que preguntar."
   },

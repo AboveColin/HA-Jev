@@ -32,6 +32,12 @@ from .const import DOMAIN, MAX_TARGET_ENTITIES
 # forecast or a media player's picture is thousands of tokens of noise, and the
 # caller pays for every one of them.
 _ALWAYS = (ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT)
+# Left out even when every attribute is asked for. A camera's access token is a live
+# credential, an entity picture URL often carries one, and a location is where the
+# person is. None of them helps Jev judge a state, and all of them are billed.
+_NEVER = frozenset(
+    {"access_token", "entity_picture", "latitude", "longitude", "gps_accuracy"}
+)
 
 
 @callback
@@ -85,7 +91,7 @@ def _describe(
         record["attributes"] = {
             k: v
             for k, v in state.attributes.items()
-            if k not in (ATTR_FRIENDLY_NAME, *_ALWAYS)
+            if k not in (ATTR_FRIENDLY_NAME, *_ALWAYS) and k not in _NEVER
         }
     return record
 

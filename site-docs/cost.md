@@ -40,7 +40,8 @@ For a large target, the **entities** dominate. At 150 entities you are paying
 roughly 110 tokens per entity per call.
 
 `include_attributes` sends every attribute as well. A weather forecast runs to
-thousands of tokens on every evaluation, which is why it is off by default.
+thousands of tokens on every evaluation, which is why it is off by default. Access
+tokens, entity pictures and coordinates are never sent, even with it on.
 
 ## The budget is a tripwire
 
