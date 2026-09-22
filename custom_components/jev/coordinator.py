@@ -314,9 +314,9 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
 
         @callback
         def _changed(_event: Any) -> None:
-            # No entity is listening when every one of them is disabled, and an
-            # answer nobody reads is still billed.
-            if not self._listeners:
+            # An answer nobody reads is still billed. The registry says so, not the
+            # listeners: at boot a target can appear before the entities are added.
+            if self.nobody_reads():
                 return
             self.hass.async_create_task(debouncer.async_call())
 

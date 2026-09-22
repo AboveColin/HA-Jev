@@ -1,12 +1,19 @@
 """Questions added in the UI, and the call grouping derived from them."""
 
+from datetime import timedelta
+from unittest.mock import patch
+
 import pytest
 from homeassistant.config_entries import ConfigSubentry, ConfigSubentryData
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from jevclient import Choice, ChoiceAnswer, NoulAnswer, Score, ScoreAnswer
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.jev.const import DOMAIN, SUBENTRY_QUESTION
 from custom_components.jev.subentry import parse_levels, parse_options
@@ -858,3 +865,42 @@ async def test_a_context_sensor_under_an_old_id_is_removed(hass, mock_client, en
 
     assert registry.async_get(old.entity_id) is None
     assert registry.async_get("sensor.jev_first") is not None
+
+
+async def test_a_target_created_while_the_platforms_load_wakes_the_question(
+    hass, mock_client, entry_with
+):
+    """At boot another integration can create the target during Jev's setup.
+
+    The first evaluation has found nothing to judge, the answer sensors are not
+    added yet, and a target that changes once an hour stayed unavailable for that
+    hour because its creation woke nobody.
+    """
+    entry = entry_with(
+        question(
+            "Gas unusual", target={"entity_id": ["sensor.gas_price"]}, scan_interval=3600
+        )
+    )
+    forward = hass.config_entries.async_forward_entry_setups
+
+    async def forward_after_the_target_appears(*args):
+        hass.states.async_set("sensor.gas_price", "0.31")
+        await forward(*args)
+
+    entry.add_to_hass(hass)
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        forward_after_the_target_appears,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    coordinator = next(iter(entry.runtime_data.coordinators.values()))
+    assert not coordinator.last_update_success
+    key = coordinator.context_config.questions[0].key
+    mock_client.ask.return_value = build_response(**{key: NoulAnswer(noul=0.2)})
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=40))
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.jev_gas_unusual").state == "0.2"
