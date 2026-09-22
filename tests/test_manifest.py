@@ -1,10 +1,12 @@
 """The manifest is what users install from, so its claims have to hold."""
 
+import importlib
 import json
 import pathlib
 import re
 
 import jevclient
+import pytest
 
 ROOT = pathlib.Path(__file__).parent.parent
 MANIFEST = json.loads((ROOT / "custom_components/jev/manifest.json").read_text())
@@ -42,26 +44,34 @@ def test_the_version_is_a_release_version():
     assert re.fullmatch(r"\d+\.\d+\.\d+", MANIFEST["version"])
 
 
-def test_the_conversation_requirements_match_what_home_assistant_pins():
-    """The conversation component brings its own dependencies, and CI gets none of them.
+# Every core component this integration's platforms import at module level. Each
+# brings its own pins, and a test environment installs requirements-test.txt and
+# nothing else, so those pins have to be copied there by hand.
+#
+# camera is on the list because ai_task/task.py imports it at module level, even
+# though the ai_task manifest only lists it under after_dependencies. Its PyTurboJPEG
+# pin is what every entry-setup test fails on when it is missing.
+IMPORTED_COMPONENTS = ["conversation", "camera"]
 
-    A test environment installs what requirements-test.txt asks for and nothing
-    else, so the conversation component's own pins have to be copied there by hand.
-    This caught it the expensive way once: the local venv had them installed
+
+@pytest.mark.parametrize("component", IMPORTED_COMPONENTS)
+def test_the_component_requirements_match_what_home_assistant_pins(component):
+    """A component brings its own dependencies, and CI gets none of them.
+
+    This caught it the expensive way once: the local venv had hassil installed
     ad hoc, CI did not, and the whole test module failed to import with
-    ModuleNotFoundError: No module named 'hassil'.
+    ModuleNotFoundError: No module named 'hassil'. It happened a second time with
+    turbojpeg when the AI Task platform was added.
 
     Pinning the same versions Home Assistant pins means the suite runs against what
-    a user runs. This asserts the two lists have not drifted apart.
+    a user runs. This asserts the two lists have not drifted apart, and it fails here
+    rather than in every other module.
     """
-    import homeassistant.components.conversation as conversation_component
-
+    module = importlib.import_module(f"homeassistant.components.{component}")
     component_manifest = json.loads(
-        (
-            pathlib.Path(conversation_component.__file__).parent / "manifest.json"
-        ).read_text()
+        (pathlib.Path(module.__file__).parent / "manifest.json").read_text()
     )
-    required = set(component_manifest["requirements"])
+    required = set(component_manifest.get("requirements", []))
     ours = {
         line.strip()
         for line in (ROOT / "requirements-test.txt").read_text().splitlines()
@@ -69,6 +79,6 @@ def test_the_conversation_requirements_match_what_home_assistant_pins():
     }
     missing = required - ours
     assert not missing, (
-        f"requirements-test.txt is missing {sorted(missing)}, which the conversation "
-        f"component pins. CI will fail to import the conversation platform."
+        f"requirements-test.txt is missing {sorted(missing)}, which the {component} "
+        f"component pins. CI will fail to import the platform that uses it."
     )

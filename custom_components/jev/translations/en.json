@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
+      "not_found": "The server answered HTTP 404. Jev adds /v1/systemone to the address, so give only the part before that. For OpenRouter that is https://openrouter.ai/api.",
       "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
       "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default.",
       "key_required": "The TypeSafe API needs a key. An empty key only works with an address of your own that needs none."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev stopped evaluating: daily budget reached",
-      "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. Answers keep their last value until tomorrow. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+      "description": "The daily budget is {budget} input tokens, {used} have been used today, and the next evaluation does not fit in what is left, so no further questions are being asked. The answer sensors go unavailable until a call fits again. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "{context} latency"
+      },
+      "context_payload": {
+        "name": "{context} payload"
       }
     },
     "binary_sensor": {

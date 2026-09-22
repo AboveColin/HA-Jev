@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe 拒绝了此密钥。",
       "cannot_connect": "Home Assistant 无法通过该地址访问 API。",
+      "not_found": "服务器返回 HTTP 404。Jev 会在地址后面加上 /v1/systemone，因此只填写它前面的部分。OpenRouter 的地址是 https://openrouter.ai/api。",
       "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
       "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。",
       "key_required": "TypeSafe API 需要密钥。仅当地址指向自己的、无需密钥的端点时，才能留空。"
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev 已停止评估：已达每日预算",
-      "description": "每日预算为 {budget} 个输入令牌，今天已用掉 {used} 个，因此不再发出问题。回答会保持上一次的值直到明天。请在集成选项中提高预算、降低上下文的评估频率，或缩短你的问题。"
+      "description": "每日预算为 {budget} 个输入令牌，今天已用掉 {used} 个，下一次评估放不进剩余额度，因此不再发出问题。回答实体会变为不可用，直到下一次评估能放进预算。请在集成选项中提高预算、降低上下文的评估频率，或缩短你的问题。"
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "{context} 延迟"
+      },
+      "context_payload": {
+        "name": "{context} 请求大小"
       }
     },
     "binary_sensor": {

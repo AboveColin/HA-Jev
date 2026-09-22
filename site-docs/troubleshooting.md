@@ -17,6 +17,8 @@ logger:
 | Entities unavailable, budget sensor on | The daily budget stopped evaluation |
 | Entities unavailable, budget sensor off | Look for one line saying TypeSafe is not answering |
 | Setup fails with "TypeSafe did not answer" | Connectivity, not configuration. Home Assistant retries |
+| Setup fails with "The server answered HTTP 404" | The address carries the request path. `/v1/systemone` is added for you |
+| An AI Task is refused before it is sent | Read the message. It names the field and what its selector would have to be |
 | An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
 | Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
 | Voice acts on the wrong device | The names and areas in your entity registry are what the model reads |

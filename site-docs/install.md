@@ -68,6 +68,44 @@ into a diagnostics file, which redacts secrets by name and would not recognise
 those. Clearing the field goes back to
 TypeSafe.
 
+!!! warning "Give the address without the request path"
+    `/v1/systemone` is added for you. An address that already carries it, or one
+    copied out of an API reference, ends up asking for `/v1/systemone/v1/systemone`
+    and the setup fails with "The server answered HTTP 404". That is a host that
+    answered, not a host that could not be reached, and the form says so separately.
+
+### Through OpenRouter
+
+[OpenRouter](https://openrouter.ai) resells the model, so it works as an address here
+with an OpenRouter key.
+
+| Field | Value |
+|---|---|
+| API address | `https://openrouter.ai/api` |
+| API key | your OpenRouter key |
+| Model | `~typesafe/jev-latest` |
+
+The leading `~` is part of the model id. OpenRouter uses it for an id that always
+points at the newest model in a family, the same way `jev-latest` does at TypeSafe.
+
+Not `https://openrouter.ai/api/v1`, and not a path out of the API reference. The
+integration appends `/v1/systemone` to whatever you give it, so the part before that
+is all it wants.
+
+!!! note "The address is verified, the model id is reported"
+    `POST https://openrouter.ai/api/v1/systemone` answers 401 without a key and
+    `.../api/v1/systemone/v1/systemone` answers 404, so the address above is the one
+    that reaches the route. The model id comes from a user who got it working
+    ([#15](https://github.com/AboveColin/HA-Jev/issues/15)) and is not checked here
+    against a paid key. OpenRouter's public model list covers its chat models and
+    does not carry the decision models, so there is nothing to look it up in. If it
+    is refused, the setup flow says which of the key, the address and the model was
+    the problem.
+
+Your OpenRouter spend is not visible from here. The cost sensor multiplies the tokens
+the endpoint reports by the price you set in the options, so put OpenRouter's price
+there rather than TypeSafe's, or read the cost as tokens only.
+
 ## A different model
 
 The model defaults to `jev-latest`, which is what TypeSafe serves. Change it when

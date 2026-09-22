@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe afviste denne nøgle.",
       "cannot_connect": "Home Assistant kunne ikke nå API'en på den adresse.",
+      "not_found": "Serveren svarede HTTP 404. Jev tilføjer /v1/systemone til adressen, så angiv kun delen før det. For OpenRouter er det https://openrouter.ai/api.",
       "invalid_url": "Det er ikke en brugbar API-adresse. Den skal have et skema og en vært, og den må ikke indeholde mellemrum, forespørgsel, fragment, brugernavn eller adgangskode.",
       "invalid_model": "Det model-id blev ikke accepteret. Tjek det, eller lad feltet stå tomt for standardmodellen.",
       "key_required": "TypeSafe-API'et kræver en nøgle. En tom nøgle virker kun med en adresse af dit eget, der ikke kræver en."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev er holdt op med at evaluere: dagligt budget nået",
-      "description": "Det daglige budget er {budget} input-tokens, og der er brugt {used} i dag, så der stilles ikke flere spørgsmål. Svarene beholder deres sidste værdi til i morgen. Hæv budgettet i integrationens indstillinger, evaluér konteksterne sjældnere, eller gør dine spørgsmål kortere."
+      "description": "Det daglige budget er {budget} input-tokens, der er brugt {used} i dag, og den næste evaluering får ikke plads i resten, så der stilles ikke flere spørgsmål. Svar-sensorerne bliver utilgængelige, indtil et kald får plads igen. Hæv budgettet i integrationens indstillinger, evaluér konteksterne sjældnere, eller gør dine spørgsmål kortere."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "{context} svartid"
+      },
+      "context_payload": {
+        "name": "{context} forespørgselsstørrelse"
       }
     },
     "binary_sensor": {

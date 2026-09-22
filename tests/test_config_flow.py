@@ -1,6 +1,7 @@
 """The config flow, which is the one thing every user touches."""
 
 import hashlib
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -77,6 +78,54 @@ async def test_user_flow_errors_recover(hass, mock_client, error, expected):
     mock_client.ask.side_effect = None
     result = await hass.config_entries.flow.async_configure(result["flow_id"], _form())
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+class _NotFound:
+    """A host that answers, and has nothing at the path Jev asks for."""
+
+    status = 404
+    headers: ClassVar[dict[str, str]] = {}
+
+    async def text(self) -> str:
+        return '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}'
+
+    async def json(self, content_type=None):
+        return {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return None
+
+
+class _NotFoundSession:
+    def post(self, url, **kwargs):
+        return _NotFound()
+
+
+async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(hass):
+    """OpenRouter is reached at https://openrouter.ai/api, and the path is added.
+
+    A base URL carrying the request path already, which is what a reader of the
+    published API docs types first, answered "could not reach the API at that
+    address". The host answered perfectly well. This drives the real client so the
+    message it raises is the library's own: a change there fails here.
+    """
+    with patch(
+        "custom_components.jev.config_flow.async_get_clientsession",
+        return_value=_NotFoundSession(),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            _form(url="https://openrouter.ai/api/alpha/decisions"),
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "not_found"}
 
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):

@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from math import ceil
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -34,6 +35,8 @@ from jevclient import (
 )
 
 from .const import (
+    BUDGET_ESTIMATE_MARGIN,
+    COLD_START_BYTES_PER_TOKEN,
     CONVERSATION_TRACE_LENGTH,
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
@@ -42,6 +45,7 @@ from .const import (
     TRIGGER_DEBOUNCE_SECONDS,
 )
 from .models import ContextConfig
+from .payload import payload_bytes
 from .statebuilder import async_build_state
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +69,10 @@ class UsageAccount:
     budget: int = 0
     price_per_million: float = USD_PER_MILLION_INPUT_TOKENS
     budget_exceeded: bool = False
+    # Measured from the last answered call rather than assumed, and deliberately
+    # not persisted: it describes the endpoint, not the day, and the first call
+    # after a restart measures it again.
+    bytes_per_token: float = COLD_START_BYTES_PER_TOKEN
     listeners: list[Any] = field(default_factory=list)
     store: Store[dict[str, Any]] | None = None
     hass: HomeAssistant | None = None
@@ -143,9 +151,11 @@ class UsageAccount:
             self.set_budget_exceeded(False)
             self._save()
 
-    def record(self, input_tokens: int) -> None:
+    def record(self, input_tokens: int, payload_bytes: int | None = None) -> None:
         self.calls += 1
         self.input_tokens += input_tokens
+        if payload_bytes and input_tokens > 0:
+            self.bytes_per_token = payload_bytes / input_tokens
         self._save()
 
     async def async_flush(self) -> None:
@@ -168,7 +178,25 @@ class UsageAccount:
         return self.input_tokens / 1_000_000 * self.price_per_million
 
     def would_exceed(self) -> bool:
+        """Whether the budget is already spent. Reads the day, not a request."""
         return self.budget > 0 and self.input_tokens >= self.budget
+
+    def estimate_tokens(self, request_bytes: int) -> int:
+        """What a request of this size will be billed, over-estimated on purpose."""
+        return ceil(request_bytes / self.bytes_per_token * BUDGET_ESTIMATE_MARGIN)
+
+    def would_exceed_with(self, estimate: int) -> bool:
+        """Whether a request costing `estimate` would end the day over budget.
+
+        This is the check that runs before a call. would_exceed() only says the
+        budget is already gone, which means the run that spent it went through in
+        full: a 100,000 token budget could finish the day at 140,000.
+        """
+        return self.budget > 0 and self.input_tokens + estimate > self.budget
+
+    def remaining(self) -> int:
+        """Input tokens left in the budget today. Zero when there is no budget."""
+        return max(self.budget - self.input_tokens, 0) if self.budget > 0 else 0
 
     @callback
     def notify(self) -> None:
@@ -182,6 +210,10 @@ class JevRuntimeData:
 
     client: JevClient
     usage: UsageAccount
+    # The model id asked for, which the client also holds but does not expose. The
+    # pre-flight size check builds the same body the client posts, and the model is
+    # part of that body.
+    model: str = ""
     coordinators: dict[str, JevCoordinator] = field(default_factory=dict)
     model_version: str | None = None
     # What the conversation agent decided, most recent first. Bounded, because a
@@ -214,6 +246,7 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         self.runtime = runtime
         self.last_state_text: str | None = None
         self.last_latency_ms: float | None = None
+        self.last_payload_bytes: int | None = None
         # Log once when it goes away and once when it comes back. A context that
         # evaluates every 30 s would otherwise write 2,880 identical lines a day
         # during an outage, which buries the one line that mattered.
@@ -271,16 +304,6 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         usage = self.runtime.usage
         usage.roll_over(date.today())
 
-        if usage.would_exceed():
-            self._raise_budget_issue(usage)
-            # Keep the answers already held. Inventing a value here would be worse
-            # than staying still, and clearing them would hide the last real result.
-            raise UpdateFailed(
-                f"daily token budget reached: budget {usage.budget} input tokens, "
-                f"used {usage.input_tokens} today. Raise or clear the budget in the "
-                f"integration options to continue."
-            )
-
         context = self.context_config
         try:
             text = (
@@ -302,6 +325,21 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             raise UpdateFailed(f"context {context.name!r}: {err}") from err
 
         questions = {q.key: q.question for q in self.context_config.questions}
+        request_bytes = payload_bytes(state_text, questions, self.runtime.model)
+        estimate = usage.estimate_tokens(request_bytes)
+        if usage.would_exceed_with(estimate):
+            self._raise_budget_issue(usage, estimate)
+            # The entities go unavailable, which is the honest reading: Jev was
+            # not asked, so there is no answer for right now. The last answers are
+            # still held, and the next refresh that fits the budget replaces them.
+            # Refusing before the request is the point: a call that would not fit
+            # used to be sent, counted, and only then stop the one after it.
+            raise UpdateFailed(
+                f"evaluating context {context.name!r} costs about {estimate} input "
+                f"tokens and {usage.remaining()} of the {usage.budget} daily budget "
+                f"are left. Raise or clear the budget in the integration options to "
+                f"continue."
+            )
         try:
             response = await self.runtime.client.ask(state_text, questions)
         except JevAuthError as err:
@@ -315,10 +353,11 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
         if self._logged_unavailable:
             _LOGGER.info("TypeSafe is answering again, context %r resumed", context.name)
             self._logged_unavailable = False
-        usage.record(response.usage.input_tokens)
+        usage.record(response.usage.input_tokens, request_bytes)
         self.runtime.model_version = response.model or self.runtime.model_version
         self.last_state_text = state_text
         self.last_latency_ms = response.latency_ms
+        self.last_payload_bytes = request_bytes
         usage.notify()
         return response.answers
 
@@ -332,16 +371,18 @@ class JevCoordinator(DataUpdateCoordinator[dict[str, Answer]]):
             err,
         )
 
-    def _raise_budget_issue(self, usage: UsageAccount) -> None:
+    def _raise_budget_issue(self, usage: UsageAccount, estimate: int) -> None:
+        """Say once that evaluations have stopped, and what stopped them."""
         if usage.budget_exceeded:
             return
         _LOGGER.error(
             "Jev stopped evaluating: daily budget is %s input tokens, %s used today, "
-            "and context %r needs another call. Raise the budget in the integration "
+            "and context %r needs about %s more. Raise the budget in the integration "
             "options or reduce how often contexts evaluate.",
             usage.budget,
             usage.input_tokens,
             self.context_config.name,
+            estimate,
         )
         usage.set_budget_exceeded(True, used=usage.input_tokens)
         usage.notify()

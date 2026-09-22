@@ -12,6 +12,9 @@
       },
       "context_latency": {
         "default": "mdi:timer-outline"
+      },
+      "context_payload": {
+        "default": "mdi:package-variant-closed"
       }
     },
     "binary_sensor": {

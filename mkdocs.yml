@@ -80,6 +80,7 @@ nav:
       - Writing a question that works: writing-questions.md
   - In automations:
       - Actions: actions.md
+      - AI Task: ai-task.md
       - Examples: examples.md
   - Voice:
       - Conversation agent: conversation.md

@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe odrzucił ten klucz.",
       "cannot_connect": "Home Assistant nie może połączyć się z API pod tym adresem.",
+      "not_found": "Serwer odpowiedział HTTP 404. Jev dodaje /v1/systemone do adresu, więc podaj tylko część przed nim. Dla OpenRouter jest to https://openrouter.ai/api.",
       "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła.",
       "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego.",
       "key_required": "API TypeSafe wymaga klucza. Pusty klucz działa tylko z własnym adresem, który go nie wymaga."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev przestał oceniać: osiągnięto dzienny limit",
-      "description": "Dzienny limit to {budget} tokenów wejściowych, a dziś zużyto {used}, więc kolejne pytania nie są zadawane. Odpowiedzi zachowują ostatnią wartość do jutra. Zwiększ limit w opcjach integracji, oceniaj konteksty rzadziej albo skróć pytania."
+      "description": "Dzienny limit to {budget} tokenów wejściowych, dziś zużyto {used}, a kolejna ocena nie mieści się w tym, co zostało, więc kolejne pytania nie są zadawane. Czujniki odpowiedzi stają się niedostępne, dopóki kolejne zapytanie znów się nie zmieści. Zwiększ limit w opcjach integracji, oceniaj konteksty rzadziej albo skróć pytania."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "Opóźnienie {context}"
+      },
+      "context_payload": {
+        "name": "Rozmiar zapytania {context}"
       }
     },
     "binary_sensor": {

@@ -17,3 +17,12 @@ jevclient==1.2.0
 gazetteer-matcher==1.1.0
 hassil==3.12.0
 home-assistant-intents==2026.8.28
+
+# The AI Task platform's chain. ai_task/task.py imports the camera component at
+# module level, and camera pins this. Without it every test that sets up an entry
+# fails at platform import with ModuleNotFoundError: No module named 'turbojpeg'.
+# The import alone needs no libturbojpeg on the machine: PyTurboJPEG looks for the
+# shared library when a TurboJPEG object is built, which nothing here does.
+# tests/test_manifest.py imports the chain, so a new pin in a later Home Assistant
+# fails there rather than in every other module.
+PyTurboJPEG==1.8.3

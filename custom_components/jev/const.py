@@ -44,6 +44,24 @@ MIN_UPDATE_INTERVAL_SECONDS: Final = 30
 DEFAULT_SCAN_INTERVAL_SECONDS: Final = 300
 TRIGGER_DEBOUNCE_SECONDS: Final = 5.0
 
+# What the pre-flight budget check divides payload bytes by before any call of its
+# own has measured the real ratio. This one is derived rather than measured end to
+# end: the five-entity conversation payload in site-docs/measurements.md is 3,142
+# bytes and measured 1,329 to 1,371 input tokens live, which is 2.29 to 2.36 bytes
+# per token. The low end is the one that over-estimates the cost.
+#
+# Every answered call replaces it with the ratio that endpoint actually reported,
+# so an endpoint with another tokeniser calibrates this in one request. A hardcoded
+# divisor would be a landmine the day someone points the entry at OpenRouter or at
+# a gateway of their own.
+COLD_START_BYTES_PER_TOKEN: Final = 2.29
+
+# The estimate is a tripwire, not an accounting figure. Sixteen live commands on one
+# payload shape varied by 3% (site-docs/measurements.md), so 20% sits well past any
+# real variation. Being 20% high refuses the last run of the day early; being low
+# lets a run finish over the budget, which is the failure the check exists to stop.
+BUDGET_ESTIMATE_MARGIN: Final = 1.2
+
 # Issue raised when the daily token budget stops evaluations.
 ISSUE_BUDGET_EXCEEDED: Final = "daily_budget_exceeded"
 

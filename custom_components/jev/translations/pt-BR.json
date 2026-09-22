@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "O TypeSafe rejeitou esta chave.",
       "cannot_connect": "O Home Assistant não conseguiu acessar a API nesse endereço.",
+      "not_found": "O servidor respondeu HTTP 404. O Jev acrescenta /v1/systemone ao endereço, então informe apenas a parte anterior. Para o OpenRouter isso é https://openrouter.ai/api.",
       "invalid_url": "Esse não é um endereço de API utilizável. Ele precisa de um esquema e de um host, e não pode conter espaço, consulta, fragmento, nome de usuário ou senha.",
       "invalid_model": "Esse id de modelo não foi aceito. Verifique, ou deixe o campo vazio para usar o padrão.",
       "key_required": "A API da TypeSafe precisa de uma chave. Uma chave vazia só funciona com um endereço seu que não precise de nenhuma."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "O Jev parou de avaliar: orçamento diário atingido",
-      "description": "O orçamento diário é de {budget} tokens de entrada e {used} já foram usados hoje, então nenhuma outra pergunta está sendo feita. As respostas mantêm o último valor até amanhã. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
+      "description": "O orçamento diário é de {budget} tokens de entrada, {used} já foram usados hoje e a próxima avaliação não cabe no que resta, então nenhuma outra pergunta está sendo feita. Os sensores de resposta ficam indisponíveis até que uma chamada caiba de novo. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "Latência de {context}"
+      },
+      "context_payload": {
+        "name": "Tamanho da requisição de {context}"
       }
     },
     "binary_sensor": {

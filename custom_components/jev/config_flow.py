@@ -31,6 +31,7 @@ from jevclient import (
     JevAuthError,
     JevClient,
     JevError,
+    JevResponseError,
     JevValidationError,
     Noul,
 )
@@ -197,6 +198,16 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             # The probe's question is fixed, so the model id is the only part of
             # this request a typo can reach.
             return "invalid_model"
+        except JevResponseError as err:
+            # A 404 means the host answered and has nothing on that path, which
+            # "could not reach the API" describes wrongly. It is what an address
+            # carrying the request path already, or a gateway mounted elsewhere,
+            # comes back as. jevclient does not expose the status, only its own
+            # message, so tests/test_config_flow.py drives a real JevClient
+            # against a 404 body: a message change fails there, not in the field.
+            if str(err).startswith("HTTP 404"):
+                return "not_found"
+            return "cannot_connect"
         except JevError:
             return "cannot_connect"
         return None

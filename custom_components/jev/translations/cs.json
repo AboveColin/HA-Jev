@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe tento klíč odmítl.",
       "cannot_connect": "Home Assistant nedokázal na této adrese kontaktovat API.",
+      "not_found": "Server odpověděl HTTP 404. Jev k adrese připojuje /v1/systemone, zadejte tedy jen část před tím. Pro OpenRouter je to https://openrouter.ai/api.",
       "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
       "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí.",
       "key_required": "API TypeSafe vyžaduje klíč. Prázdný klíč funguje jen u vlastní adresy, která žádný nevyžaduje."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev přestal vyhodnocovat: dosažen denní rozpočet",
-      "description": "Denní rozpočet je {budget} vstupních tokenů a dnes jich bylo spotřebováno {used}, takže se další otázky nekladou. Odpovědi si do zítřka podrží svou poslední hodnotu. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
+      "description": "Denní rozpočet je {budget} vstupních tokenů, dnes jich bylo spotřebováno {used} a další vyhodnocení se do zbytku nevejde, takže se další otázky nekladou. Senzory s odpověďmi budou nedostupné, dokud se nějaký dotaz znovu nevejde. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "Latence {context}"
+      },
+      "context_payload": {
+        "name": "Velikost dotazu {context}"
       }
     },
     "binary_sensor": {

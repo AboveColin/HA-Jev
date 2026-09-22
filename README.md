@@ -26,12 +26,15 @@ Not affiliated with TypeSafe. The API client is
   or in `configuration.yaml`, or both.
 - Four actions answer inside an automation and return a response variable:
   `jev.noul`, `jev.choice`, `jev.score` and `jev.ask`.
+- An AI Task entity, so `ai_task.generate_data` can ask Jev and act on the answer in
+  the same step. A boolean, select or number field becomes the matching question.
 - Point a question at entities, devices, areas, floors or labels in the normal
   picker and the state is built for you, so no template is needed.
 - A conversation agent for Assist, so spoken commands are routed by the same model
   and counted against the same budget.
 - Reports what it spends: calls, input tokens and estimated cost per day, plus a
-  daily token budget that halts evaluation when it trips.
+  daily token budget. A request that would not fit in what is left is refused before
+  it is sent, not counted afterwards.
 - Fifteen worked [examples](examples/), four of them pairing Jev with an LLM.
 
 ```yaml
@@ -107,6 +110,19 @@ The key is sent as a bearer header. Over `http` that puts it on the wire in clea
 where anything on the same network can read it, so the log says so once per setup
 unless the address is loopback. Leaving the field empty goes back to TypeSafe.
 
+Give the address without the request path. An address that already carries
+`/v1/systemone` ends up asking for it twice and setup fails with "The server answered
+HTTP 404", which the form reports separately from a host it could not reach.
+
+**Through OpenRouter.** `https://openrouter.ai/api` as the address, your OpenRouter
+key, and `~typesafe/jev-latest` as the model. The leading `~` is part of the id;
+OpenRouter uses it for an id that always points at the newest model in a family.
+`POST https://openrouter.ai/api/v1/systemone` answers 401 without a key, so that
+address reaches the route; the model id is [reported by a
+user](https://github.com/AboveColin/HA-Jev/issues/15) and is not verified here
+against a paid key. Set the price per million to OpenRouter's, or read the cost
+sensor as tokens only.
+
 ### Actions
 
 ```yaml
@@ -154,6 +170,46 @@ automation names its entities on purpose, so the Assist exposure list is not
 consulted here. It is consulted for the conversation agent below. Watch that with
 `include_attributes: true` on a `device_tracker`, which puts coordinates in the
 request.
+
+### AI Task
+
+`ai_task.jev` answers a structured task at the moment it is called, which is what a
+script wants: a question subentry lands in a sensor on a schedule, and inside a script
+that sensor can still hold the answer from before the change that started it.
+
+```yaml
+- action: ai_task.generate_data
+  response_variable: triage
+  data:
+    task_name: doorbell triage
+    entity_id: ai_task.jev
+    instructions: "{{ states('sensor.intercom_transcript') }}"
+    structure:
+      caller:
+        description: Who is at the door?
+        selector:
+          select:
+            options: [delivery, visitor, cold caller]
+      urgency:
+        description: How urgently does somebody need to go, 0 not at all and 10 immediately?
+        selector:
+          number: { min: 0, max: 10, step: 1 }
+```
+
+| Field selector | Question | What lands in `data` |
+|---|---|---|
+| `boolean` | a noul | `true` at probability 0.5 or above |
+| `select`, 2 to 255 options | a choice | the option value you wrote |
+| `number` with `min` and `max` | a score | a number on your own scale |
+
+The field's `description:` is the question. Any other selector, a number missing an
+end of its scale, a task with no structure at all, and a request that would not fit
+the daily budget are refused before anything is sent, each naming what to change.
+
+`generate_data` returns the fields and nothing else, so the confidence behind each one
+comes back under `data.jev`: `jev.answers.<field>.confidence`, the full distribution,
+and `nearest_level` for a number. A field of your own named `jev` is refused rather
+than overwritten. Full page: [AI Task](https://jev.cdevries.dev/ai-task/).
 
 ### Questions
 
@@ -292,7 +348,8 @@ turning everything off, whose worst case is a dark house.
 | [14 conversation agent](examples/14_conversation_agent.yaml) | watching what the agent spends, and routing text Assist never saw |
 
 The LLM examples use `ai_task.generate_data`, so they work with Google Generative AI,
-OpenAI, Anthropic or a local Ollama. The voice command router follows TypeSafe's own
+OpenAI, Anthropic or a local Ollama. Jev now answers that action too, so the same
+automation can be pointed at `ai_task.jev` for the typed half of the work. The voice command router follows TypeSafe's own
 [smart home demo](https://docs.typesafe.ai/demos/smart-home) and builds its device
 options from your entity registry, so the answer is an `entity_id` you can act on.
 
@@ -337,6 +394,7 @@ logger:
 | Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
 | Voice acts on the wrong device | The names and areas in the entity registry are what the model reads |
 | An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
+| Setup fails with "The server answered HTTP 404" | The address carries the request path. `/v1/systemone` is added for you |
 
 ## Contributing
 
@@ -351,7 +409,7 @@ pip install -r requirements-test.txt
 pytest
 ```
 
-204 tests run the integration inside a real Home Assistant with the API client
+345 tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing. `quality_scale.yaml` tracks this against Home
 Assistant's quality scale, and `mypy --strict` runs in CI.
 

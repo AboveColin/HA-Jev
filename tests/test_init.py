@@ -2,11 +2,12 @@
 
 import copy
 import hashlib
+import json
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY, ConfigEntryState
 from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
@@ -100,20 +101,43 @@ async def test_yaml_refuses_the_same_limits_as_the_actions(
     assert not await async_setup_component(hass, DOMAIN, {DOMAIN: [bad]})
 
 
-async def test_the_budget_stops_evaluation_and_says_why(hass, mock_client):
+def _budget_entry(budget: int) -> MockConfigEntry:
     # Built with the budget already set: updating options on a live entry reloads it,
     # which is a different thing to test.
-    entry = MockConfigEntry(
+    return MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
         data={CONF_API_KEY: "test-key-not-a-real-one"},
-        options={CONF_DAILY_TOKEN_BUDGET: 100},
+        options={CONF_DAILY_TOKEN_BUDGET: budget},
         unique_id="budget-entry",
     )
-    await setup_with_context(hass, entry)
 
-    # The first call spends 321 tokens, which is already past the budget of 100.
+
+async def test_a_call_that_does_not_fit_the_budget_is_never_sent(hass, mock_client):
+    """The budget is checked against the estimate, before the request goes out.
+
+    It used to be checked against the day's total alone, which let every call
+    through until one of them had already gone over. A budget of 100 stopped at 321.
+    """
+    await setup_with_context(hass, _budget_entry(100))
+
+    assert hass.states.get("sensor.jev_input_tokens_today").state == "0"
+    assert hass.states.get("sensor.jev_calls_today").state == "0"
+    assert hass.states.get("binary_sensor.jev_daily_budget_exceeded").state == "on"
+    # The setup probe is the only request this entry made, and the coordinator's
+    # first evaluation was refused rather than sent.
+    assert mock_client.ask.await_count == 1
+
+
+async def test_the_budget_stops_the_next_call_and_keeps_what_it_has(hass, mock_client):
+    """One call fits, the one after it does not, and the answers stay put."""
+    mock_client.ask.return_value = build_response(
+        laundry_laundry_forgotten=NoulAnswer(noul=0.81)
+    )
+    await setup_with_context(hass, _budget_entry(400))
+
     assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
+    assert hass.states.get("sensor.jev_laundry_forgotten").state == "0.81"
     calls_before = mock_client.ask.await_count
 
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=310))
@@ -121,10 +145,16 @@ async def test_the_budget_stops_evaluation_and_says_why(hass, mock_client):
 
     assert mock_client.ask.await_count == calls_before, "it kept spending past the budget"
     assert hass.states.get("binary_sensor.jev_daily_budget_exceeded").state == "on"
-    # The answer keeps its last value and the usage entities keep explaining why,
-    # rather than everything going blank at once.
+    # The usage entities keep explaining why, rather than everything going blank.
     assert hass.states.get("sensor.jev_input_tokens_today").state == "321"
     assert hass.states.get("sensor.jev_calls_today").state == "1"
+    # The answer goes unavailable rather than holding a number nothing measured.
+    # The value itself is still in coordinator.data, so raising the budget brings
+    # it back without a call. This is what the repair issue says happens.
+    assert hass.states.get("sensor.jev_laundry_forgotten").state == "unavailable"
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    coordinator = next(iter(entry.runtime_data.coordinators.values()))
+    assert coordinator.data["laundry_laundry_forgotten"].noul == 0.81
 
 
 async def test_usage_survives_a_reload(hass, mock_client, config_entry):
@@ -409,16 +439,106 @@ async def test_the_day_rolls_over_at_midnight(hass, mock_client, config_entry):
     assert usage.budget_exceeded is False
 
 
+async def enable_entity(hass, config_entry, entity_id):
+    """Turn on a diagnostic entity that ships disabled, the way a user would."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    registry.async_update_entity(entity_id, disabled_by=None)
+    # The registry schedules the reload 30 s out rather than doing it now. Let that
+    # one run here, while the client is still answering. Reloading by hand instead
+    # leaves it pending, and it then fires in the middle of whatever the test does
+    # next, which was worth an afternoon.
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    assert config_entry.state is ConfigEntryState.LOADED
+
+
+async def test_the_payload_sensor_carries_the_request_that_was_answered(
+    hass, mock_client, config_entry
+):
+    """What was sent used to be visible only in the diagnostics download.
+
+    The state is the size because a state is capped at 255 characters and the
+    rendered house state is not.
+    """
+    await setup_with_context(hass, config_entry)
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_payload")
+
+    state = hass.states.get("sensor.jev_laundry_payload")
+    assert state.attributes["unit_of_measurement"] == "B"
+    assert state.attributes["device_class"] == "data_size"
+    entities = state.attributes["evaluated_state"]["entities"]
+    assert [entity["name"] for entity in entities] == ["Washer power"]
+    assert state.attributes["questions"] == {
+        "laundry_laundry_forgotten": {
+            "type": "noul",
+            "instructions": "Is the laundry finished but still in the machine?",
+        }
+    }
+
+    coordinator = next(iter(config_entry.runtime_data.coordinators.values()))
+    assert int(state.state) == coordinator.last_payload_bytes
+    # The same number the budget check divided, so a graph of this sensor is a
+    # graph of what the estimates are made of.
+    assert int(state.state) == len(
+        json.dumps(
+            {
+                "state": coordinator.last_state_text,
+                "model": "jev-latest",
+                "questions": {
+                    "laundry_laundry_forgotten": {
+                        "type": "noul",
+                        "instructions": (
+                            "Is the laundry finished but still in the machine?"
+                        ),
+                    }
+                },
+            }
+        ).encode()
+    )
+
+
+async def test_the_house_state_is_not_written_to_the_recorder(
+    hass, mock_client, config_entry
+):
+    """288 copies of the house state a day, per context, is not a graph.
+
+    _unrecorded_attributes is what keeps the long attributes out of the database
+    while they stay readable in a template and in the developer tools.
+    """
+    from custom_components.jev.sensor import JevPayloadSensor
+
+    assert JevPayloadSensor._unrecorded_attributes == frozenset(
+        {"evaluated_state", "questions"}
+    )
+
+
+async def test_the_payload_sensor_keeps_the_last_request_after_a_failure(
+    hass, mock_client, config_entry
+):
+    """A request that never went out does not overwrite the last one that did."""
+    await setup_with_context(hass, config_entry)
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_payload")
+    sent = hass.states.get("sensor.jev_laundry_payload").state
+
+    mock_client.ask.side_effect = JevError("the endpoint did not answer")
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=310))
+    await hass.async_block_till_done()
+
+    coordinator = next(iter(config_entry.runtime_data.coordinators.values()))
+    assert str(coordinator.last_payload_bytes) == sent
+    # The entity itself goes unavailable, because the number it shows is now old.
+    assert hass.states.get("sensor.jev_laundry_payload").state == "unavailable"
+
+
 async def test_the_latency_sensor_reports_the_last_evaluation(
     hass, mock_client, config_entry
 ):
-    from homeassistant.helpers import entity_registry as er
-
     await setup_with_context(hass, config_entry)
-    registry = er.async_get(hass)
-    registry.async_update_entity("sensor.jev_laundry_latency", disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await enable_entity(hass, config_entry, "sensor.jev_laundry_latency")
     assert hass.states.get("sensor.jev_laundry_latency").state == "274"
 
 

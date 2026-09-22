@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
@@ -19,6 +19,8 @@ from .const import (
     ATTR_LEGEND,
     ATTR_NEAREST_LEVEL,
     ATTR_PROBABILITIES,
+    ATTR_QUESTIONS,
+    ATTR_STATE_TEXT,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
@@ -46,6 +48,7 @@ async def async_setup_entry(
         for question in coordinator.context_config.questions:
             entities.append(JevQuestionSensor(coordinator, entry.entry_id, question))
         entities.append(JevLatencySensor(coordinator, entry.entry_id))
+        entities.append(JevPayloadSensor(coordinator, entry.entry_id))
     entities.extend(
         [
             JevCallsSensor(entry.entry_id, runtime),
@@ -145,6 +148,66 @@ class JevLatencySensor(JevQuestionEntity, SensorEntity):
         if self.coordinator.last_latency_ms is None:
             return None
         return round(self.coordinator.last_latency_ms)
+
+
+class JevPayloadSensor(JevQuestionEntity, SensorEntity):
+    """What this context last sent, and how big it was.
+
+    The rendered state was only in the diagnostics download until now, which means
+    reading it took a file and a text editor. Here it is one attribute, which is
+    what somebody wants when an answer surprises them or when they are deciding
+    whether a target is sending more of the house than they meant to.
+
+    The size is the state because a state is capped at 255 characters and the text
+    is not. The size is also the number worth a graph: it is what the request costs,
+    up to the endpoint's tokeniser.
+    """
+
+    # The recorder would otherwise write a copy of the house state on every
+    # evaluation. A context running every 300 seconds is 288 copies a day, of the
+    # exact text this integration exists to keep an eye on.
+    _unrecorded_attributes = frozenset({ATTR_STATE_TEXT, ATTR_QUESTIONS})
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Off by default, like the latency sensor beside it. The attributes carry the
+    # whole request, and a 150 entity target renders about 17 kB of state, which
+    # every open dashboard would then be pushed on every evaluation. Somebody
+    # auditing what a context sends turns it on; nobody else pays for it.
+    _attr_entity_registry_enabled_default = False
+    _attr_device_class = SensorDeviceClass.DATA_SIZE
+    _attr_native_unit_of_measurement = UnitOfInformation.BYTES
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: JevCoordinator, entry_id: str) -> None:
+        super().__init__(coordinator, entry_id, question_key="")
+        self._attr_translation_key = "context_payload"
+        self._attr_translation_placeholders = {"context": coordinator.context_config.name}
+        self._attr_unique_id = f"{entry_id}_{coordinator.context_config.key}_payload"
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.last_payload_bytes
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """The last request that was answered.
+
+        A failed evaluation leaves the previous one standing, because the
+        coordinator only assigns these after a reply arrives. That is the right
+        behaviour here: the last thing actually sent is what somebody is looking
+        for, not the thing that never went.
+        """
+        return {
+            ATTR_STATE_TEXT: self.coordinator.last_state_text,
+            ATTR_QUESTIONS: {
+                question.key: question.question.as_payload()
+                for question in self.coordinator.context_config.questions
+            },
+        }
 
 
 class JevCallsSensor(JevUsageEntity, SensorEntity):

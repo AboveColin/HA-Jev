@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_API_KEY
+from homeassistant.setup import async_setup_component
 from jevclient import ChoiceAnswer, JevResponse, NoulAnswer, ScoreAnswer, Usage
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -16,6 +17,19 @@ API_KEY = "test-key-not-a-real-one"
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Without this the custom component is never loaded."""
     return
+
+
+@pytest.fixture(autouse=True)
+async def homeassistant_component(hass):
+    """Set up the `homeassistant` component, which a real instance always has.
+
+    The AI Task platform depends on the conversation component, and conversation
+    reads `homeassistant.exposed_entities`. Without this, setting up an entry logs
+    "Setup failed for 'ai_task': Could not setup dependencies: conversation" and the
+    entity is quietly missing from every test, which is the wrong thing to be
+    testing against.
+    """
+    await async_setup_component(hass, "homeassistant", {})
 
 
 def build_response(**answers) -> JevResponse:

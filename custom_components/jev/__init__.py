@@ -72,7 +72,12 @@ from .subentry import async_contexts_from_subentries
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.CONVERSATION, Platform.SENSOR]
+PLATFORMS = [
+    Platform.AI_TASK,
+    Platform.BINARY_SENSOR,
+    Platform.CONVERSATION,
+    Platform.SENSOR,
+]
 
 type JevConfigEntry = ConfigEntry[JevRuntimeData]
 
@@ -342,11 +347,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # An entry that names an endpoint of its own may hold no key at all.
     api_key = entry.data.get(CONF_API_KEY, "")
     _warn_if_key_travels_in_clear(base_url, api_key)
+    model = entry.data.get(CONF_MODEL, DEFAULT_MODEL)
     client = JevClient(
         api_key,
         session=async_get_clientsession(hass),
         base_url=base_url,
-        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        model=model,
     )
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"
@@ -372,7 +378,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # be wrong: the count is restored too, and the probe below can fail, which
     # leaves an exhausted budget with nothing on screen to say so.
     usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
-    runtime = JevRuntimeData(client=client, usage=usage)
+    runtime = JevRuntimeData(client=client, usage=usage, model=model)
     entry.runtime_data = runtime
 
     # Prove the service answers before entities appear. One noul against a two word

@@ -58,6 +58,7 @@
     "error": {
       "invalid_auth": "TypeSafe weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
+      "not_found": "De server antwoordde met HTTP 404. Jev plakt /v1/systemone achter het adres, dus vul alleen het deel daarvoor in. Voor OpenRouter is dat https://openrouter.ai/api.",
       "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
       "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard.",
       "key_required": "De TypeSafe-API heeft een sleutel nodig. Een lege sleutel werkt alleen bij een eigen adres dat er geen nodig heeft."
@@ -86,7 +87,7 @@
   "issues": {
     "daily_budget_exceeded": {
       "title": "Jev is gestopt: daglimiet bereikt",
-      "description": "De daglimiet is {budget} invoertokens en er zijn er vandaag {used} gebruikt, dus er worden geen vragen meer gesteld. Antwoorden houden hun laatste waarde tot morgen. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
+      "description": "De daglimiet is {budget} invoertokens, er zijn er vandaag {used} gebruikt en de volgende evaluatie past niet meer in wat er over is, dus er worden geen vragen meer gesteld. De antwoordsensoren worden onbeschikbaar tot er weer een aanvraag past. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
     }
   },
   "services": {
@@ -228,6 +229,9 @@
       },
       "context_latency": {
         "name": "Reactietijd {context}"
+      },
+      "context_payload": {
+        "name": "Aanvraaggrootte {context}"
       }
     },
     "binary_sensor": {

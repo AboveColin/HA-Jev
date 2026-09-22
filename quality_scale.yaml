@@ -117,17 +117,20 @@ rules:
   entity-device-class: done
   entity-disabled-by-default:
     status: done
-    comment: The per-context latency sensor is diagnostic and off by default.
+    comment: >-
+      The two per-context diagnostic sensors, latency and payload size, are both off
+      by default. The payload sensor's attributes carry the whole rendered state,
+      which every open dashboard would otherwise be pushed on every evaluation.
   entity-translations:
     status: done
     comment: >-
       Every entity the integration names itself uses a translation key, including the
-      per-context latency sensor, whose context name travels as a placeholder. A
-      question sensor is named by the user's own question text, which is theirs to
-      write and cannot be translated by anyone else. The conversation agent takes the
-      device name, which is what every conversation agent in core does, and the six
-      sentences it speaks itself go through the common translation category, so a
-      Dutch pipeline answers in Dutch.
+      per-context latency and payload sensors, whose context name travels as a
+      placeholder. A question sensor is named by the user's own question text, which
+      is theirs to write and cannot be translated by anyone else. The conversation
+      agent and the AI Task entity take the device name, which is what every core
+      provider of either does, and the six sentences the agent speaks itself go
+      through the common translation category, so a Dutch pipeline answers in Dutch.
   exception-translations:
     status: done
     comment: >-
