@@ -810,12 +810,12 @@ async def test_the_shared_budget_warning_is_cleaned_up(hass, mock_client, config
     [
         ("https://gateway.local", False),
         # Loopback never reaches a network, so there is nothing to overhear.
-        ("http://127.0.0.1:8093", False),
-        ("http://localhost:8093", False),
-        ("http://[::1]:8093", False),
-        ("http://gateway.local:8093", True),
+        ("http://127.0.0.1:8080", False),
+        ("http://localhost:8080", False),
+        ("http://[::1]:8080", False),
+        ("http://gateway.local:8080", True),
         # 192.0.2.0/24 is RFC 5737 TEST-NET-1, so this address is nobody's host.
-        ("http://192.0.2.5:8093", True),
+        ("http://192.0.2.5:8080", True),
     ],
 )
 async def test_a_plain_http_endpoint_says_the_key_is_in_clear(
@@ -844,7 +844,7 @@ async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8080"},
         unique_id="0123456789abcdef",
     )
     entry.add_to_hass(hass)
@@ -861,7 +861,7 @@ async def test_system_health_checks_the_endpoint_in_use(hass, mock_client):
         new_callable=MagicMock,
     ) as reach:
         await system_health_info(hass)
-    assert reach.call_args.args[1] == "http://gateway.local:8093"
+    assert reach.call_args.args[1] == "http://gateway.local:8080"
 
 
 async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_client):
@@ -873,7 +873,7 @@ async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_c
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "a-key", CONF_URL: "http://gateway.local:8080"},
         unique_id=hashlib.sha256(b"a-key").hexdigest()[:16],
         minor_version=1,
     )
@@ -881,7 +881,7 @@ async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_c
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.unique_id == entry_unique_id("http://gateway.local:8093", "a-key")
+    assert entry.unique_id == entry_unique_id("http://gateway.local:8080", "a-key")
     assert entry.minor_version == 2
 
 
@@ -906,7 +906,7 @@ async def test_an_endpoint_with_no_key_puts_nothing_in_clear(hass, mock_client, 
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Jev",
-        data={CONF_API_KEY: "", CONF_URL: "http://gateway.local:8093"},
+        data={CONF_API_KEY: "", CONF_URL: "http://gateway.local:8080"},
         unique_id="0123456789abcdef",
     )
     entry.add_to_hass(hass)

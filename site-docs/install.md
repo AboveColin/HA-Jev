@@ -58,8 +58,8 @@ proxy that holds the key once for several clients, caches answers, or meters wha
 spent across more than Home Assistant.
 
 Whatever is behind it has to answer `POST /v1/systemone` the way TypeSafe does. A
-path is kept as a prefix, so `http://gateway.local:8093/jev` is asked at
-`http://gateway.local:8093/jev/v1/systemone`. A query, a fragment, a space, or a username
+path is kept as a prefix, so `http://gateway.local:8080/jev` is asked at
+`http://gateway.local:8080/jev/v1/systemone`. A query, a fragment, a space, or a username
 or password in the address are all refused: the first two cannot survive having that
 path appended, a space is a typo rather than a host, and the last would be written
 into a diagnostics file, which redacts secrets by name and would not recognise

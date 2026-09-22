@@ -337,7 +337,7 @@ async def test_a_swap_onto_another_entrys_key_is_refused(hass, mock_client, conf
     assert config_entry.data[CONF_API_KEY] == API_KEY
 
 
-GATEWAY = "http://gateway.local:8093"
+GATEWAY = "http://gateway.local:8080"
 
 
 async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
@@ -365,9 +365,9 @@ async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
 @pytest.mark.parametrize(
     ("raw", "stored"),
     [
-        ("http://gateway.local:8093/", GATEWAY),
-        ("HTTP://Gateway.Local:8093", GATEWAY),
-        ("  http://gateway.local:8093  ", GATEWAY),
+        ("http://gateway.local:8080/", GATEWAY),
+        ("HTTP://Gateway.Local:8080", GATEWAY),
+        ("  http://gateway.local:8080  ", GATEWAY),
         # A path is a prefix, because the client appends /v1/systemone to it. That is
         # what lets a reverse proxy mount the API somewhere other than the root.
         ("http://gateway.local/jev/", "http://gateway.local/jev"),
@@ -390,7 +390,7 @@ async def test_an_endpoint_is_normalised_before_it_is_stored(
 @pytest.mark.parametrize(
     "raw",
     [
-        "gateway.local:8093",
+        "gateway.local:8080",
         "ftp://gateway.local",
         "http://",
         "http://gateway.local?model=jev-latest",
@@ -437,7 +437,7 @@ async def test_reconfigure_moves_the_endpoint_and_keeps_the_entities(
     # A bad address here is refused the same way it is on the way in, and the entry
     # keeps the endpoint it already had.
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], _form(url="gateway.local:8093")
+        result["flow_id"], _form(url="gateway.local:8080")
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_URL: "invalid_url"}
@@ -678,7 +678,7 @@ async def test_an_empty_key_against_typesafe_is_refused(hass, mock_client):
 
 async def test_two_keyless_endpoints_are_two_entries(hass, mock_client):
     """Hashing the key alone gave every keyless endpoint one id, so only one fitted."""
-    for url in (GATEWAY, "http://192.0.2.5:8093"):
+    for url in (GATEWAY, "http://192.0.2.5:8080"):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
