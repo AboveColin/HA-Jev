@@ -31,7 +31,10 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install -r requirements-test.txt
-      - run: pytest --cov=custom_components.jev --cov-report=term-missing
+      # The floor is the measured total rounded down. config_flow.py is a Bronze
+      # rule on its own, so it is held at 100 separately.
+      - run: pytest --cov=custom_components.jev --cov-report=term-missing --cov-fail-under=96
+      - run: coverage report --include='custom_components/jev/config_flow.py' --fail-under=100
 
   mypy:
     name: mypy --strict

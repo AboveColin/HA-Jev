@@ -1,9 +1,10 @@
 """Questions added in the UI, and the call grouping derived from them."""
 
 import pytest
-from homeassistant.config_entries import ConfigSubentryData
+from homeassistant.config_entries import ConfigSubentry, ConfigSubentryData
 from homeassistant.const import CONF_API_KEY
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from jevclient import Choice, ChoiceAnswer, NoulAnswer, Score, ScoreAnswer
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -289,15 +290,20 @@ async def test_questions_added_in_the_same_second_keep_separate_entities(
     and they collapsed into one before anything reached the API. The trailing
     characters are the random half, so the key has to come from there.
     """
-    entry = entry_with(question("First"), question("Second"), question("Third"))
+    # Fixed ids with one timestamp prefix. Real ULIDs only share it when all three
+    # fall in the same millisecond, and a test that depends on that is flaky.
+    prefix = "01M35664T4"
+    entry = entry_with(
+        *(
+            ConfigSubentryData(**question(name), subentry_id=f"{prefix}{suffix}")
+            for name, suffix in (
+                ("First", "AAAAAAAAAAAAAAAA"),
+                ("Second", "BBBBBBBBBBBBBBBB"),
+                ("Third", "CCCCCCCCCCCCCCCC"),
+            )
+        )
+    )
     await setup(hass, entry)
-
-    # Deliberately checked rather than hoped for: these are ULIDs, so three
-    # subentries created together share their timestamp prefix. The key is built
-    # from the whole id now, but the collision this guards against is real and
-    # the test has to reproduce it to mean anything.
-    prefixes = {s.subentry_id[:10] for s in entry.subentries.values()}
-    assert len(prefixes) == 1, "the prefixes did not collide, so this proves nothing"
 
     [context] = entry.runtime_data.coordinators.values()
     keys = [q.key for q in context.context_config.questions]
@@ -744,3 +750,82 @@ async def test_the_preview_does_not_spend_past_the_budget(hass, mock_client, ent
     # Saving still works. The preview is a convenience, not a gate.
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_a_target_picked_and_removed_again_is_no_target(
+    hass, mock_client, config_entry
+):
+    """The picker submits empty lists then, which passed as something to judge."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.subentries.async_init(
+        (config_entry.entry_id, SUBENTRY_QUESTION), context={"source": "user"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"next_step_id": "noul"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Nothing",
+            "instructions": "Is it?",
+            "target": {"entity_id": [], "area_id": []},
+            "advanced": {"scan_interval": 300, "include_attributes": False},
+        },
+    )
+    assert result["errors"] == {"base": "nothing_to_judge"}
+
+
+def _coordinator_of(entry, name):
+    return next(
+        c
+        for c in entry.runtime_data.coordinators.values()
+        if any(q.name == name for q in c.context_config.questions)
+    )
+
+
+async def test_adding_a_question_leaves_the_other_contexts_where_they_were(
+    hass, mock_client, entry_with
+):
+    """The context key held its sort position, so a new question moved the others.
+
+    The latency and payload sensors are keyed on it, and they were orphaned.
+    """
+    entry = entry_with(question("First"))
+    await setup(hass, entry)
+    before = _coordinator_of(entry, "First").context_config.key
+
+    # A different target is a separate call, and this one sorts ahead of the first.
+    hass.config_entries.async_add_subentry(
+        entry,
+        ConfigSubentry(
+            data={**question("Second")["data"], "target": {"entity_id": ["sensor.door"]}},
+            subentry_type=SUBENTRY_QUESTION,
+            title="Second",
+            unique_id=None,
+        ),
+    )
+    await hass.async_block_till_done()
+
+    assert len(entry.runtime_data.coordinators) == 2
+    assert _coordinator_of(entry, "First").context_config.key == before
+
+
+async def test_clearing_a_threshold_removes_its_binary_sensor(
+    hass, mock_client, entry_with
+):
+    """It stayed in the registry, restored and unavailable, with nothing behind it."""
+    entry = entry_with(question("First", threshold=0.7))
+    await setup(hass, entry)
+    registry = er.async_get(hass)
+    assert registry.async_get("binary_sensor.jev_first") is not None
+
+    [subentry] = entry.subentries.values()
+    data = {k: v for k, v in subentry.data.items() if k != "threshold"}
+    hass.config_entries.async_update_subentry(entry, subentry, data=data)
+    await hass.async_block_till_done()
+
+    assert registry.async_get("binary_sensor.jev_first") is None
+    assert registry.async_get("sensor.jev_first") is not None

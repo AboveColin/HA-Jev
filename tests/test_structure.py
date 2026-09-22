@@ -269,3 +269,13 @@ def test_an_answer_of_the_wrong_shape_says_which_two_do_not_fit():
         "answer": "ChoiceAnswer",
         "selector": "BooleanSelector",
     }
+
+
+def test_a_select_that_repeats_one_option_is_one_option():
+    """Two copies of one value passed the minimum of two, and were one answer."""
+    with pytest.raises(ServiceValidationError) as err:
+        questions_from_structure(
+            structure(field=("A field", {"select": {"options": ["same", "same"]}}))
+        )
+    assert err.value.translation_key == "field_options_out_of_range"
+    assert err.value.translation_placeholders["count"] == "1"

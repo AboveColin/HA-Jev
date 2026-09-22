@@ -124,10 +124,13 @@ def _options(key: str, instance: selector.SelectSelector) -> list[str]:
     model is shown the value in both cases, because the value is what the caller
     reads out of the result.
     """
-    options: list[str] = [
-        option if isinstance(option, str) else str(option["value"])
-        for option in instance.config["options"]
-    ]
+    # Without duplicates, which count toward the minimum and are one answer.
+    options: list[str] = list(
+        dict.fromkeys(
+            option if isinstance(option, str) else str(option["value"])
+            for option in instance.config["options"]
+        )
+    )
     if not MIN_CHOICE_OPTIONS <= len(options) <= MAX_CHOICE_OPTIONS:
         raise ServiceValidationError(
             translation_domain=DOMAIN,

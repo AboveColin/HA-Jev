@@ -53,6 +53,8 @@ automation:
           message: The washing is done and still in the machine.
 ```
 
+Clear the threshold and Jev removes the binary sensor.
+
 The `for: "00:10:00"` matters. Without it you get a notification the moment the
 probability crosses, which on a borderline reading can flap.
 

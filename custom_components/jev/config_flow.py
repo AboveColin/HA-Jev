@@ -287,12 +287,16 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             entry = self._get_reauth_entry()
-            if error := await self._async_validate(
-                user_input[CONF_API_KEY], *_stored(entry)
-            ):
+            base_url, model = _stored(entry)
+            # The same rules as the first form. A pasted key with a trailing
+            # newline was stored as it was and hashed into the unique id with it.
+            api_key = (user_input.get(CONF_API_KEY) or "").strip()
+            if not api_key and base_url == DEFAULT_BASE_URL:
+                errors[CONF_API_KEY] = "key_required"
+            elif error := await self._async_validate(api_key, base_url, model):
                 errors["base"] = error
             else:
-                return await self._async_swap_key(entry, user_input)
+                return await self._async_swap_key(entry, {CONF_API_KEY: api_key})
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=STEP_REAUTH_SCHEMA,

@@ -120,7 +120,10 @@ SCORE_SCHEMA = vol.Schema(
 ASK_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
-        vol.Required(ATTR_QUESTIONS): vol.Schema({cv.string: dict}),
+        # An empty mapping is still a billed request, answered with nothing.
+        vol.Required(ATTR_QUESTIONS): vol.All(
+            vol.Schema({cv.string: dict}), vol.Length(min=1)
+        ),
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
         vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
         **cv.TARGET_SERVICE_FIELDS,

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from hashlib import sha256
 from typing import Any
 
 import voluptuous as vol
@@ -36,7 +37,6 @@ from homeassistant.exceptions import (
 from homeassistant.helpers import selector, translation
 from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
-from homeassistant.util import slugify
 from jevclient import (
     Answer,
     ChoiceAnswer,
@@ -606,7 +606,10 @@ def _validate(kind: str, user_input: dict[str, Any]) -> dict[str, str]:
     ask is the one an automation author can act on.
     """
     errors: dict[str, str] = {}
-    if not user_input.get(CONF_TARGET) and not user_input.get(CONF_STATE_TEMPLATE):
+    # The target picker submits {"entity_id": []} once something was picked and
+    # removed again. That is as empty as no target at all.
+    target = user_input.get(CONF_TARGET) or {}
+    if not any(target.values()) and not user_input.get(CONF_STATE_TEMPLATE):
         errors["base"] = "nothing_to_judge"
     if kind == TYPE_CHOICE:
         text = user_input.get(CONF_OPTIONS_TEXT, "")
@@ -706,7 +709,7 @@ def async_contexts_from_subentries(
         grouped.setdefault(_call_key(dict(subentry.data)), []).append(subentry)
 
     contexts: list[ContextConfig] = []
-    for index, (_key, subentries) in enumerate(sorted(grouped.items())):
+    for index, (call_key, subentries) in enumerate(sorted(grouped.items())):
         first = dict(subentries[0].data)
         raw_template = first.get(CONF_STATE_TEMPLATE)
         template = Template(raw_template, hass) if raw_template else None
@@ -715,14 +718,18 @@ def async_contexts_from_subentries(
         name = subentries[0].title if len(subentries) == 1 else f"Group {index + 1}"
         contexts.append(
             ContextConfig(
-                key=f"ui_{slugify(name)}_{index}",
+                # The latency and payload unique ids are built from this. The
+                # name and the index both move when another question is added,
+                # which orphaned those entities, so the key is the call key itself.
+                key="ui_" + sha256(call_key.encode()).hexdigest()[:12],
                 name=name,
                 template=template,
                 selector=first.get(CONF_TARGET) or None,
                 include_attributes=bool(first.get(CONF_INCLUDE_ATTRIBUTES)),
                 questions=[
                     build_question_config(
-                        _as_raw_question(dict(s.data)), _question_key(s)
+                        _as_raw_question(dict(s.data)),
+                        _question_key(s),
                     )
                     for s in subentries
                 ],

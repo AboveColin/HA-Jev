@@ -144,6 +144,12 @@ def async_entity_records(
         records.append(
             _describe(hass, state, entities, devices, areas, include_attributes)
         )
+    # Entity ids that exist in no state are referenced without being missing, so
+    # the check above lets them through. Asking about an empty list is still billed.
+    if not records:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key="empty_target"
+        )
     return records
 
 

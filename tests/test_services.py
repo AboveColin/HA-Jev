@@ -1,6 +1,7 @@
 """The four actions, including what they refuse."""
 
 import pytest
+import voluptuous as vol
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
@@ -358,3 +359,28 @@ async def test_asking_with_a_named_entry_picks_that_entry(
         },
     )
     assert "noul" in response
+
+
+async def test_ask_with_no_questions_is_refused_before_a_request_is_spent(
+    hass, loaded_entry, mock_client
+):
+    """An empty mapping was sent, billed, and answered with nothing."""
+    mock_client.ask.reset_mock()
+    with pytest.raises(vol.Invalid, match="length of value must be at least 1"):
+        await call(hass, "ask", {"state": "x", "questions": {}})
+    assert mock_client.ask.await_count == 0
+
+
+async def test_a_target_that_names_only_absent_entities_is_refused(
+    hass, loaded_entry, mock_client
+):
+    """An entity id that exists nowhere is referenced, not missing, so it passed."""
+    mock_client.ask.reset_mock()
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "noul",
+            {"entity_id": ["sensor.not_there"], "instructions": "Is it on?"},
+        )
+    assert err.value.translation_key == "empty_target"
+    assert mock_client.ask.await_count == 0

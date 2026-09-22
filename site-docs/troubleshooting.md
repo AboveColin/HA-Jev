@@ -23,6 +23,8 @@ logger:
 | Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
 | Voice acts on the wrong device | The names and areas in your entity registry are what the model reads |
 | A question you expected to batch went alone | Its target, template, schedule or triggers differ from the others. The preview says which |
+| An action says the target holds no entities | Every entity it names has no state, often because it was renamed or removed |
+| Reauthentication says a key is required | The hosted API needs a key. A key of only spaces counts as none |
 
 ## The answer does not track the world
 
