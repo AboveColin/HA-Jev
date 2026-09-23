@@ -52,6 +52,7 @@ hallway" would reach a lock exposed there and unlock it.
 | An entity you did not expose to Assist | Never described to the model at all |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
+| Two devices fit the name about equally | Asks which one, see below |
 | A spent budget, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was |
 
 !!! info "It only sees what Assist sees"
@@ -60,7 +61,23 @@ hallway" would reach a lock exposed there and unlock it.
     widen that. This is the voice path only. The [four actions](actions.md) send
     whatever an automation targets, exposed or not.
 
-## What it costs
+## When two devices fit the name
+
+"Turn on the lamp" with a desk lamp and a floor lamp exposed can split the model's
+probability between the two, with neither above the confidence floor. When exactly two
+exposed devices each have at least 0.2, and the two together reach the floor, the agent
+asks **"Do you mean Desk lamp or Floor lamp?"** and keeps the conversation open. When
+the two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)".
+
+Your reply, such as "the desk one", is one more request, and it counts against the
+budget. It asks which of the two the reply picks. A confident pick carries out the
+first command on that device. A reply that picks neither is handled as a new command.
+The question expires after five minutes, the same time Home Assistant keeps a
+conversation open.
+
+The 0.2 is not measured. It keeps a third device with a small share from turning the
+question into a guess between two.
+
 
 Every command counts against the same daily token budget as your sensors. A
 satellite that mishears a wake word all night trips that tripwire instead of running
@@ -117,6 +134,10 @@ for what it already knows plus Jev for the rest. Point it at an LLM agent and th
 only sees what Jev could not route, which is the cheap arrangement.
 
 ## Diagnostics
+
+The Assist debug view (**Settings**, **Voice assistants**, the pipeline's menu,
+**Debug**) shows what Jev answered for each command: the model, every answer with its
+probabilities, and the reason for the decision.
 
 The last 20 decisions the agent made are in the integration's diagnostics, with the
 reason for every decision and the action distribution behind it. The sentence itself

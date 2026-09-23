@@ -62,7 +62,7 @@ plugins:
         A Home Assistant custom integration, installed through HACS. Questions become
         sensors: a probability, one of a set of options, or a number on a scale. Four
         actions (jev.noul, jev.choice, jev.score, jev.ask) answer inside an
-        automation, an AI Task entity answers ai_task.generate_data, and a
+        automation, jev.calibrate fits a threshold from history, an AI Task entity answers ai_task.generate_data, and a
         conversation agent handles Assist. Every call is billed in input tokens
         against an optional daily budget.
       sections:
@@ -79,10 +79,13 @@ plugins:
           - actions.md: The four actions, their fields and their response variables
           - ai-task.md: The ai_task.generate_data entity and the structures it accepts
           - examples.md: Worked automations
+          - calibrate.md: jev.calibrate, a threshold measured from recorder history
         Voice:
           - conversation.md: The Assist conversation agent and what it will not control
+          - llm-tools.md: The jev__noul and jev__choice tools for other LLM agents
         Reference:
-          - cost.md: Token billing, the usage sensors and the daily budget
+          - bayesian.md: When to use Jev and when the Bayesian binary sensor
+          - cost.md: Token billing, the usage sensors, a month worked out and the daily budget
           - measurements.md: Latency and answer quality measured against the live API
           - troubleshooting.md: Debug logging and the common failures
           - limitations.md: What Jev does not do
@@ -119,9 +122,12 @@ nav:
       - Actions: actions.md
       - AI Task: ai-task.md
       - Examples: examples.md
+      - Tuning a threshold: calibrate.md
   - Voice:
       - Conversation agent: conversation.md
+      - Tools for other LLM agents: llm-tools.md
   - Reference:
+      - Jev and the Bayesian sensor: bayesian.md
       - What it costs: cost.md
       - Measurements: measurements.md
       - Troubleshooting: troubleshooting.md

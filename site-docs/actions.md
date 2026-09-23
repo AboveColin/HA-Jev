@@ -109,6 +109,12 @@ the five you might need and discarding four is cheaper than two round trips.
 An object arrives as an object, not as a stringified dict. The model reads the field
 names as labels, so name them for what they hold.
 
+## Tune a threshold
+
+`jev.calibrate` is a fifth action that asks nothing. It compares the recorded history
+of a noul sensor with an entity that shows what was really true, and returns the
+threshold that fits best. It costs no tokens. See [tuning a threshold](calibrate.md).
+
 ## Errors name the limit
 
 Every budget failure names the budget, the limit and your ask, because an agent
