@@ -156,7 +156,8 @@ def build_questions(
                 # No lock wording here on purpose. The agent does not control
                 # locks, and Home Assistant's on/off convention for them runs the
                 # opposite way round from speech. See CONTROLLABLE in snapshot.py.
-                "turn_on": "Switch something on, open it, or start it",
+                "turn_on": "Switch something on, open it, start it, "
+                "or run a script or scene",
                 "turn_off": "Switch something off, close it, or stop it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
@@ -194,7 +195,9 @@ def build_questions(
         ),
         "entity": Choice(
             {
-                "question": "Which device should receive this?",
+                # Answered in the same request as action, so it must fit a
+                # status check too.
+                "question": "Which device is this about?",
                 "background": "Match on the name and on the room. Pick "
                 "none_of_these when no single device is meant.",
             },
