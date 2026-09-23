@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.components import conversation
+from homeassistant.components.conversation.trace import async_get_traces
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
@@ -513,6 +514,32 @@ async def test_traces_are_bounded(hass, house, mock_client):
     await hass.async_block_till_done()
 
     assert len(house.runtime_data.conversation_traces) == CONVERSATION_TRACE_LENGTH
+
+
+async def test_the_assist_debug_view_shows_what_jev_answered(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(
+                choice="light.kitchen",
+                probabilities={"light.kitchen": 0.8, "light.office": 0.2},
+                confidence=0.8,
+            )
+        )
+    )
+    await converse(hass, "kitchen light on")
+    await hass.async_block_till_done()
+
+    events = async_get_traces()[-1].as_dict()["events"]
+    details = [e["data"]["jev"] for e in events if e["event_type"] == "agent_detail"]
+    assert len(details) == 1
+    jev = details[0]
+    assert jev["text"] == "kitchen light on"
+    assert jev["intent_type"] == "HassTurnOn"
+    assert jev["input_tokens"] == 321
+    assert jev["answers"]["entity"]["probabilities"] == {
+        "light.kitchen": 0.8,
+        "light.office": 0.2,
+    }
 
 
 @pytest.mark.parametrize(

@@ -197,13 +197,28 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         runtime.usage.notify()
 
         decision = interpret(response, user_input.text, snapshot, self._min_confidence)
-        runtime.conversation_traces.appendleft(
+        trace = {
+            "text": user_input.text,
+            "latency_ms": response.latency_ms,
+            "input_tokens": response.usage.input_tokens,
+            "exposed_entities": len(snapshot.entities),
+            **asdict(decision),
+        }
+        runtime.conversation_traces.appendleft(trace)
+        # The Assist debug view shows this beside the pipeline's own steps. It
+        # carries each answer as well, with its distribution, because "why did it
+        # pick the office light" is answered by the entity question's
+        # probabilities and by nothing in the decision alone. Diagnostics keep the
+        # shorter record, since they hold the last few commands in memory.
+        chat_log.async_trace(
             {
-                "text": user_input.text,
-                "latency_ms": response.latency_ms,
-                "input_tokens": response.usage.input_tokens,
-                "exposed_entities": len(snapshot.entities),
-                **asdict(decision),
+                "jev": trace
+                | {
+                    "model": response.model,
+                    "answers": {
+                        key: asdict(answer) for key, answer in response.answers.items()
+                    },
+                }
             }
         )
 
