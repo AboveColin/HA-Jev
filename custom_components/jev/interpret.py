@@ -156,10 +156,8 @@ def build_questions(
                 # No lock wording here on purpose. The agent does not control
                 # locks, and Home Assistant's on/off convention for them runs the
                 # opposite way round from speech. See CONTROLLABLE in snapshot.py.
-                "turn_on": "Switch something on, open it, or start it — including "
-                "running a named script or activating a scene, even when its own "
-                "name reads like a question (a script called \"get_weather\" is "
-                "still something to run, not something to ask)",
+                "turn_on": "Switch something on, open it, start it, "
+                "or run a script or scene",
                 "turn_off": "Switch something off, close it, or stop it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
@@ -197,16 +195,8 @@ def build_questions(
         ),
         "entity": Choice(
             {
-                # Worded to fit a status check as well as a command: this
-                # question is answered in the same request as `action`, before
-                # get_state vs. turn_on/off is known, and command-only phrasing
-                # measurably shifts probability away from the right entity on a
-                # query. Measured in a comparable Jev-backed integration, same
-                # entity list either way: for a get_state-style question with
-                # one real matching entity plus none_of_these, "which device
-                # should receive the command" put none_of_these ahead at 58%
-                # confidence; "which device is this about" put the real
-                # entity ahead at 69% — wording alone flipped the answer.
+                # Answered in the same request as action, so it must fit a
+                # status check too.
                 "question": "Which device is this about?",
                 "background": "Match on the name and on the room. Pick "
                 "none_of_these when no single device is meant.",
