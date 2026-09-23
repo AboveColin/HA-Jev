@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Task {task} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
     },
+    "action_over_budget": {
+      "message": "This action costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
     "reserved_field": {
       "message": "The field {field} cannot be used, because the result carries the confidence behind every answer under that name. Rename the field."
     },

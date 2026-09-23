@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "La tâche {task} coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
     },
+    "action_over_budget": {
+      "message": "Cette action coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
+    },
     "reserved_field": {
       "message": "Le champ {field} ne peut pas être utilisé, car le résultat transporte sous ce nom la confiance derrière chaque réponse. Renommez le champ."
     },

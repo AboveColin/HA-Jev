@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Zadanie {task} kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Zwiększ lub wyczyść budżet w opcjach integracji, aby kontynuować."
     },
+    "action_over_budget": {
+      "message": "Ta akcja kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Aby kontynuować, zwiększ lub usuń budżet w opcjach integracji."
+    },
     "reserved_field": {
       "message": "Pola {field} nie można użyć, ponieważ wynik przenosi pod tą nazwą pewność każdej odpowiedzi. Zmień nazwę pola."
     },

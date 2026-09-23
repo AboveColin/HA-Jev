@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Úloha {task} stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pro pokračování zvyšte nebo zrušte rozpočet v možnostech integrace."
     },
+    "action_over_budget": {
+      "message": "Tato akce stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pokud chcete pokračovat, zvyšte nebo zrušte rozpočet v možnostech integrace."
+    },
     "reserved_field": {
       "message": "Pole {field} nelze použít, protože výsledek pod tímto názvem nese jistotu každé odpovědi. Pole přejmenujte."
     },

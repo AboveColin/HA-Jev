@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Opgaven {task} koster omkring {estimate} inputtokens, og der er {remaining} tilbage af dagsbudgettet på {budget}. Hæv eller ryd budgettet i integrationens indstillinger for at fortsætte."
     },
+    "action_over_budget": {
+      "message": "Denne handling koster omkring {estimate} input-tokens, og der er {remaining} tilbage af det daglige budget på {budget}. Hæv eller fjern budgettet i integrationens indstillinger for at fortsætte."
+    },
     "reserved_field": {
       "message": "Feltet {field} kan ikke bruges, fordi resultatet bærer sikkerheden bag hvert svar under det navn. Omdøb feltet."
     },
