@@ -53,6 +53,7 @@ from .const import (
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
 from .interpret import build_questions, interpret
+from .payload import payload_bytes
 from .snapshot import async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -154,14 +155,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
     ) -> conversation.ConversationResult:
         runtime: JevRuntimeData = self._entry.runtime_data
 
-        # The budget covers voice as well as sensors, because a satellite that
-        # mishears a wake word all night is exactly the runaway it exists to stop.
         runtime.usage.roll_over(dt_util.now().date())
-        if runtime.usage.would_exceed():
-            return await self._fall_back(
-                user_input, "the daily token budget is spent", "budget_spent"
-            )
-
         snapshot = async_snapshot(self.hass, MAX_CONVERSATION_ENTITIES)
         if not snapshot.entities:
             return await self._fall_back(user_input, "no entities are exposed to Assist")
@@ -169,8 +163,23 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         questions = build_questions(user_input.text, snapshot, MAX_CONVERSATION_ENTITIES)
         state = snapshot.as_state() | {"command": user_input.text}
 
+        # The budget covers voice as well as sensors, because a satellite that
+        # mishears a wake word all night is exactly the runaway it exists to stop.
+        # The check is on this command's estimate, the same as a context's, so the
+        # last command of the day cannot take the total past the budget.
+        request_bytes = payload_bytes(state, questions, runtime.model)
+        estimate = runtime.usage.estimate_tokens(request_bytes)
+        if runtime.usage.would_exceed_with(estimate):
+            return await self._fall_back(
+                user_input,
+                f"the daily token budget has {runtime.usage.remaining()} tokens left "
+                f"and this command needs about {estimate}",
+                "budget_spent",
+            )
+
         try:
-            response = await runtime.client.ask(state, questions)
+            with runtime.usage.reservation(estimate):
+                response = await runtime.client.ask(state, questions)
         except JevAuthError as err:
             _LOGGER.error("TypeSafe rejected the API key: %s", err)
             self._entry.async_start_reauth(self.hass)
@@ -183,7 +192,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
                 user_input, f"TypeSafe did not answer: {err}", "unavailable"
             )
 
-        runtime.usage.record(response.usage.input_tokens)
+        runtime.usage.record(response.usage.input_tokens, request_bytes)
         runtime.model_version = response.model or runtime.model_version
         runtime.usage.notify()
 

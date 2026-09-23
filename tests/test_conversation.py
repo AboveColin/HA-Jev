@@ -26,6 +26,7 @@ from custom_components.jev.const import (
 )
 from custom_components.jev.conversation import _render_state_answer
 from custom_components.jev.interpret import find_brightness
+from custom_components.jev.payload import payload_bytes
 
 from .conftest import PROBE_TOKENS, build_response
 
@@ -342,6 +343,40 @@ async def test_a_spent_budget_stops_voice_too(hass, house, mock_client):
     assert mock_client.ask.await_count == 0
     assert calls == []
     assert "budget is spent" in result.response.speech["plain"]["speech"]
+
+
+async def test_a_command_that_would_pass_the_budget_is_not_sent(hass, house, mock_client):
+    # One token short of the budget. would_exceed() says there is room, and on
+    # 1.15 the command went through and ended the day about 1,000 tokens over.
+    hass.config_entries.async_update_entry(house, options={"daily_token_budget": 1000})
+    await hass.async_block_till_done()
+    house.runtime_data.usage.input_tokens = 999
+    mock_client.ask.reset_mock()
+
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    result = await converse(hass, "kitchen light on")
+    await hass.async_block_till_done()
+
+    assert mock_client.ask.await_count == 0
+    assert calls == []
+    assert "budget is spent" in result.response.speech["plain"]["speech"]
+
+
+async def test_a_voice_command_teaches_the_estimate(hass, house, mock_client):
+    # The estimate reads bytes per token from the last call it could measure. A
+    # voice command that did not report its size left the estimate on whatever
+    # the last context taught it, which is a different shape of request.
+    mock_client.ask.return_value = build_response(**answer_set())
+    usage = house.runtime_data.usage
+    usage.bytes_per_token = 1.0
+
+    await converse(hass, "kitchen light on")
+    await hass.async_block_till_done()
+
+    sent_state, sent_questions = mock_client.ask.await_args.args
+    sent = payload_bytes(sent_state, sent_questions, house.runtime_data.model)
+    assert usage.bytes_per_token == sent / 321
 
 
 async def test_a_rejected_key_is_said_out_loud(hass, house, mock_client):
