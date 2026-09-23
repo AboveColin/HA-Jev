@@ -4,7 +4,6 @@ A question subentry is a sensor on a schedule. This is the other shape, where th
 script asks at the moment it runs and reads the answer in the next step.
 """
 
-from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -13,6 +12,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from jevclient import ChoiceAnswer, JevAuthError, JevError, NoulAnswer, ScoreAnswer
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -192,7 +192,7 @@ async def test_what_the_task_spends_lands_in_the_day_s_usage(
 
     assert int(hass.states.get("sensor.jev_input_tokens_today").state) == before + 321
     usage = task_entry.runtime_data.usage
-    assert usage.day == date.today()
+    assert usage.day == dt_util.now().date()
 
 
 async def test_a_task_in_flight_holds_its_estimate_against_the_budget(

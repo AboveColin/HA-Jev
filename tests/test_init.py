@@ -208,7 +208,7 @@ async def test_yesterdays_total_does_not_count_against_today(
     hass, mock_client, config_entry
 ):
     stored = {
-        "day": (date.today() - timedelta(days=1)).isoformat(),
+        "day": (dt_util.now().date() - timedelta(days=1)).isoformat(),
         "calls": 99,
         "input_tokens": 999_999,
     }
@@ -448,7 +448,7 @@ async def test_the_day_rolls_over_at_midnight(hass, mock_client, config_entry):
     usage = config_entry.runtime_data.usage
     assert usage.calls == 2
 
-    usage.roll_over(date.today() + timedelta(days=1))
+    usage.roll_over(dt_util.now().date() + timedelta(days=1))
     assert usage.calls == 0
     assert usage.input_tokens == 0
     assert usage.budget_exceeded is False
@@ -796,7 +796,11 @@ async def test_a_spent_budget_skips_the_probe_and_still_says_so(
     hass_storage[f"{DOMAIN}.{entry.entry_id}.usage"] = {
         "version": STORAGE_VERSION,
         "key": f"{DOMAIN}.{entry.entry_id}.usage",
-        "data": {"day": date.today().isoformat(), "calls": 3, "input_tokens": 500},
+        "data": {
+            "day": dt_util.now().date().isoformat(),
+            "calls": 3,
+            "input_tokens": 500,
+        },
     }
 
     assert await hass.config_entries.async_setup(entry.entry_id)
