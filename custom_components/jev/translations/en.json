@@ -228,6 +228,28 @@
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
         }
       }
+    },
+    "calibrate": {
+      "name": "Find the best threshold",
+      "description": "Compare the recorded history of a yes/no probability with an entity that shows what was really true, and get the threshold that would have been right most often. Reads only the recorder, so it costs no tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Probability",
+          "description": "A Jev yes/no sensor, or any sensor whose state is a probability from 0 to 1."
+        },
+        "truth_entity_id": {
+          "name": "What was really true",
+          "description": "An entity whose state shows the real answer, such as a door contact or a plug that reports when a machine runs."
+        },
+        "truth_state": {
+          "name": "State that means yes",
+          "description": "The state of that entity that means yes. on if you leave it empty."
+        },
+        "days": {
+          "name": "Days of history",
+          "description": "How far back to read. The recorder keeps 10 days unless you changed it."
+        }
+      }
     }
   },
   "entity": {
@@ -341,6 +363,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe rate limited the request: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "This action reads the recorder, and the recorder is not running."
+    },
+    "calibrate_no_history": {
+      "message": "No time in the last {days} days has both a number from {entity} and a state from {truth}. Check that the recorder records both, and that {entity} reports a number."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} was never {state} in the last {days} days, so there is nothing to compare against. Read a longer period, or check which state means yes."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} was {state} for all of the last {days} days, so there is nothing to compare against. Read a longer period, or check which state means yes."
     }
   },
   "common": {

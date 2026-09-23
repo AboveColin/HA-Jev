@@ -75,6 +75,7 @@ STORAGE_VERSION: Final = 1
 SERVICE_NOUL: Final = "noul"
 SERVICE_CHOICE: Final = "choice"
 SERVICE_SCORE: Final = "score"
+SERVICE_CALIBRATE: Final = "calibrate"
 
 CONF_TRUE_MEANS: Final = "true_means"
 CONF_FALSE_MEANS: Final = "false_means"

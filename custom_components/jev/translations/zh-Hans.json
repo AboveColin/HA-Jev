@@ -228,6 +228,28 @@
           "description": "默认关闭。会发送所选实体的每一个属性，而不只是值、单位、设备类别和区域。一份天气预报或一个媒体播放器的封面列表可达数千个令牌，而且每次评估都要为此付费。"
         }
       }
+    },
+    "calibrate": {
+      "name": "找出最佳阈值",
+      "description": "将是/否概率的记录历史与显示真实情况的实体进行比较，并返回最常判断正确的阈值。只读取 recorder，因此不消耗 token。",
+      "fields": {
+        "entity_id": {
+          "name": "概率",
+          "description": "Jev 的是/否传感器，或任何状态为 0 到 1 概率的传感器。"
+        },
+        "truth_entity_id": {
+          "name": "真实情况",
+          "description": "状态显示真实答案的实体，例如门磁或报告设备何时运行的插座。"
+        },
+        "truth_state": {
+          "name": "表示是的状态",
+          "description": "该实体表示“是”的状态。留空时为 on。"
+        },
+        "days": {
+          "name": "历史天数",
+          "description": "向前读取多少天。除非你修改过，recorder 保留 10 天。"
+        }
+      }
     }
   },
   "entity": {
@@ -341,6 +363,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe 限制了该请求的速率：{reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "此操作需要读取 recorder，但 recorder 未运行。"
+    },
+    "calibrate_no_history": {
+      "message": "过去 {days} 天中，没有任何时刻同时有 {entity} 的数值和 {truth} 的状态。请检查 recorder 是否记录了两者，以及 {entity} 是否报告数值。"
+    },
+    "calibrate_never_true": {
+      "message": "过去 {days} 天中 {truth} 从未处于 {state}，因此没有可比较的内容。请读取更长的时间段，或检查哪个状态表示“是”。"
+    },
+    "calibrate_always_true": {
+      "message": "过去 {days} 天中 {truth} 一直处于 {state}，因此没有可比较的内容。请读取更长的时间段，或检查哪个状态表示“是”。"
     }
   },
   "common": {

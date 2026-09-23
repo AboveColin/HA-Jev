@@ -228,6 +228,28 @@
           "description": "Av som standard. Skickar alla attribut för de valda entiteterna, inte bara värde, måttenhet, enhetsklass och område. En väderprognos eller en mediaspelares lista med omslagsbilder blir tusentals token, och du betalar för dem vid varje utvärdering."
         }
       }
+    },
+    "calibrate": {
+      "name": "Hitta den bästa tröskeln",
+      "description": "Jämför den inspelade historiken för en ja/nej-sannolikhet med en entitet som visar vad som verkligen var sant, och ger den tröskel som oftast skulle ha haft rätt. Läser bara recordern och kostar därför inga tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Sannolikhet",
+          "description": "En Jev ja/nej-sensor eller en annan sensor vars tillstånd är en sannolikhet från 0 till 1."
+        },
+        "truth_entity_id": {
+          "name": "Vad som verkligen var sant",
+          "description": "En entitet vars tillstånd visar det riktiga svaret, till exempel en dörrkontakt eller ett uttag som rapporterar när en apparat är igång."
+        },
+        "truth_state": {
+          "name": "Tillstånd som betyder ja",
+          "description": "Tillståndet för entiteten som betyder ja. on om du lämnar fältet tomt."
+        },
+        "days": {
+          "name": "Dagar historik",
+          "description": "Hur långt tillbaka som läses. Recordern sparar 10 dagar om du inte har ändrat det."
+        }
+      }
     }
   },
   "entity": {
@@ -341,6 +363,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe begränsade begäran: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Den här åtgärden läser recordern, och recordern körs inte."
+    },
+    "calibrate_no_history": {
+      "message": "Ingen tidpunkt de senaste {days} dagarna har både ett tal från {entity} och ett tillstånd från {truth}. Kontrollera att recordern sparar båda och att {entity} rapporterar ett tal."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} var aldrig {state} de senaste {days} dagarna, så det finns inget att jämföra med. Läs en längre period, eller kontrollera vilket tillstånd som betyder ja."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} var {state} under hela de senaste {days} dagarna, så det finns inget att jämföra med. Läs en längre period, eller kontrollera vilket tillstånd som betyder ja."
     }
   },
   "common": {

@@ -437,3 +437,13 @@ async def test_an_action_with_two_entries_and_none_named_is_refused(
         {"state": "x", "instructions": "y", "config_entry": second.entry_id},
     )
     assert "noul" in named
+
+
+async def test_without_the_recorder_it_says_so(hass, loaded_entry):
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "calibrate",
+            {"entity_id": "sensor.x", "truth_entity_id": "binary_sensor.y"},
+        )
+    assert err.value.translation_key == "calibrate_needs_recorder"

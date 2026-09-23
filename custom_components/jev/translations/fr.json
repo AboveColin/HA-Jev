@@ -228,6 +228,28 @@
           "description": "Désactivé par défaut. Envoie tous les attributs des entités choisies, pas seulement la valeur, l'unité, la classe d'appareil et la zone. Une prévision météo ou une liste de pochettes d'un lecteur multimédia représente des milliers de jetons, et vous les payez à chaque évaluation."
         }
       }
+    },
+    "calibrate": {
+      "name": "Trouver le meilleur seuil",
+      "description": "Compare l'historique enregistré d'une probabilité oui/non avec une entité qui montre ce qui était vraiment vrai, et donne le seuil qui aurait eu raison le plus souvent. Lit seulement le recorder, donc ne coûte aucun token.",
+      "fields": {
+        "entity_id": {
+          "name": "Probabilité",
+          "description": "Un capteur oui/non Jev, ou tout capteur dont l'état est une probabilité de 0 à 1."
+        },
+        "truth_entity_id": {
+          "name": "Ce qui était vraiment vrai",
+          "description": "Une entité dont l'état donne la vraie réponse, comme un contact de porte ou une prise qui signale quand un appareil tourne."
+        },
+        "truth_state": {
+          "name": "État qui veut dire oui",
+          "description": "L'état de cette entité qui veut dire oui. on si vous laissez vide."
+        },
+        "days": {
+          "name": "Jours d'historique",
+          "description": "Jusqu'où remonter. Le recorder garde 10 jours, sauf si vous l'avez modifié."
+        }
+      }
     }
   },
   "entity": {
@@ -341,6 +363,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe a limité la requête : {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Cette action lit le recorder, et le recorder ne tourne pas."
+    },
+    "calibrate_no_history": {
+      "message": "Aucun moment des {days} derniers jours n'a à la fois un nombre de {entity} et un état de {truth}. Vérifiez que le recorder enregistre les deux, et que {entity} donne un nombre."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} n'a jamais été {state} pendant les {days} derniers jours, il n'y a donc rien à comparer. Lisez une période plus longue, ou vérifiez quel état veut dire oui."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} a été {state} pendant tous les {days} derniers jours, il n'y a donc rien à comparer. Lisez une période plus longue, ou vérifiez quel état veut dire oui."
     }
   },
   "common": {

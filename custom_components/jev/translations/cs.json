@@ -228,6 +228,28 @@
           "description": "Ve výchozím stavu vypnuto. Posílá každý atribut vybraných entit, nejen hodnotu, jednotku, třídu zařízení a oblast. Předpověď počasí nebo seznam obalů alb v přehrávači médií vydá na tisíce tokenů a ty zaplatíte při každém vyhodnocení."
         }
       }
+    },
+    "calibrate": {
+      "name": "Najít nejlepší práh",
+      "description": "Porovná zaznamenanou historii pravděpodobnosti ano/ne s entitou, která ukazuje, co skutečně platilo, a vrátí práh, který by nejčastěji měl pravdu. Čte jen recorder, takže nestojí žádné tokeny.",
+      "fields": {
+        "entity_id": {
+          "name": "Pravděpodobnost",
+          "description": "Senzor ano/ne od Jev, nebo jakýkoli senzor, jehož stav je pravděpodobnost od 0 do 1."
+        },
+        "truth_entity_id": {
+          "name": "Co skutečně platilo",
+          "description": "Entita, jejíž stav ukazuje skutečnou odpověď, například kontakt dveří nebo zásuvka, která hlásí, kdy spotřebič běží."
+        },
+        "truth_state": {
+          "name": "Stav znamenající ano",
+          "description": "Stav té entity, který znamená ano. on, pokud pole necháte prázdné."
+        },
+        "days": {
+          "name": "Dny historie",
+          "description": "Jak daleko zpět číst. Recorder uchovává 10 dní, pokud jste to nezměnili."
+        }
+      }
     }
   },
   "entity": {
@@ -341,6 +363,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe omezil požadavek: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Tato akce čte recorder a recorder neběží."
+    },
+    "calibrate_no_history": {
+      "message": "V posledních {days} dnech není žádný okamžik s číslem z {entity} i stavem z {truth}. Zkontrolujte, že recorder zaznamenává obojí a že {entity} hlásí číslo."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} nebyl v posledních {days} dnech nikdy {state}, takže není s čím porovnat. Čtěte delší období, nebo zkontrolujte, který stav znamená ano."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} byl celých posledních {days} dní {state}, takže není s čím porovnat. Čtěte delší období, nebo zkontrolujte, který stav znamená ano."
     }
   },
   "common": {
