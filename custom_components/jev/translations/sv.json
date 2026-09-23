@@ -82,14 +82,16 @@
           "price_per_million": "Pris per miljon indatatoken, i USD",
           "fallback_agent": "Fall tillbaka på den här agenten",
           "min_confidence": "Agera bara över den här säkerheten (0 till 1)",
-          "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet"
+          "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet",
+          "llm_tools": "Erbjud Jev som verktyg till andra LLM-agenter"
         },
         "data_description": {
           "daily_token_budget": "Räknas från midnatt i Home Assistants tidszon. 0 betyder ingen gräns.",
           "price_per_million": "Styr sensorn för uppskattad kostnad och kostnaden i förhandsvisningen av frågan. Inget av det som skickas beror på den.",
           "fallback_agent": "Får hela meningen när Jev inte är säker på vad som ska göras.",
           "min_confidence": "Under detta värde gör Jev ingenting och skickar kommandot vidare till reservagenten.",
-          "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val."
+          "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val.",
+          "llm_tools": "Lägger till två verktyg i Assist-API:et, ett för ja/nej-frågor och ett för att välja ett alternativ. Varje LLM-agent som använder Assist får deras beskrivningar i varje prompt, vilket kostar tokens hos den agentens leverantör. Varje anrop räknas också mot budgeten ovan."
         }
       }
     }

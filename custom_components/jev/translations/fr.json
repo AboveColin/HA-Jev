@@ -82,14 +82,16 @@
           "price_per_million": "Prix par million de jetons d'entrée, en USD",
           "fallback_agent": "Se replier sur cet agent",
           "min_confidence": "N'agir qu'au-dessus de cette confiance (0 à 1)",
-          "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil"
+          "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil",
+          "llm_tools": "Proposer Jev comme outil aux autres agents LLM"
         },
         "data_description": {
           "daily_token_budget": "Compté à partir de minuit dans le fuseau horaire de Home Assistant. 0 signifie aucune limite.",
           "price_per_million": "Détermine le capteur de coût estimé et le coût dans l'aperçu de la question. Rien de ce qui est envoyé n'en dépend.",
           "fallback_agent": "Reçoit la phrase entière quand Jev ne sait pas quoi faire.",
           "min_confidence": "En dessous, Jev ne fait rien et transmet la commande à l'agent de secours.",
-          "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option."
+          "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option.",
+          "llm_tools": "Ajoute deux outils à l'API Assist, l'un pour les questions oui/non et l'autre pour choisir une option. Chaque agent LLM qui utilise Assist reçoit leurs descriptions dans chaque prompt, ce qui coûte des tokens chez le fournisseur de cet agent. Chaque appel compte aussi dans le budget ci-dessus."
         }
       }
     }

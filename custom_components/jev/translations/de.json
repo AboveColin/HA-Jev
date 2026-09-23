@@ -82,14 +82,16 @@
           "price_per_million": "Preis pro Million Eingabe-Tokens, in USD",
           "fallback_agent": "Auf diesen Agenten zurückfallen",
           "min_confidence": "Nur oberhalb dieser Konfidenz handeln (0 bis 1)",
-          "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen"
+          "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen",
+          "llm_tools": "Jev anderen LLM-Agenten als Werkzeug anbieten"
         },
         "data_description": {
           "daily_token_budget": "Gezählt ab Mitternacht in der Zeitzone von Home Assistant. 0 bedeutet kein Limit.",
           "price_per_million": "Bestimmt den Sensor für die geschätzten Kosten und die Kosten in der Vorschau einer Frage. Nichts, was gesendet wird, hängt davon ab.",
           "fallback_agent": "Bekommt den ganzen Satz, wenn Jev nicht sicher ist, was zu tun ist.",
           "min_confidence": "Darunter tut Jev nichts und gibt den Befehl an den Ersatz-Agenten weiter.",
-          "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option."
+          "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option.",
+          "llm_tools": "Fügt der Assist-API zwei Werkzeuge hinzu, eines für Ja/Nein-Fragen und eines für die Wahl einer Option. Jeder LLM-Agent, der Assist nutzt, erhält ihre Beschreibungen in jedem Prompt, was beim Anbieter dieses Agenten Tokens kostet. Jeder Aufruf zählt außerdem zum Budget oben."
         }
       }
     }
