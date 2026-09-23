@@ -367,6 +367,7 @@
     "budget_spent": "Il budget giornaliero di token è esaurito, quindi oggi non posso farlo.",
     "auth_failed": "TypeSafe ha rifiutato la chiave API. Controllala nelle impostazioni di Jev.",
     "unavailable": "TypeSafe non ha risposto. Riprova tra un momento.",
+    "which_device": "Intendi {first} o {second}?",
     "preview_over_budget": "Il budget giornaliero di token è esaurito, quindi non c'è una risposta di prova. La domanda viene comunque salvata.",
     "preview_nothing_yet": "Nessuna risposta di prova: non c'è ancora nulla su cui fare la domanda."
   },

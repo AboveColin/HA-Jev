@@ -20,7 +20,7 @@ from typing import Any
 from homeassistant.helpers import intent as ha_intent
 from jevclient import Choice, ChoiceAnswer, JevResponse, Noul, NoulAnswer, Question
 
-from .snapshot import HomeSnapshot
+from .snapshot import ExposedEntity, HomeSnapshot
 
 NONE = "none_of_these"
 
@@ -129,6 +129,8 @@ class Interpretation:
     action_probabilities: dict[str, float] = field(default_factory=dict)
     # (entity name, the state it is already in) when there is nothing left to do.
     already_satisfied: tuple[str, str] | None = None
+    # Two entity ids the command could mean, when the agent should ask which.
+    candidates: tuple[str, str] | None = None
 
     @property
     def should_fall_back(self) -> bool:
@@ -326,6 +328,20 @@ def interpret(
         # unbounded off is not something to infer from one ambiguous sentence.
         slots["name"] = {"value": "all"}
         targets_everything = True
+    elif pair := _two_that_fit(entity, snapshot, min_confidence):
+        # The action is sure and the device is one of two. Asking costs one short
+        # question, and handing the sentence to the fallback agent gets the same
+        # guess made again by something that does not know it was a guess.
+        return Interpretation(
+            None,
+            {},
+            action.choice,
+            action.confidence,
+            "two devices fit the name",
+            fallback=False,
+            action_probabilities=dict(action.probabilities or {}),
+            candidates=pair,
+        )
     else:
         return out("no target named with enough confidence")
 
@@ -361,6 +377,51 @@ def interpret(
         fallback=False,
         targets_everything=targets_everything,
     )
+
+
+# The least share of the entity answer a device needs to be offered as one of two.
+# With this, the two named devices hold at least 40% between them and the rest is
+# spread across the others. Not measured on a real instance yet.
+ASK_BACK_FLOOR = 0.2
+
+
+def _two_that_fit(
+    entity: ChoiceAnswer | None, snapshot: HomeSnapshot, min_confidence: float
+) -> tuple[str, str] | None:
+    """The two devices a command could mean, when it is one of them and not a third.
+
+    Both must be exposed, each must hold ASK_BACK_FLOOR of the answer, and the two
+    together must reach the confidence the agent acts on. A third device above the
+    floor means the question would not settle it, so the agent does not ask.
+    """
+    if entity is None or not entity.probabilities:
+        return None
+    ranked = sorted(
+        (
+            (probability, entity_id)
+            for entity_id, probability in entity.probabilities.items()
+            if entity_id != NONE and probability >= ASK_BACK_FLOOR
+        ),
+        reverse=True,
+    )
+    if len(ranked) != 2 or ranked[0][0] + ranked[1][0] < min_confidence:
+        return None
+    first, second = (snapshot.by_id(entity_id) for _, entity_id in ranked)
+    if first is None or second is None or spoken_name(first, second) is None:
+        return None
+    return first.entity_id, second.entity_id
+
+
+def spoken_name(one: ExposedEntity, other: ExposedEntity) -> tuple[str, str] | None:
+    """How to say the two apart: by name, or by room when the names are the same.
+
+    None when neither tells them apart, since "the fan or the fan" asks nothing.
+    """
+    if one.name.casefold() != other.name.casefold():
+        return one.name, other.name
+    if one.area and other.area and one.area.casefold() != other.area.casefold():
+        return f"{one.name} ({one.area})", f"{other.name} ({other.area})"
+    return None
 
 
 # What "already done" looks like for each action the check covers.

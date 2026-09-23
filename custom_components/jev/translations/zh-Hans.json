@@ -367,6 +367,7 @@
     "budget_spent": "今天的令牌预算已用完，所以今天无法执行。",
     "auth_failed": "TypeSafe 拒绝了 API 密钥。请在 Jev 设置中检查。",
     "unavailable": "TypeSafe 没有响应。请稍后再试。",
+    "which_device": "你是指{first}还是{second}？",
     "preview_over_budget": "每日令牌预算已用完，因此没有试答结果。问题仍会保存。",
     "preview_nothing_yet": "没有试答结果：目前还没有可提问的内容。"
   },

@@ -367,6 +367,7 @@
     "budget_spent": "O orçamento diário de tokens acabou, então não posso fazer isso hoje.",
     "auth_failed": "A TypeSafe rejeitou a chave de API. Verifique-a nas configurações do Jev.",
     "unavailable": "A TypeSafe não respondeu. Tente novamente em instantes.",
+    "which_device": "Você quer dizer {first} ou {second}?",
     "preview_over_budget": "O orçamento diário de tokens acabou, então não há resposta de teste. A pergunta ainda é salva.",
     "preview_nothing_yet": "Sem resposta de teste: ainda não há nada sobre o que perguntar."
   },

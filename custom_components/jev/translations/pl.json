@@ -367,6 +367,7 @@
     "budget_spent": "Dzienny budżet tokenów się wyczerpał, więc dziś nie mogę tego zrobić.",
     "auth_failed": "TypeSafe odrzucił klucz API. Sprawdź go w ustawieniach Jev.",
     "unavailable": "TypeSafe nie odpowiedział. Spróbuj ponownie za chwilę.",
+    "which_device": "Chodzi o {first} czy {second}?",
     "preview_over_budget": "Dzienny limit tokenów jest wyczerpany, więc nie ma próbnej odpowiedzi. Pytanie i tak zostanie zapisane.",
     "preview_nothing_yet": "Brak próbnej odpowiedzi: nie ma jeszcze o co pytać."
   },

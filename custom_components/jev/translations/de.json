@@ -367,6 +367,7 @@
     "budget_spent": "Das tägliche Token-Budget ist aufgebraucht, deshalb kann ich das heute nicht tun.",
     "auth_failed": "TypeSafe hat den API-Schlüssel abgelehnt. Prüfe ihn in den Jev-Einstellungen.",
     "unavailable": "TypeSafe hat nicht geantwortet. Versuche es gleich noch einmal.",
+    "which_device": "Meinst du {first} oder {second}?",
     "preview_over_budget": "Das Tagesbudget für Tokens ist aufgebraucht, es gibt also keine Probeantwort. Die Frage wird trotzdem gespeichert.",
     "preview_nothing_yet": "Keine Probeantwort: Es gibt noch nichts, wonach sich fragen ließe."
   },

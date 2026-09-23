@@ -367,6 +367,7 @@
     "budget_spent": "Het dagelijkse tokenbudget is op, dus dat kan ik vandaag niet doen.",
     "auth_failed": "TypeSafe heeft de API-sleutel geweigerd. Controleer hem in de instellingen van Jev.",
     "unavailable": "TypeSafe gaf geen antwoord. Probeer het zo nog eens.",
+    "which_device": "Bedoel je {first} of {second}?",
     "preview_over_budget": "Het daglimiet voor tokens is op, dus er is geen proefantwoord. De vraag wordt wel opgeslagen.",
     "preview_nothing_yet": "Geen proefantwoord: er is nog niets om over te vragen."
   },

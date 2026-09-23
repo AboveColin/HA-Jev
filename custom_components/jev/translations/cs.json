@@ -367,6 +367,7 @@
     "budget_spent": "Denní rozpočet tokenů je vyčerpán, takže to dnes udělat nemohu.",
     "auth_failed": "TypeSafe odmítl klíč API. Zkontrolujte ho v nastavení Jev.",
     "unavailable": "TypeSafe neodpověděl. Zkuste to za chvíli znovu.",
+    "which_device": "Myslíte {first}, nebo {second}?",
     "preview_over_budget": "Denní rozpočet tokenů je vyčerpán, takže zkušební odpověď není. Otázka se přesto uloží.",
     "preview_nothing_yet": "Žádná zkušební odpověď: zatím není na co se ptát."
   },
