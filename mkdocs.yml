@@ -50,6 +50,43 @@ theme:
     - search.suggest
     - toc.follow
 
+# llms.txt lists every page for an agent, llms-full.txt holds all of them in one
+# file, and each page is also served as Markdown next to its HTML. A page missing
+# from sections below gets no Markdown copy. Listing plugins replaces the default
+# set, so search is named here to keep it.
+plugins:
+  - search
+  - llmstxt:
+      full_output: llms-full.txt
+      markdown_description: >-
+        A Home Assistant custom integration, installed through HACS. Questions become
+        sensors: a probability, one of a set of options, or a number on a scale. Four
+        actions (jev.noul, jev.choice, jev.score, jev.ask) answer inside an
+        automation, an AI Task entity answers ai_task.generate_data, and a
+        conversation agent handles Assist. Every call is billed in input tokens
+        against an optional daily budget.
+      sections:
+        Getting started:
+          - index.md: What Jev is and what it answers
+          - install.md: Requirements, HACS install and the API key
+          - first-question.md: Add a question in the UI and read its sensor
+        Asking questions:
+          - primitives.md: The three question types and what each returns
+          - questions-ui.md: Every field of the question form
+          - questions-yaml.md: The configuration.yaml schema for questions
+          - writing-questions.md: How to word a question so the answer moves with the state
+        In automations:
+          - actions.md: The four actions, their fields and their response variables
+          - ai-task.md: The ai_task.generate_data entity and the structures it accepts
+          - examples.md: Worked automations
+        Voice:
+          - conversation.md: The Assist conversation agent and what it will not control
+        Reference:
+          - cost.md: Token billing, the usage sensors and the daily budget
+          - measurements.md: Latency and answer quality measured against the live API
+          - troubleshooting.md: Debug logging and the common failures
+          - limitations.md: What Jev does not do
+
 markdown_extensions:
   - admonition
   - attr_list
