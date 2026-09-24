@@ -364,7 +364,7 @@
     "preview_mismatched": "API odpovědělo, ale ne na otázku, která byla položena.",
     "preview_template_error": "Šablona se nevykreslí: {reason}",
     "query_not_found": "To jsem nenašel.",
-    "budget_spent": "Denní rozpočet tokenů je vyčerpán, takže to dnes udělat nemohu.",
+    "budget_spent": "Z denního rozpočtu tokenů na to nezbývá dost, takže to dnes udělat nemohu.",
     "auth_failed": "TypeSafe odmítl klíč API. Zkontrolujte ho v nastavení Jev.",
     "unavailable": "TypeSafe neodpověděl. Zkuste to za chvíli znovu.",
     "preview_over_budget": "Denní rozpočet tokenů je vyčerpán, takže zkušební odpověď není. Otázka se přesto uloží.",

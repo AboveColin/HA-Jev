@@ -16,6 +16,7 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import intent as ha_intent
 from homeassistant.setup import async_setup_component
 from jevclient import ChoiceAnswer, NoulAnswer
 
@@ -199,6 +200,7 @@ async def test_a_compound_command_acts_on_nothing(hass, house, mock_client):
 
     assert calls == []
     assert "did not understand" in result.response.speech["plain"]["speech"]
+    assert result.response.error_code is ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
 
 
 async def test_low_confidence_acts_on_nothing(hass, house, mock_client):
@@ -343,7 +345,8 @@ async def test_a_spent_budget_stops_voice_too(hass, house, mock_client):
 
     assert mock_client.ask.await_count == 0
     assert calls == []
-    assert "budget is spent" in result.response.speech["plain"]["speech"]
+    assert "budget is left" in result.response.speech["plain"]["speech"]
+    assert result.response.response_type is ha_intent.IntentResponseType.ERROR
 
 
 async def test_a_command_that_would_pass_the_budget_is_not_sent(hass, house, mock_client):
@@ -361,7 +364,8 @@ async def test_a_command_that_would_pass_the_budget_is_not_sent(hass, house, moc
 
     assert mock_client.ask.await_count == 0
     assert calls == []
-    assert "budget is spent" in result.response.speech["plain"]["speech"]
+    assert "budget is left" in result.response.speech["plain"]["speech"]
+    assert result.response.response_type is ha_intent.IntentResponseType.ERROR
 
 
 async def test_a_voice_command_teaches_the_estimate(hass, house, mock_client):
