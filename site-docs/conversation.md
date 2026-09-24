@@ -69,7 +69,9 @@ the lamp" is the Lamp and "turn on the desk lamp" is the Desk lamp. When two nam
 equally well, as "the lamp" does for a Desk lamp and a Floor lamp, the agent asks
 **"Do you mean Desk lamp or Floor lamp?"** and keeps the conversation open. When the
 two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)". A room
-you name settles it first, so "the lamp in the office" acts.
+you name settles it first, so "the lamp in the office" acts. Next comes the room of
+the satellite that heard you, as for Home Assistant's own agent: "turn on the lamp"
+said to the office satellite turns on the office Lamp.
 
 The names decide this, not the model's confidence. On a test instance with two lights
 both called "Lamp", the model put 1.00 on one of them in one session. In another it put
