@@ -69,6 +69,10 @@ class HomeSnapshot:
     entities: list[ExposedEntity] = field(default_factory=list)
     areas: list[str] = field(default_factory=list)
     floors: list[str] = field(default_factory=list)
+    # Names of the entities the model is not shown: not exposed, left out above, or
+    # past the cap. They never leave Home Assistant. interpret() reads them so that
+    # "the desk lamp" cannot land on an exposed "Lamp" when the desk lamp is hidden.
+    hidden_names: list[str] = field(default_factory=list)
 
     @property
     def domains(self) -> list[str]:
@@ -103,6 +107,24 @@ class HomeSnapshot:
 
 
 @callback
+def async_heard_in(
+    hass: HomeAssistant, satellite_id: str | None, device_id: str | None
+) -> str | None:
+    """The area id of the satellite or device that heard a command, if it has one.
+
+    The same lookup as Home Assistant's own agent: the satellite entity's area, then
+    its device's area.
+    """
+    if satellite_id and (entry := er.async_get(hass).async_get(satellite_id)):
+        if entry.area_id is not None:
+            return entry.area_id
+        device_id = entry.device_id
+    if device_id and (device := dr.async_get(hass).async_get(device_id)):
+        return device.area_id
+    return None
+
+
+@callback
 def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     """Collect the exposed, controllable entities, newest registry state."""
     entities = er.async_get(hass)
@@ -122,13 +144,17 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
         return None
 
     found: list[ExposedEntity] = []
-    for state in hass.states.async_all(CONTROLLABLE):
-        if not async_should_expose(hass, CONVERSATION_DOMAIN, state.entity_id):
-            continue
+    hidden: list[str] = []
+    for state in hass.states.async_all():
         if (
-            state.domain == "cover"
-            and state.attributes.get("device_class") in ENTRANCE_COVERS
+            state.domain not in CONTROLLABLE
+            or not async_should_expose(hass, CONVERSATION_DOMAIN, state.entity_id)
+            or (
+                state.domain == "cover"
+                and state.attributes.get("device_class") in ENTRANCE_COVERS
+            )
         ):
+            hidden.append(state.name)
             continue
         area_id = area_id_of(state.entity_id)
         area = areas.async_get_area(area_id) if area_id else None
@@ -145,6 +171,7 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     # Sorted so the option list is stable between requests, which makes a trace
     # readable when the same command is tried twice.
     found.sort(key=lambda e: e.entity_id)
+    hidden.extend(e.name for e in found[limit:])
     found = found[:limit]
     # Counted after the cap, so a room that only had entities past the limit is not
     # offered as somewhere the command could go.
@@ -168,4 +195,5 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
         floors=sorted(
             f.name for f in floors.async_list_floors() if f.floor_id in used_floor_ids
         ),
+        hidden_names=hidden,
     )

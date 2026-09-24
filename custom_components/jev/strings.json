@@ -82,14 +82,16 @@
           "price_per_million": "Price per million input tokens, in USD",
           "fallback_agent": "Fall back to this agent",
           "min_confidence": "Act only above this confidence (0 to 1)",
-          "allow_whole_home": "Allow commands that name no room or device"
+          "allow_whole_home": "Allow commands that name no room or device",
+          "llm_tools": "Offer Jev as a tool to other LLM agents"
         },
         "data_description": {
           "daily_token_budget": "Counted from midnight in the Home Assistant time zone. 0 means no limit.",
           "price_per_million": "Sets the estimated cost sensor and the cost in the question preview. Nothing that is sent depends on it.",
           "fallback_agent": "Receives the whole sentence when Jev is not sure what to do.",
           "min_confidence": "Below this, Jev does nothing and passes the command to the fallback agent.",
-          "allow_whole_home": "Turning everything off is always allowed, with or without this."
+          "allow_whole_home": "Turning everything off is always allowed, with or without this.",
+          "llm_tools": "Adds two tools to the Assist API, one for yes/no questions and one for picking an option. Each LLM agent that uses Assist gets their descriptions in every prompt, which costs tokens at that agent's provider. Each call also counts against the budget above."
         }
       }
     }
@@ -306,6 +308,9 @@
     "task_over_budget": {
       "message": "Task {task} costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
     },
+    "action_over_budget": {
+      "message": "This action costs about {estimate} input tokens and {remaining} of the {budget} daily budget are left. Raise or clear the budget in the integration options to continue."
+    },
     "reserved_field": {
       "message": "The field {field} cannot be used, because the result carries the confidence behind every answer under that name. Rename the field."
     },
@@ -365,9 +370,10 @@
     "preview_mismatched": "The API answered, but not to the question that was asked.",
     "preview_template_error": "The template does not render: {reason}",
     "query_not_found": "I could not find that.",
-    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "budget_spent": "Not enough of the daily token budget is left for that, so I cannot do it today.",
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
     "unavailable": "TypeSafe did not answer. Try again in a moment.",
+    "which_device": "Do you mean {first} or {second}?",
     "preview_over_budget": "The daily token budget is spent, so there is no trial answer. The question still saves.",
     "preview_nothing_yet": "No trial answer: there is nothing to ask about yet."
   },

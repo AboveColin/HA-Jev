@@ -82,14 +82,16 @@
           "price_per_million": "Prijs per miljoen invoertokens, in USD",
           "fallback_agent": "Val terug op deze agent",
           "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
-          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen"
+          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen",
+          "llm_tools": "Jev als tool aanbieden aan andere LLM-agents"
         },
         "data_description": {
           "daily_token_budget": "Geteld vanaf middernacht in de tijdzone van Home Assistant. 0 betekent geen limiet.",
           "price_per_million": "Bepaalt de sensor voor de geschatte kosten en de kosten in het voorbeeld van een vraag. Niets van wat wordt verstuurd hangt ervan af.",
           "fallback_agent": "Krijgt de hele zin wanneer Jev niet zeker weet wat te doen.",
           "min_confidence": "Daaronder doet Jev niets en geeft het de opdracht door aan de terugvalagent.",
-          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie."
+          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie.",
+          "llm_tools": "Voegt twee tools toe aan de Assist-API, een voor ja/nee-vragen en een voor het kiezen van een optie. Elke LLM-agent die Assist gebruikt, krijgt hun beschrijvingen in elke prompt, en dat kost tokens bij de provider van die agent. Elke aanroep telt ook mee voor het budget hierboven."
         }
       }
     }
@@ -306,6 +308,9 @@
     "task_over_budget": {
       "message": "Taak {task} kost ongeveer {estimate} invoertokens en van het dagbudget van {budget} zijn er nog {remaining} over. Verhoog of wis het budget in de opties van de integratie om door te gaan."
     },
+    "action_over_budget": {
+      "message": "Deze actie kost ongeveer {estimate} invoertokens en er is nog {remaining} over van het dagbudget van {budget}. Verhoog of wis het budget in de opties van de integratie om door te gaan."
+    },
     "reserved_field": {
       "message": "Het veld {field} kan niet worden gebruikt, omdat het resultaat onder die naam de zekerheid achter elk antwoord meegeeft. Geef het veld een andere naam."
     },
@@ -365,9 +370,10 @@
     "preview_mismatched": "De API antwoordde, maar niet op de vraag die gesteld is.",
     "preview_template_error": "De template rendert niet: {reason}",
     "query_not_found": "Dat kon ik niet vinden.",
-    "budget_spent": "Het dagelijkse tokenbudget is op, dus dat kan ik vandaag niet doen.",
+    "budget_spent": "Er is niet genoeg over van het dagelijkse tokenbudget, dus dat kan ik vandaag niet doen.",
     "auth_failed": "TypeSafe heeft de API-sleutel geweigerd. Controleer hem in de instellingen van Jev.",
     "unavailable": "TypeSafe gaf geen antwoord. Probeer het zo nog eens.",
+    "which_device": "Bedoel je {first} of {second}?",
     "preview_over_budget": "Het daglimiet voor tokens is op, dus er is geen proefantwoord. De vraag wordt wel opgeslagen.",
     "preview_nothing_yet": "Geen proefantwoord: er is nog niets om over te vragen."
   },

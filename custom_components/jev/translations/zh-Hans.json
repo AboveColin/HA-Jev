@@ -82,14 +82,16 @@
           "price_per_million": "每百万输入令牌的价格，单位 USD",
           "fallback_agent": "回退到此代理",
           "min_confidence": "仅在置信度高于此值时执行（0 到 1）",
-          "allow_whole_home": "允许未指明房间或设备的命令"
+          "allow_whole_home": "允许未指明房间或设备的命令",
+          "llm_tools": "将 Jev 作为工具提供给其他 LLM 代理"
         },
         "data_description": {
           "daily_token_budget": "从 Home Assistant 时区的午夜开始计算。0 表示不限制。",
           "price_per_million": "决定预估费用传感器和问题预览中的费用。发送的内容都不受它影响。",
           "fallback_agent": "当 Jev 不确定该做什么时，接收完整的句子。",
           "min_confidence": "低于此值时，Jev 不执行任何操作，并把命令交给备用代理。",
-          "allow_whole_home": "无论是否开启此项，关闭所有设备始终允许。"
+          "allow_whole_home": "无论是否开启此项，关闭所有设备始终允许。",
+          "llm_tools": "向 Assist API 添加两个工具，一个用于是/否问题，一个用于选择选项。每个使用 Assist 的 LLM 代理都会在每条提示中收到它们的描述，这会在该代理的提供商处消耗 token。每次调用也计入上面的预算。"
         }
       }
     }
@@ -306,6 +308,9 @@
     "task_over_budget": {
       "message": "任务 {task} 大约需要 {estimate} 个输入令牌，而每日预算 {budget} 只剩 {remaining}。请在集成选项中提高或清除预算后再继续。"
     },
+    "action_over_budget": {
+      "message": "此操作约需 {estimate} 个输入令牌，每日预算 {budget} 还剩 {remaining}。要继续，请在集成选项中提高或清除预算。"
+    },
     "reserved_field": {
       "message": "字段 {field} 不能使用，因为结果在这个名称下携带每个答案背后的置信度。请重命名该字段。"
     },
@@ -365,9 +370,10 @@
     "preview_mismatched": "API 作出了回答，但回答的不是所提的那个问题。",
     "preview_template_error": "模板无法渲染：{reason}",
     "query_not_found": "我找不到那个。",
-    "budget_spent": "今天的令牌预算已用完，所以今天无法执行。",
+    "budget_spent": "今天剩余的令牌预算不足，所以无法执行。",
     "auth_failed": "TypeSafe 拒绝了 API 密钥。请在 Jev 设置中检查。",
     "unavailable": "TypeSafe 没有响应。请稍后再试。",
+    "which_device": "你是指{first}还是{second}？",
     "preview_over_budget": "每日令牌预算已用完，因此没有试答结果。问题仍会保存。",
     "preview_nothing_yet": "没有试答结果：目前还没有可提问的内容。"
   },

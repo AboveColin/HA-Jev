@@ -55,6 +55,7 @@ says "Done."
 | Needs words written or looked up | Fallback |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
+| A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
 | A spent budget, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was |
