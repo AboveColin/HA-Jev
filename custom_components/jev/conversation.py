@@ -22,11 +22,13 @@ it did not understand.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
-from typing import Literal
+from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime
+from typing import Any, Literal
 
 from homeassistant.components import conversation
 from homeassistant.components.conversation.models import AbstractConversationAgent
@@ -37,10 +39,20 @@ from homeassistant.exceptions import TemplateError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers import template, translation
+from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 from homeassistant.util import language as language_util
-from jevclient import JevAuthError, JevError
+from jevclient import (
+    Choice,
+    ChoiceAnswer,
+    JevAuthError,
+    JevError,
+    JevResponse,
+    Noul,
+    NoulAnswer,
+    Question,
+)
 
 from .const import (
     CONF_ALLOW_WHOLE_HOME,
@@ -52,8 +64,16 @@ from .const import (
 )
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
-from .interpret import build_questions, interpret
-from .snapshot import async_snapshot
+from .interpret import (
+    ACTIONS,
+    NONE,
+    Interpretation,
+    build_questions,
+    interpret,
+    spoken_name,
+)
+from .payload import payload_bytes
+from .snapshot import HomeSnapshot, async_heard_in, async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,13 +91,30 @@ _FALLBACK = {
     "intent_failed": "Sorry, that did not work.",
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
+    "done": "Done.",
     "query_not_found": "I could not find that.",
-    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "budget_spent": (
+        "Not enough of the daily token budget is left for that, so I cannot do it today."
+    ),
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
     "unavailable": "TypeSafe did not answer. Try again in a moment.",
+    "which_device": "Do you mean {first} or {second}?",
 }
 
 PARALLEL_UPDATES = 0
+
+
+@dataclass(slots=True)
+class _Pending:
+    """A command held while the agent asks which device it meant."""
+
+    text: str
+    response: JevResponse
+    snapshot: HomeSnapshot
+    candidates: tuple[str, str]
+    expires: datetime = field(
+        default_factory=lambda: dt_util.utcnow() + CONVERSATION_TIMEOUT
+    )
 
 
 async def async_setup_entry(
@@ -100,6 +137,8 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         self._attr_unique_id = f"{entry.entry_id}_conversation"
         runtime: JevRuntimeData = entry.runtime_data
         self._attr_device_info = build_device_info(entry.entry_id, runtime)
+        # Conversation id to the command waiting on its reply.
+        self._pending: dict[str, _Pending] = {}
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -154,13 +193,11 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
     ) -> conversation.ConversationResult:
         runtime: JevRuntimeData = self._entry.runtime_data
 
-        # The budget covers voice as well as sensors, because a satellite that
-        # mishears a wake word all night is exactly the runaway it exists to stop.
         runtime.usage.roll_over(dt_util.now().date())
-        if runtime.usage.would_exceed():
-            return await self._fall_back(
-                user_input, "the daily token budget is spent", "budget_spent"
-            )
+        if (pending := self._take_pending(chat_log.conversation_id)) is not None:
+            resolved = await self._resolve(user_input, chat_log, pending)
+            if resolved is not None:
+                return resolved
 
         snapshot = async_snapshot(self.hass, MAX_CONVERSATION_ENTITIES)
         if not snapshot.entities:
@@ -168,9 +205,63 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
 
         questions = build_questions(user_input.text, snapshot, MAX_CONVERSATION_ENTITIES)
         state = snapshot.as_state() | {"command": user_input.text}
+        response = await self._ask(user_input, state, questions)
+        if isinstance(response, conversation.ConversationResult):
+            return response
+
+        decision = interpret(
+            response,
+            user_input.text,
+            snapshot,
+            self._min_confidence,
+            heard_in=async_heard_in(
+                self.hass, user_input.satellite_id, user_input.device_id
+            ),
+        )
+        self._trace(
+            chat_log,
+            response,
+            {
+                "text": user_input.text,
+                "exposed_entities": len(snapshot.entities),
+                **asdict(decision),
+            },
+        )
+
+        if decision.candidates is not None:
+            return await self._ask_which(
+                user_input,
+                chat_log,
+                _Pending(user_input.text, response, snapshot, decision.candidates),
+            )
+        return await self._act(user_input, decision, user_input.text)
+
+    async def _ask(
+        self,
+        user_input: conversation.ConversationInput,
+        state: dict[str, Any],
+        questions: dict[str, Question],
+    ) -> JevResponse | conversation.ConversationResult:
+        """One call to Jev, inside the budget. A result means it did not answer."""
+        runtime: JevRuntimeData = self._entry.runtime_data
+
+        # The budget covers voice as well as sensors, because a satellite that
+        # mishears a wake word all night is exactly the runaway it exists to stop.
+        # The check is on this command's estimate, the same as a context's, so the
+        # last command of the day cannot take the total past the budget.
+        request_bytes = payload_bytes(state, questions, runtime.model)
+        estimate = runtime.usage.estimate_tokens(request_bytes)
+        if runtime.usage.would_exceed_with(estimate):
+            return await self._fall_back(
+                user_input,
+                f"the daily token budget has {runtime.usage.remaining()} tokens left "
+                f"and this command needs about {estimate}",
+                "budget_spent",
+            )
 
         try:
-            response = await runtime.client.ask(state, questions)
+            with runtime.usage.reservation(estimate):
+                response = await runtime.client.ask(state, questions)
         except JevAuthError as err:
             _LOGGER.error("TypeSafe rejected the API key: %s", err)
             self._entry.async_start_reauth(self.hass)
@@ -183,21 +274,157 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
                 user_input, f"TypeSafe did not answer: {err}", "unavailable"
             )
 
-        runtime.usage.record(response.usage.input_tokens)
+        runtime.usage.record(response.usage.input_tokens, request_bytes)
         runtime.model_version = response.model or runtime.model_version
         runtime.usage.notify()
+        return response
 
-        decision = interpret(response, user_input.text, snapshot, self._min_confidence)
-        runtime.conversation_traces.appendleft(
-            {
-                "text": user_input.text,
-                "latency_ms": response.latency_ms,
-                "input_tokens": response.usage.input_tokens,
-                "exposed_entities": len(snapshot.entities),
-                **asdict(decision),
-            }
+    def _trace(
+        self,
+        chat_log: conversation.ChatLog,
+        response: JevResponse,
+        record: dict[str, Any],
+    ) -> None:
+        """Keep what one call decided, for diagnostics and the Assist dialog."""
+        runtime: JevRuntimeData = self._entry.runtime_data
+        trace = {
+            "latency_ms": response.latency_ms,
+            "input_tokens": response.usage.input_tokens,
+            **record,
+        }
+        runtime.conversation_traces.appendleft(trace)
+        # The pipeline records a chat log delta as an intent-progress event: the
+        # Assist dialog shows its thinking_content under the reply, and the run's
+        # debug events keep it. The delta goes to the listener only, not into the
+        # log, so a fallback agent reading this conversation never takes it for
+        # something said. It carries each answer's distribution, because "why did
+        # it pick the office light" is answered by the entity question and by
+        # nothing in the decision alone.
+        if chat_log.delta_listener is not None:
+            chat_log.delta_listener(
+                chat_log,
+                {"role": "assistant", "thinking_content": _reasoning(trace, response)},
+            )
+
+    # --- asking which device ---
+
+    def _take_pending(self, conversation_id: str) -> _Pending | None:
+        """The command waiting on this conversation's reply, if it is still live.
+
+        A pending command lasts as long as Home Assistant keeps the chat session,
+        so a reply that arrives in a new session is never read as an answer.
+        """
+        now = dt_util.utcnow()
+        for key in [k for k, v in self._pending.items() if v.expires < now]:
+            del self._pending[key]
+        return self._pending.pop(conversation_id, None)
+
+    async def _ask_which(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+        pending: _Pending,
+    ) -> conversation.ConversationResult:
+        """Ask which of two devices the command meant, and keep the command."""
+        first, second = (pending.snapshot.by_id(e) for e in pending.candidates)
+        assert first is not None and second is not None
+        names = spoken_name(first, second)
+        assert names is not None
+        language = user_input.language or self.hass.config.language
+        text = (await self._lines(language))["which_device"].format(
+            first=names[0], second=names[1]
+        )
+        self._pending[chat_log.conversation_id] = pending
+        # In the chat log, the next turn in this conversation carries the question
+        # it answers, and an LLM fallback agent reads the same history.
+        chat_log.async_add_assistant_content_without_tools(
+            conversation.AssistantContent(agent_id=self.entity_id, content=text)
+        )
+        response = ha_intent.IntentResponse(language=user_input.language)
+        response.async_set_speech(text)
+        # A satellite opens the microphone again for the answer.
+        return conversation.ConversationResult(
+            response=response,
+            conversation_id=chat_log.conversation_id,
+            continue_conversation=True,
         )
 
+    async def _resolve(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+        pending: _Pending,
+    ) -> conversation.ConversationResult | None:
+        """Run the kept command on the device the reply picked.
+
+        None when the reply picked neither, so the reply is handled as a new
+        command: "no, the kitchen light" and "never mind, lock up" both are one.
+        """
+        snapshot = pending.snapshot
+        options: dict[str, Any] = {
+            entity_id: described.as_option()
+            for entity_id in pending.candidates
+            if (described := snapshot.by_id(entity_id)) is not None
+        }
+        options[NONE] = "Neither of these, or a different request"
+        questions: dict[str, Question] = {
+            "which": Choice("Which device does the reply pick?", options),
+            # "Never mind, turn off the lamp in the bedroom" names one of the two, so
+            # the choice alone picks it and the kept command, turn on, runs on it.
+            # Measured on a development instance, twelve replies to "turn on the
+            # lamp": the six that only pick a device scored 0.08 to 0.26 here, and
+            # the six that ask for something else, that one included, 0.91 to 0.97.
+            "new_request": Noul(
+                "Does the reply ask for something of its own, rather than only "
+                "saying which device the command meant?",
+                true="The reply is a new instruction, or changes what should happen",
+                false="The reply only picks a device, however it is phrased",
+            ),
+        }
+        state = {"command": pending.text, "reply": user_input.text}
+        response = await self._ask(user_input, state, questions)
+        if isinstance(response, conversation.ConversationResult):
+            return response
+
+        answer = response.answers.get("which")
+        new_request = response.answers.get("new_request")
+        picked = (
+            answer.choice
+            if isinstance(answer, ChoiceAnswer)
+            and answer.choice in pending.candidates
+            and answer.confidence >= self._min_confidence
+            and not (isinstance(new_request, NoulAnswer) and new_request.noul >= 0.5)
+            else None
+        )
+        self._trace(
+            chat_log,
+            response,
+            {"text": user_input.text, "answers_command": pending.text, "picked": picked},
+        )
+        if picked is None:
+            return None
+
+        # The first call's answers stand, with the entity question settled. The
+        # command is read from its own sentence again, so a brightness it named
+        # still comes from the text.
+        settled = ChoiceAnswer(choice=picked, probabilities={picked: 1.0}, confidence=1.0)
+        first = replace(
+            pending.response, answers=pending.response.answers | {"entity": settled}
+        )
+        decision = interpret(
+            first, pending.text, snapshot, self._min_confidence, ask_back=False
+        )
+        return await self._act(user_input, decision, pending.text)
+
+    # --- acting ---
+
+    async def _act(
+        self,
+        user_input: conversation.ConversationInput,
+        decision: Interpretation,
+        text: str,
+    ) -> conversation.ConversationResult:
+        """Carry out one decision, or say why not."""
         if decision.already_satisfied is not None:
             name, settled = decision.already_satisfied
             return await self._speak(user_input, f"already_{settled}", name=name)
@@ -224,7 +451,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
                 DOMAIN,
                 decision.intent_type,
                 decision.slots,
-                user_input.text,
+                text,
                 user_input.context,
                 language=user_input.language,
                 assistant=conversation.DOMAIN,
@@ -241,11 +468,22 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
             return await self._speak(user_input, "intent_failed")
 
-        # Only a state question needs our lines, and loading them reads translations.
+        # Loading our lines reads translations, so only a reply without a sentence of
+        # its own loads them.
+        language = user_input.language or self.hass.config.language
         if intent_response.response_type is ha_intent.IntentResponseType.QUERY_ANSWER:
-            language = user_input.language or self.hass.config.language
             await _speak_the_answer(
                 self.hass, intent_response, language, await self._lines(language)
+            )
+        elif (
+            intent_response.response_type is ha_intent.IntentResponseType.ACTION_DONE
+            and not intent_response.speech
+        ):
+            spoken = await _render_action_answer(
+                self.hass, intent_response, decision.intent_type, decision.slots, language
+            )
+            intent_response.async_set_speech(
+                spoken or (await self._lines(language))["done"]
             )
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
@@ -267,7 +505,14 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         agent = self._fallback_agent
         _LOGGER.debug("falling back to %s because %s", agent or "nobody", why)
         if agent is None:
-            return await self._speak(user_input, line)
+            # An error, as the default agent answers one. A satellite and the Assist
+            # dialog treat an action_done reply as a command that went through.
+            code = (
+                ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
+                if line == "not_understood"
+                else ha_intent.IntentResponseErrorCode.FAILED_TO_HANDLE
+            )
+            return await self._speak(user_input, line, error=code)
         result = await conversation.async_converse(
             self.hass,
             user_input.text,
@@ -316,16 +561,52 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         self,
         user_input: conversation.ConversationInput,
         key: str,
+        error: ha_intent.IntentResponseErrorCode | None = None,
         **placeholders: str,
     ) -> conversation.ConversationResult:
         """Say one of our own lines, with its placeholders filled in."""
         language = user_input.language or self.hass.config.language
-        text = (await self._lines(language))[key]
+        text = (await self._lines(language))[key].format(**placeholders)
         response = ha_intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(text.format(**placeholders))
+        if error is None:
+            response.async_set_speech(text)
+        else:
+            response.async_set_error(error, text)
         return conversation.ConversationResult(
             response=response, conversation_id=user_input.conversation_id
         )
+
+
+def _reasoning(trace: Mapping[str, Any], response: JevResponse) -> str:
+    """The trace as lines a person reads in the Assist dialog."""
+    if "answers_command" in trace:
+        lines = [
+            f'Jev: a reply to "{trace["answers_command"]}", '
+            f"picked {trace['picked'] or 'neither'}"
+        ]
+    else:
+        lines = [
+            f"Jev: {trace['action'] or 'no action'}, {trace['reason']}, "
+            f"confidence {trace['confidence']:.2f}",
+            f"Slots: {json.dumps(trace['slots'], ensure_ascii=False)}",
+        ]
+    for key, answer in response.answers.items():
+        if isinstance(answer, ChoiceAnswer):
+            ranked = sorted((answer.probabilities or {}).items(), key=lambda kv: -kv[1])[
+                :3
+            ]
+            spread = ", ".join(f"{k} {p:.2f}" for k, p in ranked)
+            lines.append(f"{key}: {answer.choice} {answer.confidence:.2f} ({spread})")
+        elif isinstance(answer, NoulAnswer):
+            lines.append(f"{key}: {answer.noul:.2f}")
+        else:
+            lines.append(f"{key}: {json.dumps(asdict(answer), ensure_ascii=False)}")
+    footer = f"{response.model}, {trace['input_tokens']} input tokens, "
+    footer += f"{trace['latency_ms']:.0f} ms"
+    if "exposed_entities" in trace:
+        footer += f", {trace['exposed_entities']} entities"
+    lines.append(footer)
+    return "\n".join(lines)
 
 
 # A template that compares the state against an English word writes the state word
@@ -347,6 +628,9 @@ class _Shipped:
     state_answer: str | None
     writes_the_state_word: bool
     errors: Mapping[str, str]
+    # The sentences for each action intent, keyed by the response name the default
+    # agent's own sentence data picks.
+    action_answers: Mapping[str, Mapping[str, str]]
 
 
 # Read once per language, keyed by the language that was asked for rather than the
@@ -389,6 +673,16 @@ def _load_shipped(language: str) -> _Shipped | None:
             key: text
             for key, text in responses.get("errors", {}).items()
             if isinstance(text, str) and text.strip()
+        },
+        action_answers={
+            intent_type: {
+                key: text
+                for key, text in (
+                    responses.get("intents", {}).get(intent_type) or {}
+                ).items()
+                if isinstance(text, str) and text.strip()
+            }
+            for intent_type in ACTIONS.values()
         },
     )
 
@@ -515,6 +809,107 @@ async def _render_state_answer(
         # the rest of the sentence.
         parts.append(sentence[0].upper() + sentence[1:])
     return ", ".join(parts) if parts else None
+
+
+# One kind of device across a room or the whole house. The names differ between
+# languages: English writes light_all and Polish lights_all.
+_AREA_RESPONSES = {"light": ("lights_area",), "fan": ("fans_area",)}
+_ALL_RESPONSES = {"light": ("light_all", "lights_all"), "fan": ("fan_all",)}
+
+_SLOT_REFERENCE = re.compile(r"slots\.(\w+)")
+
+
+def _response_keys(
+    intent_type: str, slots: Mapping[str, Any], domain: str | None
+) -> tuple[str, ...]:
+    """The response names to try, closest first, for what this command did.
+
+    The default agent reads the name from the sentence it matched. This agent has
+    no sentence, so it reads the same thing off the slots it sent.
+    """
+    if intent_type == "HassLightSet":
+        return ("brightness",)
+    kinds = slots.get("domain", {}).get("value") or []
+    kind = kinds[0] if len(kinds) == 1 else None
+    closest: tuple[str, ...]
+    if "area" in slots:
+        closest = _AREA_RESPONSES.get(kind or "", ())
+    elif slots.get("name", {}).get("value") == "all":
+        closest = _ALL_RESPONSES.get(kind or "", ())
+    elif domain is not None:
+        # A scene is activated rather than turned on, and German says "Licht
+        # eingeschaltet" for one light, where English has no sentence of its own.
+        closest = (domain,)
+    else:
+        closest = ()
+    return (*closest, "default")
+
+
+async def _render_action_answer(
+    hass: HomeAssistant,
+    response: ha_intent.IntentResponse,
+    intent_type: str | None,
+    slots: Mapping[str, Any],
+    language: str,
+) -> str | None:
+    """The sentence the default agent says after the same action, or None.
+
+    `async_handle` does the action and says nothing, and the Assist dialog shows no
+    reply at all for an empty one. The default agent's words come from the same
+    package as the state answers, written by the people who translate Assist.
+    None when the package has nothing that fits, and the agent says "Done." instead.
+    """
+    shipped = await _shipped(hass, language)
+    if shipped is None or intent_type is None:
+        return None
+    answers = shipped.action_answers.get(intent_type, {})
+    states = [*response.matched_states, *response.unmatched_states]
+    first = states[0] if states else None
+    # The name slot is the device's own name, as the model picked it. "all" is not a
+    # name to say back.
+    speech_slots = {
+        key: value["value"]
+        for key, value in slots.items()
+        if key in ("name", "area")
+        and isinstance(value.get("value"), str)
+        and value["value"] != "all"
+    } | response.speech_slots
+    for key in _response_keys(
+        intent_type, slots, first.domain if first is not None else None
+    ):
+        text = answers.get(key)
+        if text is None:
+            continue
+        # German says "{{ slots.name }} eingeschaltet". Rendered for a room, with no
+        # name to put there, that is a sentence that starts with a blank.
+        if any(name not in speech_slots for name in _SLOT_REFERENCE.findall(text)):
+            continue
+        try:
+            rendered = template.Template(text, hass).async_render(
+                {
+                    "slots": speech_slots,
+                    "state": template.TemplateState(hass, first) if first else None,
+                    "query": {
+                        "matched": [
+                            template.TemplateState(hass, state)
+                            for state in response.matched_states
+                        ],
+                        "unmatched": [
+                            template.TemplateState(hass, state)
+                            for state in response.unmatched_states
+                        ],
+                    },
+                },
+                parse_result=False,
+            )
+        except TemplateError as err:
+            _LOGGER.debug(
+                "the %s answer for %s did not render: %s", key, intent_type, err
+            )
+            continue
+        if sentence := " ".join(str(rendered).split()):
+            return sentence
+    return None
 
 
 async def _speak_the_answer(

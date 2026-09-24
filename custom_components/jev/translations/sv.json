@@ -82,14 +82,16 @@
           "price_per_million": "Pris per miljon indatatoken, i USD",
           "fallback_agent": "Fall tillbaka på den här agenten",
           "min_confidence": "Agera bara över den här säkerheten (0 till 1)",
-          "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet"
+          "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet",
+          "llm_tools": "Erbjud Jev som verktyg till andra LLM-agenter"
         },
         "data_description": {
           "daily_token_budget": "Räknas från midnatt i Home Assistants tidszon. 0 betyder ingen gräns.",
           "price_per_million": "Styr sensorn för uppskattad kostnad och kostnaden i förhandsvisningen av frågan. Inget av det som skickas beror på den.",
           "fallback_agent": "Får hela meningen när Jev inte är säker på vad som ska göras.",
           "min_confidence": "Under detta värde gör Jev ingenting och skickar kommandot vidare till reservagenten.",
-          "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val."
+          "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val.",
+          "llm_tools": "Lägger till två verktyg i Assist-API:et, ett för ja/nej-frågor och ett för att välja ett alternativ. Varje LLM-agent som använder Assist får deras beskrivningar i varje prompt, vilket kostar tokens hos den agentens leverantör. Varje anrop räknas också mot budgeten ovan."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Av som standard. Skickar alla attribut för de valda entiteterna, inte bara värde, måttenhet, enhetsklass och område. En väderprognos eller en mediaspelares lista med omslagsbilder blir tusentals token, och du betalar för dem vid varje utvärdering."
         }
       }
+    },
+    "calibrate": {
+      "name": "Hitta den bästa tröskeln",
+      "description": "Jämför den inspelade historiken för en ja/nej-sannolikhet med en entitet som visar vad som verkligen var sant, och ger den tröskel som oftast skulle ha haft rätt. Läser bara recordern och kostar därför inga tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Sannolikhet",
+          "description": "En Jev ja/nej-sensor eller en annan sensor vars tillstånd är en sannolikhet från 0 till 1."
+        },
+        "truth_entity_id": {
+          "name": "Vad som verkligen var sant",
+          "description": "En entitet vars tillstånd visar det riktiga svaret, till exempel en dörrkontakt eller ett uttag som rapporterar när en apparat är igång."
+        },
+        "truth_state": {
+          "name": "Tillstånd som betyder ja",
+          "description": "Tillståndet för entiteten som betyder ja. on om du lämnar fältet tomt."
+        },
+        "days": {
+          "name": "Dagar historik",
+          "description": "Hur långt tillbaka som läses. Recordern sparar 10 dagar om du inte har ändrat det."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "Uppgiften {task} kostar ungefär {estimate} indatatokens och {remaining} av dagsbudgeten på {budget} återstår. Höj eller rensa budgeten i integrationens alternativ för att fortsätta."
     },
+    "action_over_budget": {
+      "message": "Den här åtgärden kostar ungefär {estimate} indatatokens och det finns {remaining} kvar av den dagliga budgeten på {budget}. Höj eller ta bort budgeten i integrationens alternativ för att fortsätta."
+    },
     "reserved_field": {
       "message": "Fältet {field} kan inte användas, eftersom resultatet bär säkerheten bakom varje svar under det namnet. Byt namn på fältet."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe begränsade begäran: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Den här åtgärden läser recordern, och recordern körs inte."
+    },
+    "calibrate_no_history": {
+      "message": "Ingen tidpunkt de senaste {days} dagarna har både ett tal från {entity} och ett tillstånd från {truth}. Kontrollera att recordern sparar båda och att {entity} rapporterar ett tal."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} var aldrig {state} de senaste {days} dagarna, så det finns inget att jämföra med. Läs en längre period, eller kontrollera vilket tillstånd som betyder ja."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} var {state} under hela de senaste {days} dagarna, så det finns inget att jämföra med. Läs en längre period, eller kontrollera vilket tillstånd som betyder ja."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Tyvärr, det gick inte.",
     "already_on": "{name} är redan på.",
     "already_off": "{name} är redan av.",
+    "done": "Klart.",
     "preview_alone": "Skickas som en egen förfrågan.",
     "preview_grouped": "Skickas i en förfrågan tillsammans med: {others}.",
     "preview_cost": "Frågade en gång för den här förhandsgranskningen: {tokens} indatatoken, ungefär ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "API:et svarade, men inte på frågan som ställdes.",
     "preview_template_error": "Mallen renderas inte: {reason}",
     "query_not_found": "Det kunde jag inte hitta.",
-    "budget_spent": "Den dagliga tokenbudgeten är slut, så det kan jag inte göra i dag.",
+    "budget_spent": "Det finns inte tillräckligt kvar av den dagliga tokenbudgeten för det, så det kan jag inte göra i dag.",
     "auth_failed": "TypeSafe avvisade API-nyckeln. Kontrollera den i inställningarna för Jev.",
     "unavailable": "TypeSafe svarade inte. Försök igen om en stund.",
+    "which_device": "Menar du {first} eller {second}?",
     "preview_over_budget": "Den dagliga budgeten för token är slut, så det finns inget provsvar. Frågan sparas ändå.",
     "preview_nothing_yet": "Inget provsvar: det finns inget att fråga om än."
   },

@@ -82,14 +82,16 @@
           "price_per_million": "Precio por millón de tokens de entrada, en USD",
           "fallback_agent": "Recurrir a este agente",
           "min_confidence": "Actuar solo por encima de esta confianza (de 0 a 1)",
-          "allow_whole_home": "Permitir órdenes que no nombren ninguna habitación ni dispositivo"
+          "allow_whole_home": "Permitir órdenes que no nombren ninguna habitación ni dispositivo",
+          "llm_tools": "Ofrecer Jev como herramienta a otros agentes LLM"
         },
         "data_description": {
           "daily_token_budget": "Se cuenta desde la medianoche en la zona horaria de Home Assistant. 0 significa sin límite.",
           "price_per_million": "Fija el sensor de coste estimado y el coste en la vista previa de la pregunta. Nada de lo que se envía depende de ello.",
           "fallback_agent": "Recibe la frase entera cuando Jev no está seguro de qué hacer.",
           "min_confidence": "Por debajo de este valor, Jev no hace nada y pasa el comando al agente de respaldo.",
-          "allow_whole_home": "Apagarlo todo siempre está permitido, con o sin esta opción."
+          "allow_whole_home": "Apagarlo todo siempre está permitido, con o sin esta opción.",
+          "llm_tools": "Añade dos herramientas a la API de Assist, una para preguntas de sí o no y otra para elegir una opción. Cada agente LLM que usa Assist recibe sus descripciones en cada prompt, lo que cuesta tokens en el proveedor de ese agente. Cada llamada también cuenta para el presupuesto de arriba."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Desactivado por defecto. Envía todos los atributos de las entidades elegidas, no solo el valor, la unidad, la clase de dispositivo y el área. Una previsión meteorológica o la lista de carátulas de un reproductor multimedia llega a miles de tokens, y los pagas en cada evaluación."
         }
       }
+    },
+    "calibrate": {
+      "name": "Encontrar el mejor umbral",
+      "description": "Compara el historial grabado de una probabilidad de sí o no con una entidad que muestra lo que era cierto de verdad, y devuelve el umbral que habría acertado más veces. Solo lee el recorder, así que no cuesta tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Probabilidad",
+          "description": "Un sensor de sí o no de Jev, o cualquier sensor cuyo estado sea una probabilidad de 0 a 1."
+        },
+        "truth_entity_id": {
+          "name": "Lo que era cierto",
+          "description": "Una entidad cuyo estado da la respuesta real, como un contacto de puerta o un enchufe que indica cuándo funciona un aparato."
+        },
+        "truth_state": {
+          "name": "Estado que significa sí",
+          "description": "El estado de esa entidad que significa sí. on si lo dejas vacío."
+        },
+        "days": {
+          "name": "Días de historial",
+          "description": "Hasta dónde leer hacia atrás. El recorder guarda 10 días, salvo que lo hayas cambiado."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "La tarea {task} cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o borra el presupuesto en las opciones de la integración para continuar."
     },
+    "action_over_budget": {
+      "message": "Esta acción cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o elimina el presupuesto en las opciones de la integración para continuar."
+    },
     "reserved_field": {
       "message": "El campo {field} no se puede usar, porque el resultado lleva bajo ese nombre la confianza detrás de cada respuesta. Cambia el nombre del campo."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe limitó la solicitud: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Esta acción lee el recorder, y el recorder no está en marcha."
+    },
+    "calibrate_no_history": {
+      "message": "Ningún momento de los últimos {days} días tiene a la vez un número de {entity} y un estado de {truth}. Comprueba que el recorder guarda los dos, y que {entity} da un número."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} nunca estuvo en {state} en los últimos {days} días, así que no hay nada con qué comparar. Lee un periodo más largo, o comprueba qué estado significa sí."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} estuvo en {state} durante todos los últimos {days} días, así que no hay nada con qué comparar. Lee un periodo más largo, o comprueba qué estado significa sí."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Lo siento, eso no ha funcionado.",
     "already_on": "{name} ya está encendido.",
     "already_off": "{name} ya está apagado.",
+    "done": "Hecho.",
     "preview_alone": "Se envía en una solicitud propia.",
     "preview_grouped": "Se envía en una sola solicitud junto con: {others}.",
     "preview_cost": "Preguntado una vez para esta vista previa: {tokens} tokens de entrada, unos ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "La API ha respondido, pero no a la pregunta que se le hizo.",
     "preview_template_error": "La plantilla no se procesa: {reason}",
     "query_not_found": "No he podido encontrarlo.",
-    "budget_spent": "El presupuesto diario de tokens se ha agotado, así que hoy no puedo hacerlo.",
+    "budget_spent": "No queda suficiente presupuesto diario de tokens para eso, así que hoy no puedo hacerlo.",
     "auth_failed": "TypeSafe rechazó la clave de API. Revísala en los ajustes de Jev.",
     "unavailable": "TypeSafe no respondió. Inténtalo de nuevo en un momento.",
+    "which_device": "¿Te refieres a {first} o a {second}?",
     "preview_over_budget": "El presupuesto diario de tokens está agotado, así que no hay respuesta de prueba. La pregunta sí se guarda.",
     "preview_nothing_yet": "Sin respuesta de prueba: todavía no hay nada sobre lo que preguntar."
   },

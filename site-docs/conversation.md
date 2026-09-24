@@ -41,6 +41,11 @@ A room command always carries the kinds of device the model was shown. Home
 Assistant otherwise acts on every exposed entity in the room, so "turn off the
 hallway" would reach a lock exposed there and unlock it.
 
+After an action it says the sentence Home Assistant's own agent says for the same
+command, in the pipeline's language, such as "Turned on the light". Those sentences
+come from Home Assistant's translations. Where they have none, as for a toggle, it
+says "Done."
+
 ## What it refuses
 
 | Case | What happens |
@@ -50,15 +55,44 @@ hallway" would reach a lock exposed there and unlock it.
 | Needs words written or looked up | Fallback |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
+| A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
-| A spent budget, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was |
+| Two devices whose names fit the command equally well | Asks which one, see below |
+| Too little budget left for the command, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was, as an error reply |
 
 !!! info "It only sees what Assist sees"
     The agent describes only entities you exposed to Assist. You already decided
     which entities a voice assistant may touch, and a question is not a reason to
     widen that. This is the voice path only. The [four actions](actions.md) send
     whatever an automation targets, exposed or not.
+
+## When two devices fit the name
+
+The agent compares what you said with the names of the exposed devices of the kind
+the model picked. The whole name said wins: with a "Lamp" and a "Desk lamp", "turn on
+the lamp" is the Lamp and "turn on the desk lamp" is the Desk lamp. When two names fit
+equally well, as "the lamp" does for a Desk lamp and a Floor lamp, the agent asks
+**"Do you mean Desk lamp or Floor lamp?"** and keeps the conversation open. When the
+two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)". A room
+you name settles it first, so "the lamp in the office" acts. Next comes the room of
+the satellite that heard you, as for Home Assistant's own agent: "turn on the lamp"
+said to the office satellite turns on the office Lamp.
+
+The names decide this, not the model's confidence. On a test instance with two lights
+both called "Lamp", the model put 1.00 on one of them in one session. In another it put
+0.55 on "none of these", 0.44 on one Lamp and 0.01 on the other. Neither split showed
+that there were two. With three or more that fit equally well, the command goes to the
+fallback agent.
+
+Your reply, such as "the desk one", is one more request, and it counts against the
+budget. It asks which of the two the reply picks, and if the reply asks for something
+of its own. A confident pick carries out the first command on that device. A reply
+that picks neither, or that is a new instruction, is handled as a new command. So
+"never mind, turn off the lamp in the bedroom" turns that lamp off, and does not run
+the first command on it.
+The question expires after five minutes, the same time Home Assistant keeps a
+conversation open.
 
 ## What it costs
 
@@ -117,6 +151,13 @@ for what it already knows plus Jev for the rest. Point it at an LLM agent and th
 only sees what Jev could not route, which is the cheap arrangement.
 
 ## Diagnostics
+
+In the Assist dialog, each reply from Jev has a note under it with what Jev answered:
+the decision and its reason, the slots, each answer with its top three options, the
+model, the input tokens and the time the call took. The pipeline's debug view
+(**Settings**, **Voice assistants**, the pipeline's menu, **Debug**) keeps the same
+note as an `intent-progress` event of the run. The note goes to the pipeline only. It
+is not added to the conversation, so a fallback agent does not read it.
 
 The last 20 decisions the agent made are in the integration's diagnostics, with the
 reason for every decision and the action distribution behind it. The sentence itself

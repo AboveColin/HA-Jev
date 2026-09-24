@@ -82,14 +82,16 @@
           "price_per_million": "Prijs per miljoen invoertokens, in USD",
           "fallback_agent": "Val terug op deze agent",
           "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
-          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen"
+          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen",
+          "llm_tools": "Jev als tool aanbieden aan andere LLM-agents"
         },
         "data_description": {
           "daily_token_budget": "Geteld vanaf middernacht in de tijdzone van Home Assistant. 0 betekent geen limiet.",
           "price_per_million": "Bepaalt de sensor voor de geschatte kosten en de kosten in het voorbeeld van een vraag. Niets van wat wordt verstuurd hangt ervan af.",
           "fallback_agent": "Krijgt de hele zin wanneer Jev niet zeker weet wat te doen.",
           "min_confidence": "Daaronder doet Jev niets en geeft het de opdracht door aan de terugvalagent.",
-          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie."
+          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie.",
+          "llm_tools": "Voegt twee tools toe aan de Assist-API, een voor ja/nee-vragen en een voor het kiezen van een optie. Elke LLM-agent die Assist gebruikt, krijgt hun beschrijvingen in elke prompt, en dat kost tokens bij de provider van die agent. Elke aanroep telt ook mee voor het budget hierboven."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
+    },
+    "calibrate": {
+      "name": "Beste drempel bepalen",
+      "description": "Vergelijkt de opgeslagen geschiedenis van een ja/nee-kans met een entiteit die laat zien wat echt waar was, en geeft de drempel die het vaakst goed zou zijn geweest. Leest alleen de recorder en kost dus geen tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Kans",
+          "description": "Een Jev ja/nee-sensor, of een andere sensor waarvan de status een kans van 0 tot 1 is."
+        },
+        "truth_entity_id": {
+          "name": "Wat echt waar was",
+          "description": "Een entiteit waarvan de status het echte antwoord geeft, zoals een deurcontact of een stekker die meldt wanneer een apparaat draait."
+        },
+        "truth_state": {
+          "name": "Status die ja betekent",
+          "description": "De status van die entiteit die ja betekent. on als je dit leeg laat."
+        },
+        "days": {
+          "name": "Dagen geschiedenis",
+          "description": "Hoe ver terug er gelezen wordt. De recorder bewaart 10 dagen, tenzij je dat hebt aangepast."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "Taak {task} kost ongeveer {estimate} invoertokens en van het dagbudget van {budget} zijn er nog {remaining} over. Verhoog of wis het budget in de opties van de integratie om door te gaan."
     },
+    "action_over_budget": {
+      "message": "Deze actie kost ongeveer {estimate} invoertokens en er is nog {remaining} over van het dagbudget van {budget}. Verhoog of wis het budget in de opties van de integratie om door te gaan."
+    },
     "reserved_field": {
       "message": "Het veld {field} kan niet worden gebruikt, omdat het resultaat onder die naam de zekerheid achter elk antwoord meegeeft. Geef het veld een andere naam."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe heeft het verzoek begrensd: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Deze actie leest de recorder, en de recorder draait niet."
+    },
+    "calibrate_no_history": {
+      "message": "Er is in de laatste {days} dagen geen moment met zowel een getal van {entity} als een status van {truth}. Controleer of de recorder beide opslaat, en of {entity} een getal geeft."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} was in de laatste {days} dagen nooit {state}, dus er is niets om mee te vergelijken. Lees een langere periode, of controleer welke status ja betekent."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} was de hele laatste {days} dagen {state}, dus er is niets om mee te vergelijken. Lees een langere periode, of controleer welke status ja betekent."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Sorry, dat is niet gelukt.",
     "already_on": "{name} staat al aan.",
     "already_off": "{name} staat al uit.",
+    "done": "Gedaan.",
     "preview_alone": "Gaat als eigen verzoek.",
     "preview_grouped": "Gaat in een verzoek samen met: {others}.",
     "preview_cost": "Een keer gevraagd voor deze controle: {tokens} invoertokens, ongeveer ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "De API antwoordde, maar niet op de vraag die gesteld is.",
     "preview_template_error": "De template rendert niet: {reason}",
     "query_not_found": "Dat kon ik niet vinden.",
-    "budget_spent": "Het dagelijkse tokenbudget is op, dus dat kan ik vandaag niet doen.",
+    "budget_spent": "Er is niet genoeg over van het dagelijkse tokenbudget, dus dat kan ik vandaag niet doen.",
     "auth_failed": "TypeSafe heeft de API-sleutel geweigerd. Controleer hem in de instellingen van Jev.",
     "unavailable": "TypeSafe gaf geen antwoord. Probeer het zo nog eens.",
+    "which_device": "Bedoel je {first} of {second}?",
     "preview_over_budget": "Het daglimiet voor tokens is op, dus er is geen proefantwoord. De vraag wordt wel opgeslagen.",
     "preview_nothing_yet": "Geen proefantwoord: er is nog niets om over te vragen."
   },

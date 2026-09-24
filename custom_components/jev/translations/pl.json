@@ -82,14 +82,16 @@
           "price_per_million": "Cena za milion tokenów wejściowych, w USD",
           "fallback_agent": "Agent zapasowy",
           "min_confidence": "Działaj tylko powyżej tej pewności (0 do 1)",
-          "allow_whole_home": "Zezwalaj na polecenia, które nie wskazują pokoju ani urządzenia"
+          "allow_whole_home": "Zezwalaj na polecenia, które nie wskazują pokoju ani urządzenia",
+          "llm_tools": "Udostępnij Jev jako narzędzie innym agentom LLM"
         },
         "data_description": {
           "daily_token_budget": "Liczone od północy w strefie czasowej Home Assistanta. 0 oznacza brak limitu.",
           "price_per_million": "Ustala czujnik szacowanego kosztu i koszt w podglądzie pytania. Nic z tego, co jest wysyłane, od tego nie zależy.",
           "fallback_agent": "Dostaje całe zdanie, gdy Jev nie jest pewny, co zrobić.",
           "min_confidence": "Poniżej tej wartości Jev nic nie robi i przekazuje polecenie agentowi zapasowemu.",
-          "allow_whole_home": "Wyłączenie wszystkiego jest zawsze dozwolone, z tą opcją lub bez niej."
+          "allow_whole_home": "Wyłączenie wszystkiego jest zawsze dozwolone, z tą opcją lub bez niej.",
+          "llm_tools": "Dodaje do API Assist dwa narzędzia, jedno do pytań tak/nie i jedno do wyboru opcji. Każdy agent LLM korzystający z Assist dostaje ich opisy w każdym prompcie, co kosztuje tokeny u dostawcy tego agenta. Każde wywołanie liczy się też do budżetu powyżej."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Domyślnie wyłączone. Wysyła każdy atrybut wybranych encji, nie tylko wartość, jednostkę, klasę urządzenia i obszar. Prognoza pogody albo lista okładek odtwarzacza multimediów to tysiące tokenów, za które płacisz przy każdej ocenie."
         }
       }
+    },
+    "calibrate": {
+      "name": "Znajdź najlepszy próg",
+      "description": "Porównuje zapisaną historię prawdopodobieństwa tak/nie z encją, która pokazuje, co było naprawdę prawdą, i zwraca próg, który najczęściej miałby rację. Czyta tylko recorder, więc nie kosztuje tokenów.",
+      "fields": {
+        "entity_id": {
+          "name": "Prawdopodobieństwo",
+          "description": "Czujnik tak/nie z Jev albo dowolny czujnik, którego stan jest prawdopodobieństwem od 0 do 1."
+        },
+        "truth_entity_id": {
+          "name": "Co było prawdą",
+          "description": "Encja, której stan pokazuje prawdziwą odpowiedź, na przykład kontaktron drzwi albo gniazdko, które zgłasza, kiedy urządzenie pracuje."
+        },
+        "truth_state": {
+          "name": "Stan oznaczający tak",
+          "description": "Stan tej encji, który oznacza tak. on, jeśli zostawisz pole puste."
+        },
+        "days": {
+          "name": "Dni historii",
+          "description": "Jak daleko wstecz czytać. Recorder przechowuje 10 dni, chyba że to zmieniono."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "Zadanie {task} kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Zwiększ lub wyczyść budżet w opcjach integracji, aby kontynuować."
     },
+    "action_over_budget": {
+      "message": "Ta akcja kosztuje około {estimate} tokenów wejściowych, a z dziennego budżetu {budget} zostało {remaining}. Aby kontynuować, zwiększ lub usuń budżet w opcjach integracji."
+    },
     "reserved_field": {
       "message": "Pola {field} nie można użyć, ponieważ wynik przenosi pod tą nazwą pewność każdej odpowiedzi. Zmień nazwę pola."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe ograniczył żądanie: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Ta akcja czyta recorder, a recorder nie działa."
+    },
+    "calibrate_no_history": {
+      "message": "W ostatnich {days} dniach nie ma chwili, w której jest zarówno liczba z {entity}, jak i stan z {truth}. Sprawdź, czy recorder zapisuje obie encje i czy {entity} podaje liczbę."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} ani razu nie miał stanu {state} w ostatnich {days} dniach, więc nie ma z czym porównać. Czytaj dłuższy okres albo sprawdź, który stan oznacza tak."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} miał stan {state} przez całe ostatnie {days} dni, więc nie ma z czym porównać. Czytaj dłuższy okres albo sprawdź, który stan oznacza tak."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Przepraszam, to się nie udało.",
     "already_on": "{name} jest już włączone.",
     "already_off": "{name} jest już wyłączone.",
+    "done": "Gotowe.",
     "preview_alone": "Wysyłane jako osobne żądanie.",
     "preview_grouped": "Wysyłane w jednym żądaniu razem z: {others}.",
     "preview_cost": "Zapytano raz na potrzeby tego podglądu: {tokens} tokenów wejściowych, około ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "API odpowiedziało, ale nie na zadane pytanie.",
     "preview_template_error": "Szablon się nie renderuje: {reason}",
     "query_not_found": "Nie udało mi się tego znaleźć.",
-    "budget_spent": "Dzienny budżet tokenów się wyczerpał, więc dziś nie mogę tego zrobić.",
+    "budget_spent": "W dziennym budżecie tokenów nie zostało na to dość, więc dziś nie mogę tego zrobić.",
     "auth_failed": "TypeSafe odrzucił klucz API. Sprawdź go w ustawieniach Jev.",
     "unavailable": "TypeSafe nie odpowiedział. Spróbuj ponownie za chwilę.",
+    "which_device": "Chodzi o {first} czy {second}?",
     "preview_over_budget": "Dzienny limit tokenów jest wyczerpany, więc nie ma próbnej odpowiedzi. Pytanie i tak zostanie zapisane.",
     "preview_nothing_yet": "Brak próbnej odpowiedzi: nie ma jeszcze o co pytać."
   },

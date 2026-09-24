@@ -44,7 +44,9 @@ from .const import (
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
     ISSUE_BUDGET_SPENT,
+    MIN_MEASURED_BODY_TOKENS,
     MIN_UPDATE_INTERVAL_SECONDS,
+    REQUEST_OVERHEAD_TOKENS,
     STORE_SAVE_DELAY_SECONDS,
     TRIGGER_DEBOUNCE_SECONDS,
 )
@@ -73,9 +75,10 @@ class UsageAccount:
     budget: int = 0
     price_per_million: float = USD_PER_MILLION_INPUT_TOKENS
     budget_exceeded: bool = False
-    # Measured from the last answered call rather than assumed, and deliberately
-    # not persisted: it describes the endpoint, not the day, and the first call
-    # after a restart measures it again.
+    # The bytes of a request body per billed token, not counting the fixed part.
+    # Measured from the last answered call with a body worth measuring rather than
+    # assumed, and deliberately not persisted: it describes the endpoint, not the
+    # day, and the first large call after a restart measures it again.
     bytes_per_token: float = COLD_START_BYTES_PER_TOKEN
     # Estimates of requests that are in flight. Two contexts refreshing together
     # each saw the same total before either answer came back, so both fitted and
@@ -170,8 +173,9 @@ class UsageAccount:
     def record(self, input_tokens: int, payload_bytes: int | None = None) -> None:
         self.calls += 1
         self.input_tokens += input_tokens
-        if payload_bytes and input_tokens > 0:
-            self.bytes_per_token = payload_bytes / input_tokens
+        body_tokens = input_tokens - REQUEST_OVERHEAD_TOKENS
+        if payload_bytes and body_tokens >= MIN_MEASURED_BODY_TOKENS:
+            self.bytes_per_token = payload_bytes / body_tokens
         self._save()
 
     async def async_flush(self) -> None:
@@ -199,7 +203,8 @@ class UsageAccount:
 
     def estimate_tokens(self, request_bytes: int) -> int:
         """What a request of this size will be billed, over-estimated on purpose."""
-        return ceil(request_bytes / self.bytes_per_token * BUDGET_ESTIMATE_MARGIN)
+        body_tokens = request_bytes / self.bytes_per_token
+        return ceil((REQUEST_OVERHEAD_TOKENS + body_tokens) * BUDGET_ESTIMATE_MARGIN)
 
     def would_exceed_with(self, estimate: int) -> bool:
         """Whether a request costing `estimate` would end the day over budget.

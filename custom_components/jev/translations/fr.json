@@ -82,14 +82,16 @@
           "price_per_million": "Prix par million de jetons d'entrée, en USD",
           "fallback_agent": "Se replier sur cet agent",
           "min_confidence": "N'agir qu'au-dessus de cette confiance (0 à 1)",
-          "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil"
+          "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil",
+          "llm_tools": "Proposer Jev comme outil aux autres agents LLM"
         },
         "data_description": {
           "daily_token_budget": "Compté à partir de minuit dans le fuseau horaire de Home Assistant. 0 signifie aucune limite.",
           "price_per_million": "Détermine le capteur de coût estimé et le coût dans l'aperçu de la question. Rien de ce qui est envoyé n'en dépend.",
           "fallback_agent": "Reçoit la phrase entière quand Jev ne sait pas quoi faire.",
           "min_confidence": "En dessous, Jev ne fait rien et transmet la commande à l'agent de secours.",
-          "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option."
+          "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option.",
+          "llm_tools": "Ajoute deux outils à l'API Assist, l'un pour les questions oui/non et l'autre pour choisir une option. Chaque agent LLM qui utilise Assist reçoit leurs descriptions dans chaque prompt, ce qui coûte des tokens chez le fournisseur de cet agent. Chaque appel compte aussi dans le budget ci-dessus."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Désactivé par défaut. Envoie tous les attributs des entités choisies, pas seulement la valeur, l'unité, la classe d'appareil et la zone. Une prévision météo ou une liste de pochettes d'un lecteur multimédia représente des milliers de jetons, et vous les payez à chaque évaluation."
         }
       }
+    },
+    "calibrate": {
+      "name": "Trouver le meilleur seuil",
+      "description": "Compare l'historique enregistré d'une probabilité oui/non avec une entité qui montre ce qui était vraiment vrai, et donne le seuil qui aurait eu raison le plus souvent. Lit seulement le recorder, donc ne coûte aucun token.",
+      "fields": {
+        "entity_id": {
+          "name": "Probabilité",
+          "description": "Un capteur oui/non Jev, ou tout capteur dont l'état est une probabilité de 0 à 1."
+        },
+        "truth_entity_id": {
+          "name": "Ce qui était vraiment vrai",
+          "description": "Une entité dont l'état donne la vraie réponse, comme un contact de porte ou une prise qui signale quand un appareil tourne."
+        },
+        "truth_state": {
+          "name": "État qui veut dire oui",
+          "description": "L'état de cette entité qui veut dire oui. on si vous laissez vide."
+        },
+        "days": {
+          "name": "Jours d'historique",
+          "description": "Jusqu'où remonter. Le recorder garde 10 jours, sauf si vous l'avez modifié."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "La tâche {task} coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
     },
+    "action_over_budget": {
+      "message": "Cette action coûte environ {estimate} jetons d'entrée et il reste {remaining} sur le budget quotidien de {budget}. Augmentez ou supprimez le budget dans les options de l'intégration pour continuer."
+    },
     "reserved_field": {
       "message": "Le champ {field} ne peut pas être utilisé, car le résultat transporte sous ce nom la confiance derrière chaque réponse. Renommez le champ."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe a limité la requête : {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Cette action lit le recorder, et le recorder ne tourne pas."
+    },
+    "calibrate_no_history": {
+      "message": "Aucun moment des {days} derniers jours n'a à la fois un nombre de {entity} et un état de {truth}. Vérifiez que le recorder enregistre les deux, et que {entity} donne un nombre."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} n'a jamais été {state} pendant les {days} derniers jours, il n'y a donc rien à comparer. Lisez une période plus longue, ou vérifiez quel état veut dire oui."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} a été {state} pendant tous les {days} derniers jours, il n'y a donc rien à comparer. Lisez une période plus longue, ou vérifiez quel état veut dire oui."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Désolé, cela n'a pas fonctionné.",
     "already_on": "{name} est déjà allumé.",
     "already_off": "{name} est déjà éteint.",
+    "done": "C'est fait.",
     "preview_alone": "Envoyée dans sa propre requête.",
     "preview_grouped": "Envoyée dans une seule requête avec : {others}.",
     "preview_cost": "Posée une fois pour cet aperçu : {tokens} jetons d'entrée, environ ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "L'API a répondu, mais pas à la question qui a été posée.",
     "preview_template_error": "Le rendu du modèle échoue : {reason}",
     "query_not_found": "Je n'ai pas trouvé cela.",
-    "budget_spent": "Le budget quotidien de jetons est épuisé, je ne peux donc pas le faire aujourd'hui.",
+    "budget_spent": "Il ne reste pas assez de budget quotidien de jetons pour cela, je ne peux donc pas le faire aujourd'hui.",
     "auth_failed": "TypeSafe a refusé la clé API. Vérifiez-la dans les paramètres de Jev.",
     "unavailable": "TypeSafe n'a pas répondu. Réessayez dans un instant.",
+    "which_device": "Voulez-vous dire {first} ou {second} ?",
     "preview_over_budget": "Le budget quotidien de jetons est épuisé, il n'y a donc pas de réponse d'essai. La question est quand même enregistrée.",
     "preview_nothing_yet": "Pas de réponse d'essai : il n'y a encore rien sur quoi poser la question."
   },

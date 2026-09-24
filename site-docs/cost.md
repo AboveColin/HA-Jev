@@ -43,6 +43,29 @@ roughly 110 tokens per entity per call.
 thousands of tokens on every evaluation, which is why it is off by default. Access
 tokens, entity pictures and coordinates are never sent, even with it on.
 
+## A month, worked out
+
+The formula is calls per month, times input tokens per call, times the price. The
+examples use the published $0.042 per million input tokens and a 30 day month.
+
+| Setup | Calls a month | Tokens a call | A month |
+|---|---|---|---|
+| One context on 2 entities, every 5 minutes | 8,640 | about 405 | $0.15 |
+| 20 spoken commands a day, 5 entities exposed | 600 | 1,371 at most | $0.035 |
+| One context on 250 entities, every 5 minutes | 8,640 | about 16,500 | $5.99 |
+
+Where the token counts come from:
+
+- A request with one entity measured 339 input tokens, and each entity record adds
+  65.8, so two entities are about 405. See [what an entity costs](measurements.md#what-an-entity-costs).
+- A spoken command with five entities exposed measured 1,329 to 1,371 input tokens.
+- 250 entities is the cap on a target, at 65.8 tokens each.
+
+Every 5 minutes is the default scan interval, and it is the most a context on a
+schedule asks. A context that wakes on entity changes asks at most once every 30
+seconds, so a busy one can ask up to 10 times as often. Your own numbers are in
+`sensor.jev_input_tokens_today` and `sensor.jev_estimated_cost_today`.
+
 ## The budget is a tripwire
 
 Set **Daily input token budget** in the integration options. The check runs before
@@ -51,8 +74,9 @@ into a token estimate, and a call that would not fit in what is left of the budg
 never sent. A budget is a limit on what gets spent, and one that only notices after
 the spending is a report.
 
-The estimate divides the request size by the bytes per token of the last answered
-call. A question, an action and an AI Task all update that ratio.
+The estimate is a fixed 250 tokens that every request pays, plus the body size
+divided by a bytes-per-token ratio. A question, an action and an AI Task all update
+that ratio.
 
 When it trips:
 
@@ -60,7 +84,9 @@ When it trips:
 - the answer sensors of that context go unavailable, because Jev was not asked and
   there is no answer for right now. The last answers are not thrown away, and the
   next call that fits replaces them
-- `binary_sensor.jev_daily_budget_exceeded` turns on
+- `binary_sensor.jev_daily_budget_exceeded` turns on. It shows that contexts have
+  stopped, so a spoken command, an action or an AI Task that the budget refuses
+  does not turn it on. Each of those says so to whoever started it
 - a repair issue explains it, naming the budget, what has been used, and the context
   that was refused with the tokens it needed
 
@@ -89,19 +115,20 @@ that either of those cleared would not be a daily budget.
 - YAML contexts name no entry, so they belong to the first enabled Jev entry. A
   second entry does not ask them again and bill them twice.
 
-The two one-off paths, a conversation command and the preview in the question editor,
-still check what has already been spent rather than estimating the call ahead. Both
-are started by a person and both have somewhere to fall back to, so the worst case is
-one request over the line rather than a runaway.
+A conversation command, an action and an AI Task estimate their call ahead, like a
+context does. The preview in the question editor checks only what has already been
+spent. A person starts it and it has nothing to fall back to, so the worst case is one
+request over the line rather than a runaway.
 
 ### How the estimate is worked out
 
-The estimate is `bytes / bytes-per-token`, with a 1.2 margin. The ratio is not
-hardcoded: the first call after a restart uses 2.29 bytes per token, measured against
-the live API, and every answered call after that replaces it with the payload size
-divided by the input tokens the endpoint actually reported. An endpoint that counts
-tokens differently, OpenRouter or a gateway of your own, is measured rather than
-assumed within one call. See the
+The estimate is `(250 + bytes / bytes-per-token) * 1.2`. The 250 is what every
+request is billed before its body counts. The ratio is not hardcoded: the first call
+after a restart uses 2.80 bytes per token, measured against the live API. After that,
+every answered call with a body of at least 250 tokens replaces it with what the
+endpoint actually billed. A small call leaves it alone, because its bill is nearly all
+fixed part. An endpoint that counts tokens differently, OpenRouter or a gateway of
+your own, is measured rather than assumed. See the
 [receipt](measurements.md#bytes-per-input-token).
 
 !!! tip "Size it past anything real"

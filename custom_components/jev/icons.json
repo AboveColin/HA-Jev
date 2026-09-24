@@ -30,6 +30,7 @@
     "noul": "mdi:comment-question-outline",
     "choice": "mdi:format-list-checks",
     "score": "mdi:ruler",
-    "ask": "mdi:comment-multiple-outline"
+    "ask": "mdi:comment-multiple-outline",
+    "calibrate": "mdi:tune-vertical"
   }
 }

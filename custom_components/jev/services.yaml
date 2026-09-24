@@ -196,3 +196,28 @@ ask:
       selector:
         config_entry:
           integration: jev
+
+calibrate:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    truth_entity_id:
+      required: true
+      selector:
+        entity: {}
+    truth_state:
+      required: false
+      default: "on"
+      selector:
+        text:
+    days:
+      required: false
+      default: 7
+      selector:
+        number:
+          min: 1
+          mode: box
+          unit_of_measurement: days

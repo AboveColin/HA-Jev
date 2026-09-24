@@ -82,14 +82,16 @@
           "price_per_million": "Preis pro Million Eingabe-Tokens, in USD",
           "fallback_agent": "Auf diesen Agenten zurückfallen",
           "min_confidence": "Nur oberhalb dieser Konfidenz handeln (0 bis 1)",
-          "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen"
+          "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen",
+          "llm_tools": "Jev anderen LLM-Agenten als Werkzeug anbieten"
         },
         "data_description": {
           "daily_token_budget": "Gezählt ab Mitternacht in der Zeitzone von Home Assistant. 0 bedeutet kein Limit.",
           "price_per_million": "Bestimmt den Sensor für die geschätzten Kosten und die Kosten in der Vorschau einer Frage. Nichts, was gesendet wird, hängt davon ab.",
           "fallback_agent": "Bekommt den ganzen Satz, wenn Jev nicht sicher ist, was zu tun ist.",
           "min_confidence": "Darunter tut Jev nichts und gibt den Befehl an den Ersatz-Agenten weiter.",
-          "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option."
+          "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option.",
+          "llm_tools": "Fügt der Assist-API zwei Werkzeuge hinzu, eines für Ja/Nein-Fragen und eines für die Wahl einer Option. Jeder LLM-Agent, der Assist nutzt, erhält ihre Beschreibungen in jedem Prompt, was beim Anbieter dieses Agenten Tokens kostet. Jeder Aufruf zählt außerdem zum Budget oben."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
         }
       }
+    },
+    "calibrate": {
+      "name": "Besten Schwellenwert finden",
+      "description": "Vergleicht den aufgezeichneten Verlauf einer Ja/Nein-Wahrscheinlichkeit mit einer Entität, die zeigt, was wirklich zutraf, und liefert den Schwellenwert, der am häufigsten richtig gewesen wäre. Liest nur den Recorder und kostet daher keine Tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Wahrscheinlichkeit",
+          "description": "Ein Jev-Ja/Nein-Sensor oder ein anderer Sensor, dessen Zustand eine Wahrscheinlichkeit von 0 bis 1 ist."
+        },
+        "truth_entity_id": {
+          "name": "Was wirklich zutraf",
+          "description": "Eine Entität, deren Zustand die echte Antwort zeigt, etwa ein Türkontakt oder eine Steckdose, die meldet, wann ein Gerät läuft."
+        },
+        "truth_state": {
+          "name": "Zustand für Ja",
+          "description": "Der Zustand dieser Entität, der Ja bedeutet. on, wenn du das Feld leer lässt."
+        },
+        "days": {
+          "name": "Tage Verlauf",
+          "description": "Wie weit zurück gelesen wird. Der Recorder behält 10 Tage, sofern du das nicht geändert hast."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "Die Aufgabe {task} kostet etwa {estimate} Eingabetokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
     },
+    "action_over_budget": {
+      "message": "Diese Aktion kostet etwa {estimate} Eingabe-Tokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
+    },
     "reserved_field": {
       "message": "Das Feld {field} kann nicht verwendet werden, weil das Ergebnis unter diesem Namen die Sicherheit hinter jeder Antwort mitliefert. Benenne das Feld um."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe hat die Anfrage gedrosselt: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Diese Aktion liest den Recorder, und der Recorder läuft nicht."
+    },
+    "calibrate_no_history": {
+      "message": "In den letzten {days} Tagen gibt es keinen Zeitraum mit einer Zahl von {entity} und einem Zustand von {truth}. Prüfe, ob der Recorder beide aufzeichnet und ob {entity} eine Zahl meldet."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} war in den letzten {days} Tagen nie {state}, also gibt es nichts zum Vergleichen. Lies einen längeren Zeitraum oder prüfe, welcher Zustand Ja bedeutet."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} war die gesamten letzten {days} Tage {state}, also gibt es nichts zum Vergleichen. Lies einen längeren Zeitraum oder prüfe, welcher Zustand Ja bedeutet."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Entschuldigung, das hat nicht geklappt.",
     "already_on": "{name} ist schon an.",
     "already_off": "{name} ist schon aus.",
+    "done": "Erledigt.",
     "preview_alone": "Geht als eigene Anfrage raus.",
     "preview_grouped": "Geht in einer Anfrage zusammen mit: {others}.",
     "preview_cost": "Einmal für diese Vorschau gefragt: {tokens} Eingabe-Tokens, etwa ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "Die API hat geantwortet, aber nicht auf die gestellte Frage.",
     "preview_template_error": "Die Vorlage lässt sich nicht rendern: {reason}",
     "query_not_found": "Das konnte ich nicht finden.",
-    "budget_spent": "Das tägliche Token-Budget ist aufgebraucht, deshalb kann ich das heute nicht tun.",
+    "budget_spent": "Vom täglichen Token-Budget ist dafür nicht mehr genug übrig, deshalb kann ich das heute nicht tun.",
     "auth_failed": "TypeSafe hat den API-Schlüssel abgelehnt. Prüfe ihn in den Jev-Einstellungen.",
     "unavailable": "TypeSafe hat nicht geantwortet. Versuche es gleich noch einmal.",
+    "which_device": "Meinst du {first} oder {second}?",
     "preview_over_budget": "Das Tagesbudget für Tokens ist aufgebraucht, es gibt also keine Probeantwort. Die Frage wird trotzdem gespeichert.",
     "preview_nothing_yet": "Keine Probeantwort: Es gibt noch nichts, wonach sich fragen ließe."
   },

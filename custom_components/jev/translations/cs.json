@@ -82,14 +82,16 @@
           "price_per_million": "Cena za milion vstupních tokenů v USD",
           "fallback_agent": "Záložní agent",
           "min_confidence": "Jednat jen nad touto jistotou (0 až 1)",
-          "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení"
+          "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení",
+          "llm_tools": "Nabídnout Jev jako nástroj ostatním LLM agentům"
         },
         "data_description": {
           "daily_token_budget": "Počítá se od půlnoci v časovém pásmu Home Assistantu. 0 znamená bez limitu.",
           "price_per_million": "Určuje senzor odhadované ceny a cenu v náhledu otázky. Nic z toho, co se odesílá, na tom nezávisí.",
           "fallback_agent": "Dostane celou větu, když si Jev není jistý, co udělat.",
           "min_confidence": "Pod touto hodnotou Jev nic neudělá a předá příkaz záložnímu agentovi.",
-          "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní."
+          "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní.",
+          "llm_tools": "Přidá do API Assist dva nástroje, jeden pro otázky ano/ne a jeden pro výběr možnosti. Každý LLM agent, který používá Assist, dostane jejich popisy v každém promptu, což stojí tokeny u poskytovatele tohoto agenta. Každé volání se také počítá do rozpočtu výše."
         }
       }
     }
@@ -228,6 +230,28 @@
           "description": "Ve výchozím stavu vypnuto. Posílá každý atribut vybraných entit, nejen hodnotu, jednotku, třídu zařízení a oblast. Předpověď počasí nebo seznam obalů alb v přehrávači médií vydá na tisíce tokenů a ty zaplatíte při každém vyhodnocení."
         }
       }
+    },
+    "calibrate": {
+      "name": "Najít nejlepší práh",
+      "description": "Porovná zaznamenanou historii pravděpodobnosti ano/ne s entitou, která ukazuje, co skutečně platilo, a vrátí práh, který by nejčastěji měl pravdu. Čte jen recorder, takže nestojí žádné tokeny.",
+      "fields": {
+        "entity_id": {
+          "name": "Pravděpodobnost",
+          "description": "Senzor ano/ne od Jev, nebo jakýkoli senzor, jehož stav je pravděpodobnost od 0 do 1."
+        },
+        "truth_entity_id": {
+          "name": "Co skutečně platilo",
+          "description": "Entita, jejíž stav ukazuje skutečnou odpověď, například kontakt dveří nebo zásuvka, která hlásí, kdy spotřebič běží."
+        },
+        "truth_state": {
+          "name": "Stav znamenající ano",
+          "description": "Stav té entity, který znamená ano. on, pokud pole necháte prázdné."
+        },
+        "days": {
+          "name": "Dny historie",
+          "description": "Jak daleko zpět číst. Recorder uchovává 10 dní, pokud jste to nezměnili."
+        }
+      }
     }
   },
   "entity": {
@@ -306,6 +330,9 @@
     "task_over_budget": {
       "message": "Úloha {task} stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pro pokračování zvyšte nebo zrušte rozpočet v možnostech integrace."
     },
+    "action_over_budget": {
+      "message": "Tato akce stojí asi {estimate} vstupních tokenů a z denního rozpočtu {budget} zbývá {remaining}. Pokud chcete pokračovat, zvyšte nebo zrušte rozpočet v možnostech integrace."
+    },
     "reserved_field": {
       "message": "Pole {field} nelze použít, protože výsledek pod tímto názvem nese jistotu každé odpovědi. Pole přejmenujte."
     },
@@ -341,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe omezil požadavek: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Tato akce čte recorder a recorder neběží."
+    },
+    "calibrate_no_history": {
+      "message": "V posledních {days} dnech není žádný okamžik s číslem z {entity} i stavem z {truth}. Zkontrolujte, že recorder zaznamenává obojí a že {entity} hlásí číslo."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} nebyl v posledních {days} dnech nikdy {state}, takže není s čím porovnat. Čtěte delší období, nebo zkontrolujte, který stav znamená ano."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} byl celých posledních {days} dní {state}, takže není s čím porovnat. Čtěte delší období, nebo zkontrolujte, který stav znamená ano."
     }
   },
   "common": {
@@ -350,6 +389,7 @@
     "intent_failed": "Promiňte, to se nepovedlo.",
     "already_on": "{name} už je zapnuto.",
     "already_off": "{name} už je vypnuto.",
+    "done": "Hotovo.",
     "preview_alone": "Odesláno jako vlastní požadavek.",
     "preview_grouped": "Odesláno v jednom požadavku spolu s: {others}.",
     "preview_cost": "Jednou dotázáno pro tento náhled: {tokens} vstupních tokenů, asi ${cost}, {ms} ms.",
@@ -364,9 +404,10 @@
     "preview_mismatched": "API odpovědělo, ale ne na otázku, která byla položena.",
     "preview_template_error": "Šablona se nevykreslí: {reason}",
     "query_not_found": "To jsem nenašel.",
-    "budget_spent": "Denní rozpočet tokenů je vyčerpán, takže to dnes udělat nemohu.",
+    "budget_spent": "Z denního rozpočtu tokenů na to nezbývá dost, takže to dnes udělat nemohu.",
     "auth_failed": "TypeSafe odmítl klíč API. Zkontrolujte ho v nastavení Jev.",
     "unavailable": "TypeSafe neodpověděl. Zkuste to za chvíli znovu.",
+    "which_device": "Myslíte {first}, nebo {second}?",
     "preview_over_budget": "Denní rozpočet tokenů je vyčerpán, takže zkušební odpověď není. Otázka se přesto uloží.",
     "preview_nothing_yet": "Žádná zkušební odpověď: zatím není na co se ptát."
   },
