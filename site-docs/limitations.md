@@ -61,6 +61,27 @@ Locks are refused on purpose: Home Assistant reads turn_on on a lock as `lock.lo
 which is the opposite way round from the spoken command. Garage, gate and door covers
 are refused for the same reason.
 
+## No local model
+
+Jev needs the TypeSafe API. There is no local mode.
+
+A llama.cpp fork adds a `POST /v1/decision` endpoint that answers a schema of enum,
+boolean and number fields in one batched pass, with a probability for each answer. I
+read its interface to see whether Jev could use it as a local backend. It cannot, as
+the fork is now:
+
+- It returns only the probability of the value it chose, not the distribution over
+  all values.
+- A noul maps exactly, because the probability of yes follows from the probability
+  of the chosen value.
+- A choice needs the probability of every option, and a score's level is a weighted
+  average over all levels, so neither can be built from one probability.
+- The request shape is different, so Jev would need a second client.
+
+If that endpoint returns the full distribution for each field, a local backend is
+worth doing. Until then, only the yes/no questions could run locally, with the other
+two types still going to TypeSafe.
+
 ## It is not a core integration
 
 `quality_scale.yaml` tracks this against Home Assistant's quality scale at 47 done
