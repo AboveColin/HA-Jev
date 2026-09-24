@@ -367,6 +367,7 @@
     "budget_spent": "Not enough of the daily token budget is left for that, so I cannot do it today.",
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
     "unavailable": "TypeSafe did not answer. Try again in a moment.",
+    "which_device": "Do you mean {first} or {second}?",
     "preview_over_budget": "The daily token budget is spent, so there is no trial answer. The question still saves.",
     "preview_nothing_yet": "No trial answer: there is nothing to ask about yet."
   },

@@ -6,6 +6,7 @@ which helper got called.
 """
 
 from dataclasses import replace
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -15,9 +16,12 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import chat_session
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
+from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 from jevclient import ChoiceAnswer, NoulAnswer, Usage
 
 from custom_components.jev.const import (
@@ -27,7 +31,7 @@ from custom_components.jev.const import (
     CONVERSATION_TRACE_LENGTH,
 )
 from custom_components.jev.conversation import _render_state_answer
-from custom_components.jev.interpret import find_brightness
+from custom_components.jev.interpret import NONE, find_brightness
 from custom_components.jev.payload import payload_bytes
 
 from .conftest import PROBE_TOKENS, build_response
@@ -522,11 +526,11 @@ async def test_traces_are_bounded(hass, house, mock_client):
     assert len(house.runtime_data.conversation_traces) == CONVERSATION_TRACE_LENGTH
 
 
-async def converse_in_a_pipeline(hass, text):
+async def converse_in_a_pipeline(hass, text, conversation_id=None):
     """Converse the way assist_pipeline does, with a listener on the chat log."""
     deltas = []
     with (
-        chat_session.async_get_chat_session(hass, None) as session,
+        chat_session.async_get_chat_session(hass, conversation_id) as session,
         conversation.async_get_chat_log(
             hass,
             session,
@@ -1310,7 +1314,8 @@ async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_clien
         **answer_set(
             entity=ChoiceAnswer(
                 choice="light.office_ceiling", probabilities={}, confidence=1.0
-            )
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.95),
         )
     )
     calls = []
@@ -1365,3 +1370,438 @@ async def test_a_room_past_the_entity_cap_is_not_offered(hass, config_entry):
 
     assert [e.entity_id for e in snapshot.entities] == ["light.a", "light.b"]
     assert snapshot.areas == ["Attic"]
+
+
+# --- asking which device ---
+
+
+def unsure_between(first, second, first_share=0.5, second_share=0.45, **rest):
+    """An answer set whose entity answer is split between two devices."""
+    shares = {first: first_share, second: second_share, NONE: 0.05, **rest}
+    return answer_set(
+        entity=ChoiceAnswer(
+            choice=first, probabilities=shares, confidence=max(shares.values())
+        ),
+        area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+    )
+
+
+def rename(hass, entity_id, name):
+    """Rename in the registry too, which is where the intent layer matches names."""
+    er.async_get(hass).async_update_entity(entity_id, name=name)
+    hass.states.async_set(entity_id, "off", {"friendly_name": name})
+
+
+def reply(choice, confidence=0.95):
+    return {"which": ChoiceAnswer(choice=choice, probabilities={}, confidence=confidence)}
+
+
+async def converse_in(hass, text, conversation_id):
+    return await conversation.async_converse(
+        hass, text, conversation_id, Context(), language="en", agent_id=AGENT
+    )
+
+
+async def test_two_devices_that_fit_the_name_get_a_question(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office")
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "light on")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.continue_conversation is True
+    assert result.conversation_id
+    assert (
+        result.response.speech["plain"]["speech"]
+        == "Do you mean Kitchen light or Office light?"
+    )
+
+
+async def test_a_sure_answer_is_still_asked_about_when_the_name_is_shared(
+    hass, house, mock_client
+):
+    """Measured: two lights called "Lamp", and the model gave one of them 1.00."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
+
+
+async def test_a_shared_name_is_asked_about_when_none_got_most_of_the_answer(
+    hass, house, mock_client
+):
+    """Measured: none_of_these 0.55, one Lamp 0.44, the other 0.01."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    shares = {NONE: 0.55, "light.kitchen": 0.44, "light.office": 0.01}
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities=shares, confidence=0.55),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
+
+
+async def test_a_room_that_is_named_settles_a_shared_name(hass, house, mock_client):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice="light.office", probabilities={}, confidence=1.0),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.99),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp in the office")
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+def a_satellite_in(hass, house, area_name):
+    """A voice device placed in the named area, as a satellite is."""
+    area = ar.async_get(hass).async_get_area_by_name(area_name)
+    assert area is not None
+    devices = dr.async_get(hass)
+    device = devices.async_get_or_create(
+        config_entry_id=house.entry_id, identifiers={("test", area_name)}
+    )
+    devices.async_update_device(device.id, area_id=area.id)
+    return device.id
+
+
+async def test_the_room_a_satellite_is_in_settles_a_shared_name(hass, house, mock_client):
+    """Home Assistant's own agent prefers the satellite's area, and so does Jev."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        device_id=a_satellite_in(hass, house, "Office"),
+    )
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+async def test_a_satellite_entity_area_settles_a_shared_name_the_model_was_unsure_of(
+    hass, house, mock_client
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    kitchen = ar.async_get(hass).async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    entities = er.async_get(hass)
+    satellite = entities.async_get_or_create("assist_satellite", "test", "kitchen")
+    entities.async_update_entity(satellite.entity_id, area_id=kitchen.id)
+    shares = {NONE: 0.55, "light.office": 0.44, "light.kitchen": 0.01}
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities=shares, confidence=0.55),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        satellite_id=satellite.entity_id,
+    )
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.kitchen"]
+
+
+async def test_a_satellite_in_another_room_still_gets_the_question(
+    hass, house, mock_client
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    ar.async_get(hass).async_create("Hall")
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        device_id=a_satellite_in(hass, house, "Hall"),
+    )
+
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "chosen"),
+    [
+        # The whole name said beats a name that only shares a word with it.
+        ("turn on the lamp", "light.kitchen"),
+        ("turn on the desk lamp", "light.office"),
+    ],
+)
+async def test_the_whole_name_said_is_the_device_meant(
+    hass, house, mock_client, text, chosen
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Desk lamp")
+    mock_client.ask.return_value = build_response(
+        **answer_set(entity=ChoiceAnswer(choice=chosen, probabilities={}, confidence=1.0))
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == [chosen]
+
+
+async def test_the_reply_runs_the_first_command_on_the_device_it_picks(
+    hass, house, mock_client
+):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    asked = await converse(hass, "light on")
+    await converse_in(hass, "the office one", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+    # The reply was one small question about the two devices, not a new command.
+    state, questions = mock_client.ask.await_args.args
+    assert list(questions) == ["which", "new_request"]
+    assert state == {"command": "light on", "reply": "the office one"}
+    assert set(questions["which"].criteria) == {"light.kitchen", "light.office", NONE}
+
+
+async def test_the_assist_dialog_shows_what_the_reply_picked(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    hass.services.async_register("light", "turn_on", lambda call: None)
+
+    asked = await converse(hass, "light on")
+    result, deltas, _ = await converse_in_a_pipeline(
+        hass, "the office one", asked.conversation_id
+    )
+
+    assert result.response.response_type is ha_intent.IntentResponseType.ACTION_DONE
+    [delta] = deltas
+    assert delta["thinking_content"].startswith(
+        'Jev: a reply to "light on", picked light.office\n'
+    )
+
+
+async def test_a_reply_that_picks_neither_is_a_new_command(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply(NONE)
+    )
+    asked = await converse(hass, "light on")
+    mock_client.ask.reset_mock()
+
+    result = await converse_in(hass, "never mind", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    # The reply question, then the whole reply as a command of its own. It fits
+    # no device's name, so it is not asked about again.
+    assert mock_client.ask.await_count == 2
+    assert "action" in mock_client.ask.await_args.args[1]
+    assert result.continue_conversation is False
+
+
+async def test_a_reply_that_names_a_device_in_a_new_command_runs_that_command(
+    hass, house, mock_client
+):
+    """Measured: "never mind, turn off the lamp in the bedroom" picked that lamp."""
+    new_request = {"new_request": NoulAnswer(noul=0.96)}
+    turn_off = answer_set(
+        action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.98),
+        entity=ChoiceAnswer(choice="light.office", probabilities={}, confidence=0.97),
+    )
+    mock_client.ask.side_effect = [
+        build_response(**unsure_between("light.kitchen", "light.office")),
+        build_response(**reply("light.office"), **new_request),
+        build_response(**turn_off),
+    ]
+    turned_on, turned_off = [], []
+    hass.services.async_register("light", "turn_on", turned_on.append)
+    hass.services.async_register("light", "turn_off", turned_off.append)
+
+    asked = await converse(hass, "light on")
+    await converse_in(hass, "no, turn off the office light", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    assert turned_on == []
+    assert [e for c in turned_off for e in c.data["entity_id"]] == ["light.office"]
+
+
+async def test_an_unsure_reply_acts_on_nothing(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"),
+        **reply("light.office", confidence=0.4),
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    asked = await converse(hass, "light on")
+    await converse_in(hass, "hmm", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_a_reply_in_another_conversation_is_not_an_answer(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    await converse(hass, "light on")
+    mock_client.ask.reset_mock()
+
+    await converse(hass, "the office one")
+    await hass.async_block_till_done()
+
+    assert "which" not in mock_client.ask.await_args_list[0].args[1]
+
+
+async def test_a_question_left_unanswered_expires_with_the_session(
+    hass, house, mock_client
+):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    asked = await converse(hass, "light on")
+    mock_client.ask.reset_mock()
+
+    later = dt_util.utcnow() + CONVERSATION_TIMEOUT + timedelta(seconds=1)
+    with patch("custom_components.jev.conversation.dt_util.utcnow", return_value=later):
+        await converse_in(hass, "the office one", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    assert "which" not in mock_client.ask.await_args_list[0].args[1]
+
+
+async def test_a_third_device_in_the_running_means_no_question(hass, house, mock_client):
+    hass.states.async_set("light.hall", "off", {"friendly_name": "Hall light"})
+    async_expose_entity(hass, conversation.DOMAIN, "light.hall", True)
+    mock_client.ask.return_value = build_response(
+        **unsure_between(
+            "light.kitchen", "light.office", 0.4, 0.3, **{"light.hall": 0.25}
+        )
+    )
+
+    result = await converse(hass, "light on")
+
+    assert result.continue_conversation is False
+    assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
+async def test_two_devices_with_nothing_to_tell_them_apart_get_no_question(
+    hass, house, mock_client
+):
+    kitchen = ar.async_get(hass).async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    er.async_get(hass).async_update_entity("light.office", area_id=kitchen.id)
+    rename(hass, "light.office", "Kitchen light")
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office")
+    )
+
+    result = await converse(hass, "light on")
+
+    assert result.continue_conversation is False
+    assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
+async def test_the_same_name_in_two_rooms_is_asked_by_room(hass, house, mock_client):
+    rename(hass, "light.office", "Kitchen light")
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office")
+    )
+
+    result = await converse(hass, "light on")
+
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Kitchen light (Kitchen) or Kitchen light (Office)?"
+    )
+
+
+async def test_the_question_is_asked_in_the_pipeline_language(hass, house, mock_client):
+    rename(hass, "light.kitchen", "Lamp keuken")
+    rename(hass, "light.office", "Lamp kantoor")
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office")
+    )
+
+    result = await converse(hass, "lamp aan", language="nl")
+
+    assert (
+        result.response.speech["plain"]["speech"]
+        == "Bedoel je Lamp keuken of Lamp kantoor?"
+    )
+
+
+async def test_a_reply_past_the_budget_is_refused_like_a_command(
+    hass, house, mock_client
+):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    asked = await converse(hass, "light on")
+    # Set on the account, not in the options: an options change reloads the entry,
+    # and a reloaded agent holds no question to answer.
+    house.runtime_data.usage.budget = 10
+    mock_client.ask.reset_mock()
+
+    result = await converse_in(hass, "the office one", asked.conversation_id)
+
+    assert mock_client.ask.await_count == 0
+    assert "budget is left" in result.response.speech["plain"]["speech"]

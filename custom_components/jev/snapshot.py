@@ -103,6 +103,24 @@ class HomeSnapshot:
 
 
 @callback
+def async_heard_in(
+    hass: HomeAssistant, satellite_id: str | None, device_id: str | None
+) -> str | None:
+    """The area id of the satellite or device that heard a command, if it has one.
+
+    The same lookup as Home Assistant's own agent: the satellite entity's area, then
+    its device's area.
+    """
+    if satellite_id and (entry := er.async_get(hass).async_get(satellite_id)):
+        if entry.area_id is not None:
+            return entry.area_id
+        device_id = entry.device_id
+    if device_id and (device := dr.async_get(hass).async_get(device_id)):
+        return device.area_id
+    return None
+
+
+@callback
 def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     """Collect the exposed, controllable entities, newest registry state."""
     entities = er.async_get(hass)

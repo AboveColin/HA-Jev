@@ -367,6 +367,7 @@
     "budget_spent": "Det finns inte tillräckligt kvar av den dagliga tokenbudgeten för det, så det kan jag inte göra i dag.",
     "auth_failed": "TypeSafe avvisade API-nyckeln. Kontrollera den i inställningarna för Jev.",
     "unavailable": "TypeSafe svarade inte. Försök igen om en stund.",
+    "which_device": "Menar du {first} eller {second}?",
     "preview_over_budget": "Den dagliga budgeten för token är slut, så det finns inget provsvar. Frågan sparas ändå.",
     "preview_nothing_yet": "Inget provsvar: det finns inget att fråga om än."
   },

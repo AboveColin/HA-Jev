@@ -20,7 +20,7 @@ from typing import Any
 from homeassistant.helpers import intent as ha_intent
 from jevclient import Choice, ChoiceAnswer, JevResponse, Noul, NoulAnswer, Question
 
-from .snapshot import HomeSnapshot
+from .snapshot import ExposedEntity, HomeSnapshot
 
 NONE = "none_of_these"
 
@@ -129,6 +129,8 @@ class Interpretation:
     action_probabilities: dict[str, float] = field(default_factory=dict)
     # (entity name, the state it is already in) when there is nothing left to do.
     already_satisfied: tuple[str, str] | None = None
+    # Two entity ids the command could mean, when the agent should ask which.
+    candidates: tuple[str, str] | None = None
 
     @property
     def should_fall_back(self) -> bool:
@@ -225,8 +227,15 @@ def interpret(
     text: str,
     snapshot: HomeSnapshot,
     min_confidence: float,
+    *,
+    ask_back: bool = True,
+    heard_in: str | None = None,
 ) -> Interpretation:
-    """Read the answers that matter and ignore the rest."""
+    """Read the answers that matter and ignore the rest.
+
+    ask_back=False reads a command whose device a reply has already picked.
+    heard_in is the area id of the satellite or device that heard the command.
+    """
 
     def choice(key: str) -> ChoiceAnswer | None:
         answer = response.answers.get(key)
@@ -291,10 +300,50 @@ def interpret(
     area = choice("area")
     slots: dict[str, Any] = {}
     targets_everything = False
+    named_area = (
+        area.choice
+        if area is not None and area.choice != NONE and area.confidence >= min_confidence
+        else None
+    )
+
+    def ask(first: ExposedEntity, second: ExposedEntity) -> Interpretation:
+        # The action is sure and the device is one of two. Asking costs one short
+        # question, and handing the sentence to the fallback agent gets the same
+        # guess made again by something that does not know it was a guess.
+        if spoken_name(first, second) is None:
+            return out("two devices fit the name and nothing tells them apart")
+        return Interpretation(
+            None,
+            {},
+            action.choice,
+            action.confidence,
+            "two devices fit the name",
+            fallback=False,
+            action_probabilities=dict(action.probabilities or {}),
+            candidates=(first.entity_id, second.entity_id),
+        )
+
+    def pick(chosen: ExposedEntity, *, sure: bool) -> ExposedEntity | Interpretation:
+        # sure is False when the model put most of its answer on none. Then only a
+        # name that two devices share is a reason to go on.
+        tied = _fit_as_well(text, chosen, snapshot, named_area)
+        if not sure and len(tied) < 2:
+            return out("no target named with enough confidence")
+        # A name that fits two devices is settled by the room it was said in, as
+        # Home Assistant's own agent settles it. A room the command names came first.
+        here = [e for e in tied if heard_in is not None and e.area_id == heard_in]
+        if len(tied) > 1 and len(here) == 1:
+            return here[0]
+        if len(tied) == 1:
+            return tied[0]
+        if len(tied) == 2:
+            return ask(*tied)
+        return out(f"{len(tied)} devices fit the name")
 
     # Trust the confident answer rather than the ordering. Measured: a scope answer
     # of one_room at 0.41 alongside a device answer at 1.00, where branching on
     # scope first threw away the certain answer and acted on the whole house.
+    described: ExposedEntity | None = None
     if (
         entity is not None
         and entity.choice != NONE
@@ -303,12 +352,11 @@ def interpret(
         described = snapshot.by_id(entity.choice)
         if described is None:
             return out("named a device that is not exposed")
-        slots["name"] = {"value": described.name}
-        # The domain keeps a same-named entity the model was never shown, a lock
-        # called "Front door" beside a cover called "Front door", out of the match.
-        slots["domain"] = {"value": [described.domain]}
-        if described.area_id:
-            slots["preferred_area_id"] = {"value": described.area_id}
+        if ask_back:
+            picked = pick(described, sure=True)
+            if isinstance(picked, Interpretation):
+                return picked
+            described = picked
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
     elif (
@@ -326,8 +374,25 @@ def interpret(
         # unbounded off is not something to infer from one ambiguous sentence.
         slots["name"] = {"value": "all"}
         targets_everything = True
+    elif (
+        ask_back
+        and entity is not None
+        and (unsure := snapshot.by_id(_likeliest_device(entity))) is not None
+    ):
+        picked = pick(unsure, sure=False)
+        if isinstance(picked, Interpretation):
+            return picked
+        described = picked
     else:
         return out("no target named with enough confidence")
+
+    if described is not None:
+        slots["name"] = {"value": described.name}
+        # The domain keeps a same-named entity the model was never shown, a lock
+        # called "Front door" beside a cover called "Front door", out of the match.
+        slots["domain"] = {"value": [described.domain]}
+        if described.area_id:
+            slots["preferred_area_id"] = {"value": described.area_id}
 
     # An area always carries a domain. With none, Home Assistant acts on every
     # exposed entity in the room whatever its domain, so turn_off on a hallway with a
@@ -361,6 +426,79 @@ def interpret(
         fallback=False,
         targets_everything=targets_everything,
     )
+
+
+def _likeliest_device(entity: ChoiceAnswer) -> str:
+    """The device the model gave most of its answer to, even if "none" got more.
+
+    Measured on a development instance with two lights both called "Lamp": "turn on
+    the lamp" came back as none_of_these 0.55, one Lamp 0.44 and the other 0.01. The
+    model split its answer because the name was shared, so the name decides.
+    """
+    devices = {k: v for k, v in (entity.probabilities or {}).items() if k != NONE}
+    if entity.choice != NONE or not devices:
+        return entity.choice
+    return max(devices, key=lambda k: devices[k])
+
+
+def _fit_as_well(
+    text: str, chosen: ExposedEntity, snapshot: HomeSnapshot, area: str | None
+) -> list[ExposedEntity]:
+    """The devices of the chosen kind whose names fit the words as well as its own.
+
+    The model gives one device all of its answer even when two fit: measured on a
+    development instance with two lights both called "Lamp", "turn on the lamp"
+    came back as one of them at 1.00, every time. The probabilities cannot say the
+    name was shared, the names can. A room the command names narrows the list.
+
+    Only the chosen device when it fits best alone, or when no name fits the words
+    at all, which is where the model's reading is all there is.
+    """
+    kind = [
+        e
+        for e in snapshot.entities
+        if e.domain == chosen.domain and (area is None or e.area == area)
+    ]
+    if chosen not in kind:
+        return [chosen]
+    fit = {e.entity_id: _name_fit(text, e.name) for e in kind}
+    best = max(fit.values())
+    if best == 0 or fit[chosen.entity_id] < best:
+        return [chosen]
+    return [e for e in kind if fit[e.entity_id] == best]
+
+
+def _name_fit(text: str, name: str) -> int:
+    """How well the words fit a name. The whole name said beats any part of it."""
+    if said := _words_said(text, name):
+        return 100 + said
+    words = set(re.findall(r"\w+", text.casefold()))
+    return len(set(name.casefold().split()) & words)
+
+
+def spoken_name(one: ExposedEntity, other: ExposedEntity) -> tuple[str, str] | None:
+    """How to say the two apart: by name, or by room when the names are the same.
+
+    None when neither tells them apart, since "the fan or the fan" asks nothing.
+    """
+    if one.name.casefold() != other.name.casefold():
+        return one.name, other.name
+    if one.area and other.area and one.area.casefold() != other.area.casefold():
+        return f"{one.name} ({one.area})", f"{other.name} ({other.area})"
+    return None
+
+
+def _words_said(text: str, name: str) -> int:
+    """How many words of the name the text says, as one phrase, or 0.
+
+    Whole words only, so a hidden "Lamp" is not found inside "lamps". In a language
+    written without spaces a name rarely stands apart, so the check seldom fires.
+    """
+    words = name.casefold().split()
+    if not words:
+        return 0
+    phrase = r"\s+".join(re.escape(w) for w in words)
+    return len(words) if re.search(rf"(?<!\w){phrase}(?!\w)", text.casefold()) else 0
 
 
 # What "already done" looks like for each action the check covers.
