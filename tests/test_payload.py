@@ -7,12 +7,15 @@ against a fake session and compare the bytes it actually sent.
 """
 
 import json
+from datetime import date
 from typing import Any, ClassVar
 
 import pytest
 from aiohttp.payload import JsonPayload
 from jevclient import Choice, JevClient, Noul, Score
 
+from custom_components.jev.const import BUDGET_ESTIMATE_MARGIN
+from custom_components.jev.coordinator import UsageAccount
 from custom_components.jev.payload import payload_bytes
 
 REPLY = {
@@ -92,3 +95,28 @@ async def test_the_model_is_part_of_what_is_measured():
     short = payload_bytes("x", QUESTIONS, "a")
     long = payload_bytes("x", QUESTIONS, "a" * 40)
     assert long - short == 39
+
+
+# Measured live on 2026-09-24: body bytes, then the input tokens the API billed.
+_BILLED = [
+    (138, 278),  # jev.noul, one short state line
+    (613, 377),  # jev.ask, eight questions
+    (3142, 1371),  # the five-entity conversation payload, the dearest of sixteen
+]
+
+
+@pytest.mark.parametrize(("request_bytes", "billed"), _BILLED)
+def test_the_cold_start_estimate_is_above_what_was_billed(request_bytes, billed):
+    """Before any call has measured the ratio, the estimate must not be low.
+
+    Without the fixed part, the 138 byte action was estimated at 70 tokens.
+    """
+    usage = UsageAccount(day=date(2026, 9, 24))
+    assert billed <= usage.estimate_tokens(request_bytes) <= billed * 1.5
+
+
+def test_one_measured_call_sets_the_estimate_for_the_next():
+    """6,136 bytes of dense state was billed 3,277 tokens. The same again fits."""
+    usage = UsageAccount(day=date(2026, 9, 24))
+    usage.record(3277, 6136)
+    assert 3277 <= usage.estimate_tokens(6136) <= 3277 * BUDGET_ESTIMATE_MARGIN + 1

@@ -1,14 +1,16 @@
 """The four actions, including what they refuse."""
 
+from dataclasses import replace
+
 import pytest
 import voluptuous as vol
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer
+from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer, Usage
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.jev.const import DOMAIN
+from custom_components.jev.const import DOMAIN, REQUEST_OVERHEAD_TOKENS
 from custom_components.jev.payload import payload_bytes
 
 from .conftest import build_response
@@ -43,8 +45,16 @@ async def test_noul_returns_the_probability_and_the_threshold(
 async def test_an_action_teaches_the_budget_how_big_a_token_is(
     hass, loaded_entry, mock_client
 ):
-    """The budget estimate divides request bytes by this ratio, so every call counts."""
-    mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.81))
+    """The budget estimate divides body bytes by this ratio, so every call counts.
+
+    The fixed part of the bill is taken off first, because it is paid whatever the
+    body holds.
+    """
+    billed = REQUEST_OVERHEAD_TOKENS + 900
+    mock_client.ask.return_value = replace(
+        build_response(answer=NoulAnswer(noul=0.81)),
+        usage=Usage(input_tokens=billed, output_tokens=20),
+    )
     await call(
         hass,
         "noul",
@@ -53,7 +63,25 @@ async def test_an_action_teaches_the_budget_how_big_a_token_is(
     state, questions = mock_client.ask.call_args.args
     runtime = loaded_entry.runtime_data
     sent = payload_bytes(state, questions, runtime.model)
-    assert runtime.usage.bytes_per_token == sent / 321
+    assert runtime.usage.bytes_per_token == sent / 900
+
+
+async def test_a_small_call_leaves_the_ratio_alone(hass, loaded_entry, mock_client):
+    """278 tokens for 138 bytes is nearly all fixed part, and says little about bytes.
+
+    Measured live: with the ratio taken from that call, the next 6,136 byte request
+    was estimated at 14,327 tokens and billed 3,277. It was refused on every try,
+    because a refused call measures nothing.
+    """
+    runtime = loaded_entry.runtime_data
+    before = runtime.usage.bytes_per_token
+    mock_client.ask.return_value = build_response(answer=NoulAnswer(noul=0.81))
+    await call(
+        hass,
+        "noul",
+        {"state": "The machine has drawn 1.2 W.", "instructions": "Is it done?"},
+    )
+    assert runtime.usage.bytes_per_token == before
 
 
 async def test_the_threshold_is_the_callers_and_nothing_else(
