@@ -82,14 +82,16 @@
           "price_per_million": "Cena za milion vstupních tokenů v USD",
           "fallback_agent": "Záložní agent",
           "min_confidence": "Jednat jen nad touto jistotou (0 až 1)",
-          "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení"
+          "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení",
+          "llm_tools": "Nabídnout Jev jako nástroj ostatním LLM agentům"
         },
         "data_description": {
           "daily_token_budget": "Počítá se od půlnoci v časovém pásmu Home Assistantu. 0 znamená bez limitu.",
           "price_per_million": "Určuje senzor odhadované ceny a cenu v náhledu otázky. Nic z toho, co se odesílá, na tom nezávisí.",
           "fallback_agent": "Dostane celou větu, když si Jev není jistý, co udělat.",
           "min_confidence": "Pod touto hodnotou Jev nic neudělá a předá příkaz záložnímu agentovi.",
-          "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní."
+          "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní.",
+          "llm_tools": "Přidá do API Assist dva nástroje, jeden pro otázky ano/ne a jeden pro výběr možnosti. Každý LLM agent, který používá Assist, dostane jejich popisy v každém promptu, což stojí tokeny u poskytovatele tohoto agenta. Každé volání se také počítá do rozpočtu výše."
         }
       }
     }

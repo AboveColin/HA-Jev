@@ -82,14 +82,16 @@
           "price_per_million": "Prijs per miljoen invoertokens, in USD",
           "fallback_agent": "Val terug op deze agent",
           "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
-          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen"
+          "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen",
+          "llm_tools": "Jev als tool aanbieden aan andere LLM-agents"
         },
         "data_description": {
           "daily_token_budget": "Geteld vanaf middernacht in de tijdzone van Home Assistant. 0 betekent geen limiet.",
           "price_per_million": "Bepaalt de sensor voor de geschatte kosten en de kosten in het voorbeeld van een vraag. Niets van wat wordt verstuurd hangt ervan af.",
           "fallback_agent": "Krijgt de hele zin wanneer Jev niet zeker weet wat te doen.",
           "min_confidence": "Daaronder doet Jev niets en geeft het de opdracht door aan de terugvalagent.",
-          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie."
+          "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie.",
+          "llm_tools": "Voegt twee tools toe aan de Assist-API, een voor ja/nee-vragen en een voor het kiezen van een optie. Elke LLM-agent die Assist gebruikt, krijgt hun beschrijvingen in elke prompt, en dat kost tokens bij de provider van die agent. Elke aanroep telt ook mee voor het budget hierboven."
         }
       }
     }

@@ -82,14 +82,16 @@
           "price_per_million": "Price per million input tokens, in USD",
           "fallback_agent": "Fall back to this agent",
           "min_confidence": "Act only above this confidence (0 to 1)",
-          "allow_whole_home": "Allow commands that name no room or device"
+          "allow_whole_home": "Allow commands that name no room or device",
+          "llm_tools": "Offer Jev as a tool to other LLM agents"
         },
         "data_description": {
           "daily_token_budget": "Counted from midnight in the Home Assistant time zone. 0 means no limit.",
           "price_per_million": "Sets the estimated cost sensor and the cost in the question preview. Nothing that is sent depends on it.",
           "fallback_agent": "Receives the whole sentence when Jev is not sure what to do.",
           "min_confidence": "Below this, Jev does nothing and passes the command to the fallback agent.",
-          "allow_whole_home": "Turning everything off is always allowed, with or without this."
+          "allow_whole_home": "Turning everything off is always allowed, with or without this.",
+          "llm_tools": "Adds two tools to the Assist API, one for yes/no questions and one for picking an option. Each LLM agent that uses Assist gets their descriptions in every prompt, which costs tokens at that agent's provider. Each call also counts against the budget above."
         }
       }
     }
