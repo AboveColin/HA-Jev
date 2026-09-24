@@ -16,6 +16,7 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import chat_session
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
@@ -1481,6 +1482,99 @@ async def test_a_room_that_is_named_settles_a_shared_name(hass, house, mock_clie
 
     assert result.continue_conversation is False
     assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+def a_satellite_in(hass, house, area_name):
+    """A voice device placed in the named area, as a satellite is."""
+    area = ar.async_get(hass).async_get_area_by_name(area_name)
+    assert area is not None
+    devices = dr.async_get(hass)
+    device = devices.async_get_or_create(
+        config_entry_id=house.entry_id, identifiers={("test", area_name)}
+    )
+    devices.async_update_device(device.id, area_id=area.id)
+    return device.id
+
+
+async def test_the_room_a_satellite_is_in_settles_a_shared_name(hass, house, mock_client):
+    """Home Assistant's own agent prefers the satellite's area, and so does Jev."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        device_id=a_satellite_in(hass, house, "Office"),
+    )
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+async def test_a_satellite_entity_area_settles_a_shared_name_the_model_was_unsure_of(
+    hass, house, mock_client
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    kitchen = ar.async_get(hass).async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    entities = er.async_get(hass)
+    satellite = entities.async_get_or_create("assist_satellite", "test", "kitchen")
+    entities.async_update_entity(satellite.entity_id, area_id=kitchen.id)
+    shares = {NONE: 0.55, "light.office": 0.44, "light.kitchen": 0.01}
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities=shares, confidence=0.55),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        satellite_id=satellite.entity_id,
+    )
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.kitchen"]
+
+
+async def test_a_satellite_in_another_room_still_gets_the_question(
+    hass, house, mock_client
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    ar.async_get(hass).async_create("Hall")
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    result = await conversation.async_converse(
+        hass,
+        "turn on the lamp",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        device_id=a_satellite_in(hass, house, "Hall"),
+    )
+
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
 
 
 @pytest.mark.parametrize(

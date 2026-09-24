@@ -229,10 +229,12 @@ def interpret(
     min_confidence: float,
     *,
     ask_back: bool = True,
+    heard_in: str | None = None,
 ) -> Interpretation:
     """Read the answers that matter and ignore the rest.
 
     ask_back=False reads a command whose device a reply has already picked.
+    heard_in is the area id of the satellite or device that heard the command.
     """
 
     def choice(key: str) -> ChoiceAnswer | None:
@@ -321,9 +323,27 @@ def interpret(
             candidates=(first.entity_id, second.entity_id),
         )
 
+    def pick(chosen: ExposedEntity, *, sure: bool) -> ExposedEntity | Interpretation:
+        # sure is False when the model put most of its answer on none. Then only a
+        # name that two devices share is a reason to go on.
+        tied = _fit_as_well(text, chosen, snapshot, named_area)
+        if not sure and len(tied) < 2:
+            return out("no target named with enough confidence")
+        # A name that fits two devices is settled by the room it was said in, as
+        # Home Assistant's own agent settles it. A room the command names came first.
+        here = [e for e in tied if heard_in is not None and e.area_id == heard_in]
+        if len(tied) > 1 and len(here) == 1:
+            return here[0]
+        if len(tied) == 1:
+            return tied[0]
+        if len(tied) == 2:
+            return ask(*tied)
+        return out(f"{len(tied)} devices fit the name")
+
     # Trust the confident answer rather than the ordering. Measured: a scope answer
     # of one_room at 0.41 alongside a device answer at 1.00, where branching on
     # scope first threw away the certain answer and acted on the whole house.
+    described: ExposedEntity | None = None
     if (
         entity is not None
         and entity.choice != NONE
@@ -333,17 +353,10 @@ def interpret(
         if described is None:
             return out("named a device that is not exposed")
         if ask_back:
-            tied = _fit_as_well(text, described, snapshot, named_area)
-            if len(tied) == 2:
-                return ask(*tied)
-            if len(tied) > 2:
-                return out(f"{len(tied)} devices fit the name")
-        slots["name"] = {"value": described.name}
-        # The domain keeps a same-named entity the model was never shown, a lock
-        # called "Front door" beside a cover called "Front door", out of the match.
-        slots["domain"] = {"value": [described.domain]}
-        if described.area_id:
-            slots["preferred_area_id"] = {"value": described.area_id}
+            picked = pick(described, sure=True)
+            if isinstance(picked, Interpretation):
+                return picked
+            described = picked
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
     elif (
@@ -365,11 +378,21 @@ def interpret(
         ask_back
         and entity is not None
         and (unsure := snapshot.by_id(_likeliest_device(entity))) is not None
-        and len(tied := _fit_as_well(text, unsure, snapshot, named_area)) == 2
     ):
-        return ask(*tied)
+        picked = pick(unsure, sure=False)
+        if isinstance(picked, Interpretation):
+            return picked
+        described = picked
     else:
         return out("no target named with enough confidence")
+
+    if described is not None:
+        slots["name"] = {"value": described.name}
+        # The domain keeps a same-named entity the model was never shown, a lock
+        # called "Front door" beside a cover called "Front door", out of the match.
+        slots["domain"] = {"value": [described.domain]}
+        if described.area_id:
+            slots["preferred_area_id"] = {"value": described.area_id}
 
     # An area always carries a domain. With none, Home Assistant acts on every
     # exposed entity in the room whatever its domain, so turn_off on a hallway with a

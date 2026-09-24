@@ -66,7 +66,7 @@ from .coordinator import JevRuntimeData
 from .entity import build_device_info
 from .interpret import NONE, Interpretation, build_questions, interpret, spoken_name
 from .payload import payload_bytes
-from .snapshot import HomeSnapshot, async_snapshot
+from .snapshot import HomeSnapshot, async_heard_in, async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -201,7 +201,15 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         if isinstance(response, conversation.ConversationResult):
             return response
 
-        decision = interpret(response, user_input.text, snapshot, self._min_confidence)
+        decision = interpret(
+            response,
+            user_input.text,
+            snapshot,
+            self._min_confidence,
+            heard_in=async_heard_in(
+                self.hass, user_input.satellite_id, user_input.device_id
+            ),
+        )
         self._trace(
             chat_log,
             response,
