@@ -215,8 +215,10 @@ async def async_calibrate(hass: HomeAssistant, call: ServiceCall) -> ServiceResp
         )
     return {
         **best(spans).as_dict(),
-        "hours": round(sum(span.seconds for span in spans) / 3600, 1),
-        "hours_true": round(true_seconds / 3600, 1),
+        # Two places, so a door open for two minutes reads 0.03 and not 0.0, which
+        # looked like the never-true refusal had failed to fire.
+        "hours": round(sum(span.seconds for span in spans) / 3600, 2),
+        "hours_true": round(true_seconds / 3600, 2),
         # F1 over two occasions is noise, whatever its value. These are the counts
         # to judge it by.
         "times_true": _times_true(spans),

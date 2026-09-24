@@ -117,6 +117,22 @@ async def record_a_day(hass, freezer):
     await async_wait_recording_done(hass)
 
 
+async def record_two_minutes_open(hass, freezer):
+    """An hour with the door open for two minutes of it."""
+    start = dt_util.utcnow() - timedelta(hours=1)
+    for minute, probability, door in (
+        (0, "0.2", "off"),
+        (30, "0.8", "on"),
+        (32, "0.1", "off"),
+    ):
+        freezer.move_to(start + timedelta(minutes=minute))
+        hass.states.async_set(PROBABILITY, probability)
+        hass.states.async_set(TRUTH, door)
+        await hass.async_block_till_done()
+    freezer.move_to(start + timedelta(hours=1))
+    await async_wait_recording_done(hass)
+
+
 async def calibrate(hass, **data):
     return await hass.services.async_call(
         DOMAIN,
@@ -173,3 +189,13 @@ async def test_an_entity_with_no_history_is_refused(hass, loaded_entry):
         await calibrate(hass)
     assert err.value.translation_key == "calibrate_no_history"
     assert err.value.translation_placeholders["entity"] == PROBABILITY
+
+
+async def test_a_short_time_true_is_not_rounded_to_nothing(
+    hass, loaded_entry, mock_client, freezer
+):
+    await record_two_minutes_open(hass, freezer)
+    result = await calibrate(hass)
+
+    assert result["hours_true"] == 0.03
+    assert result["times_true"] == 1
