@@ -1,7 +1,7 @@
 {
   "domain": "jev",
   "name": "Jev (TypeSafe)",
-  "after_dependencies": ["conversation"],
+  "after_dependencies": ["conversation", "recorder"],
   "codeowners": ["@abovecolin"],
   "config_flow": true,
   "dependencies": [],

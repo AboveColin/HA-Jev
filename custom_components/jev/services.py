@@ -46,6 +46,7 @@ from jevclient import (
 if TYPE_CHECKING:
     from . import JevConfigEntry
 
+from .calibrate import CALIBRATE_SCHEMA, async_calibrate
 from .const import (
     ATTR_ANSWERS,
     ATTR_CONFIG_ENTRY,
@@ -64,6 +65,7 @@ from .const import (
     CONF_TRUE_MEANS,
     DOMAIN,
     SERVICE_ASK,
+    SERVICE_CALIBRATE,
     SERVICE_CHOICE,
     SERVICE_NOUL,
     SERVICE_SCORE,
@@ -297,7 +299,7 @@ def answer_as_dict(answer: Any) -> dict[str, Any]:
 
 
 def async_register_services(hass: HomeAssistant) -> None:
-    """Register all four actions once, the first time the component loads."""
+    """Register all five actions once, the first time the component loads."""
     if hass.services.has_service(DOMAIN, SERVICE_NOUL):
         return
 
@@ -396,11 +398,15 @@ def async_register_services(hass: HomeAssistant) -> None:
             **_envelope(response),
         }
 
+    async def _calibrate(call: ServiceCall) -> ServiceResponse:
+        return await async_calibrate(hass, call)
+
     for name, handler, schema in (
         (SERVICE_NOUL, _noul, NOUL_SCHEMA),
         (SERVICE_CHOICE, _choice, CHOICE_SCHEMA),
         (SERVICE_SCORE, _score, SCORE_SCHEMA),
         (SERVICE_ASK, _ask_many, ASK_SCHEMA),
+        (SERVICE_CALIBRATE, _calibrate, CALIBRATE_SCHEMA),
     ):
         hass.services.async_register(
             DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.ONLY

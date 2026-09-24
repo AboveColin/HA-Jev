@@ -230,6 +230,28 @@
           "description": "Domyślnie wyłączone. Wysyła każdy atrybut wybranych encji, nie tylko wartość, jednostkę, klasę urządzenia i obszar. Prognoza pogody albo lista okładek odtwarzacza multimediów to tysiące tokenów, za które płacisz przy każdej ocenie."
         }
       }
+    },
+    "calibrate": {
+      "name": "Znajdź najlepszy próg",
+      "description": "Porównuje zapisaną historię prawdopodobieństwa tak/nie z encją, która pokazuje, co było naprawdę prawdą, i zwraca próg, który najczęściej miałby rację. Czyta tylko recorder, więc nie kosztuje tokenów.",
+      "fields": {
+        "entity_id": {
+          "name": "Prawdopodobieństwo",
+          "description": "Czujnik tak/nie z Jev albo dowolny czujnik, którego stan jest prawdopodobieństwem od 0 do 1."
+        },
+        "truth_entity_id": {
+          "name": "Co było prawdą",
+          "description": "Encja, której stan pokazuje prawdziwą odpowiedź, na przykład kontaktron drzwi albo gniazdko, które zgłasza, kiedy urządzenie pracuje."
+        },
+        "truth_state": {
+          "name": "Stan oznaczający tak",
+          "description": "Stan tej encji, który oznacza tak. on, jeśli zostawisz pole puste."
+        },
+        "days": {
+          "name": "Dni historii",
+          "description": "Jak daleko wstecz czytać. Recorder przechowuje 10 dni, chyba że to zmieniono."
+        }
+      }
     }
   },
   "entity": {
@@ -346,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe ograniczył żądanie: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Ta akcja czyta recorder, a recorder nie działa."
+    },
+    "calibrate_no_history": {
+      "message": "W ostatnich {days} dniach nie ma chwili, w której jest zarówno liczba z {entity}, jak i stan z {truth}. Sprawdź, czy recorder zapisuje obie encje i czy {entity} podaje liczbę."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} ani razu nie miał stanu {state} w ostatnich {days} dniach, więc nie ma z czym porównać. Czytaj dłuższy okres albo sprawdź, który stan oznacza tak."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} miał stan {state} przez całe ostatnie {days} dni, więc nie ma z czym porównać. Czytaj dłuższy okres albo sprawdź, który stan oznacza tak."
     }
   },
   "common": {

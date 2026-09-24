@@ -230,6 +230,28 @@
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
         }
       }
+    },
+    "calibrate": {
+      "name": "Encontrar o melhor limite",
+      "description": "Compara o histórico gravado de uma probabilidade de sim ou não com uma entidade que mostra o que era de fato verdade, e retorna o limite que teria acertado mais vezes. Lê apenas o recorder, então não custa tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Probabilidade",
+          "description": "Um sensor de sim ou não do Jev, ou qualquer sensor cujo estado seja uma probabilidade de 0 a 1."
+        },
+        "truth_entity_id": {
+          "name": "O que era verdade",
+          "description": "Uma entidade cujo estado mostra a resposta real, como um contato de porta ou uma tomada que informa quando um aparelho está ligado."
+        },
+        "truth_state": {
+          "name": "Estado que significa sim",
+          "description": "O estado dessa entidade que significa sim. on se você deixar vazio."
+        },
+        "days": {
+          "name": "Dias de histórico",
+          "description": "Até onde ler para trás. O recorder guarda 10 dias, a menos que você tenha mudado isso."
+        }
+      }
     }
   },
   "entity": {
@@ -346,6 +368,18 @@
     },
     "rate_limited": {
       "message": "O TypeSafe limitou a solicitação: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Esta ação lê o recorder, e o recorder não está em execução."
+    },
+    "calibrate_no_history": {
+      "message": "Nenhum momento dos últimos {days} dias tem ao mesmo tempo um número de {entity} e um estado de {truth}. Verifique se o recorder grava os dois e se {entity} informa um número."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} nunca esteve em {state} nos últimos {days} dias, então não há com o que comparar. Leia um período maior, ou verifique qual estado significa sim."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} esteve em {state} durante todos os últimos {days} dias, então não há com o que comparar. Leia um período maior, ou verifique qual estado significa sim."
     }
   },
   "common": {

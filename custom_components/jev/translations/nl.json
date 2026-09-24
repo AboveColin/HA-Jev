@@ -230,6 +230,28 @@
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
         }
       }
+    },
+    "calibrate": {
+      "name": "Beste drempel bepalen",
+      "description": "Vergelijkt de opgeslagen geschiedenis van een ja/nee-kans met een entiteit die laat zien wat echt waar was, en geeft de drempel die het vaakst goed zou zijn geweest. Leest alleen de recorder en kost dus geen tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Kans",
+          "description": "Een Jev ja/nee-sensor, of een andere sensor waarvan de status een kans van 0 tot 1 is."
+        },
+        "truth_entity_id": {
+          "name": "Wat echt waar was",
+          "description": "Een entiteit waarvan de status het echte antwoord geeft, zoals een deurcontact of een stekker die meldt wanneer een apparaat draait."
+        },
+        "truth_state": {
+          "name": "Status die ja betekent",
+          "description": "De status van die entiteit die ja betekent. on als je dit leeg laat."
+        },
+        "days": {
+          "name": "Dagen geschiedenis",
+          "description": "Hoe ver terug er gelezen wordt. De recorder bewaart 10 dagen, tenzij je dat hebt aangepast."
+        }
+      }
     }
   },
   "entity": {
@@ -346,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe heeft het verzoek begrensd: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Deze actie leest de recorder, en de recorder draait niet."
+    },
+    "calibrate_no_history": {
+      "message": "Er is in de laatste {days} dagen geen moment met zowel een getal van {entity} als een status van {truth}. Controleer of de recorder beide opslaat, en of {entity} een getal geeft."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} was in de laatste {days} dagen nooit {state}, dus er is niets om mee te vergelijken. Lees een langere periode, of controleer welke status ja betekent."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} was de hele laatste {days} dagen {state}, dus er is niets om mee te vergelijken. Lees een langere periode, of controleer welke status ja betekent."
     }
   },
   "common": {

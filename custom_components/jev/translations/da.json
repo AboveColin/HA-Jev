@@ -230,6 +230,28 @@
           "description": "Slået fra som standard. Sender alle attributter for de valgte entiteter, ikke kun værdien, måleenheden, enhedsklassen og området. En vejrudsigt eller en medieafspillers liste med albumbilleder løber op i tusindvis af tokens, og dem betaler du for ved hver evaluering."
         }
       }
+    },
+    "calibrate": {
+      "name": "Find den bedste tærskel",
+      "description": "Sammenligner den gemte historik for en ja/nej-sandsynlighed med en enhed, der viser, hvad der faktisk var sandt, og giver den tærskel, der oftest ville have haft ret. Læser kun recorderen og koster derfor ingen tokens.",
+      "fields": {
+        "entity_id": {
+          "name": "Sandsynlighed",
+          "description": "En Jev ja/nej-sensor eller en anden sensor, hvis tilstand er en sandsynlighed fra 0 til 1."
+        },
+        "truth_entity_id": {
+          "name": "Hvad der faktisk var sandt",
+          "description": "En enhed, hvis tilstand viser det rigtige svar, f.eks. en dørkontakt eller et stik, der melder, når et apparat kører."
+        },
+        "truth_state": {
+          "name": "Tilstand der betyder ja",
+          "description": "Den tilstand for enheden, der betyder ja. on hvis du lader feltet være tomt."
+        },
+        "days": {
+          "name": "Dages historik",
+          "description": "Hvor langt tilbage der læses. Recorderen gemmer 10 dage, medmindre du har ændret det."
+        }
+      }
     }
   },
   "entity": {
@@ -346,6 +368,18 @@
     },
     "rate_limited": {
       "message": "TypeSafe begrænsede forespørgslen: {reason}"
+    },
+    "calibrate_needs_recorder": {
+      "message": "Denne handling læser recorderen, og recorderen kører ikke."
+    },
+    "calibrate_no_history": {
+      "message": "Intet tidspunkt i de seneste {days} dage har både et tal fra {entity} og en tilstand fra {truth}. Kontroller, at recorderen gemmer begge, og at {entity} melder et tal."
+    },
+    "calibrate_never_true": {
+      "message": "{truth} var aldrig {state} i de seneste {days} dage, så der er intet at sammenligne med. Læs en længere periode, eller kontroller, hvilken tilstand der betyder ja."
+    },
+    "calibrate_always_true": {
+      "message": "{truth} var {state} i hele de seneste {days} dage, så der er intet at sammenligne med. Læs en længere periode, eller kontroller, hvilken tilstand der betyder ja."
     }
   },
   "common": {
