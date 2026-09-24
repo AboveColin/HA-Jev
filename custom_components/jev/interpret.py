@@ -191,7 +191,8 @@ def build_questions(
             {
                 "entity": "One particular device is named",
                 "area": "A room or area is named, covering what is in it",
-                "everything": "The whole house, with no room or device named",
+                "everything": "Every device, or every device of one kind such as "
+                "all the lights, with no room or device named",
                 NONE: "No target is named at all",
             },
         ),
