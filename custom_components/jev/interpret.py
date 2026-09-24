@@ -364,7 +364,7 @@ def interpret(
     elif (
         ask_back
         and entity is not None
-        and (unsure := snapshot.by_id(entity.choice)) is not None
+        and (unsure := snapshot.by_id(_likeliest_device(entity))) is not None
         and len(tied := _fit_as_well(text, unsure, snapshot, named_area)) == 2
     ):
         return ask(*tied)
@@ -403,6 +403,19 @@ def interpret(
         fallback=False,
         targets_everything=targets_everything,
     )
+
+
+def _likeliest_device(entity: ChoiceAnswer) -> str:
+    """The device the model gave most of its answer to, even if "none" got more.
+
+    Measured on a development instance with two lights both called "Lamp": "turn on
+    the lamp" came back as none_of_these 0.55, one Lamp 0.44 and the other 0.01. The
+    model split its answer because the name was shared, so the name decides.
+    """
+    devices = {k: v for k, v in (entity.probabilities or {}).items() if k != NONE}
+    if entity.choice != NONE or not devices:
+        return entity.choice
+    return max(devices, key=lambda k: devices[k])
 
 
 def _fit_as_well(

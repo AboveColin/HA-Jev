@@ -1439,6 +1439,31 @@ async def test_a_sure_answer_is_still_asked_about_when_the_name_is_shared(
     )
 
 
+async def test_a_shared_name_is_asked_about_when_none_got_most_of_the_answer(
+    hass, house, mock_client
+):
+    """Measured: none_of_these 0.55, one Lamp 0.44, the other 0.01."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    shares = {NONE: 0.55, "light.kitchen": 0.44, "light.office": 0.01}
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities=shares, confidence=0.55),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
+
+
 async def test_a_room_that_is_named_settles_a_shared_name(hass, house, mock_client):
     rename(hass, "light.kitchen", "Lamp")
     rename(hass, "light.office", "Lamp")
