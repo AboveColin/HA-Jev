@@ -350,6 +350,7 @@
     "intent_failed": "Promiňte, to se nepovedlo.",
     "already_on": "{name} už je zapnuto.",
     "already_off": "{name} už je vypnuto.",
+    "done": "Hotovo.",
     "preview_alone": "Odesláno jako vlastní požadavek.",
     "preview_grouped": "Odesláno v jednom požadavku spolu s: {others}.",
     "preview_cost": "Jednou dotázáno pro tento náhled: {tokens} vstupních tokenů, asi ${cost}, {ms} ms.",

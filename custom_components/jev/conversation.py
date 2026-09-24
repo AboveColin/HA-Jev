@@ -26,7 +26,7 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from homeassistant.components import conversation
 from homeassistant.components.conversation.models import AbstractConversationAgent
@@ -52,7 +52,7 @@ from .const import (
 )
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
-from .interpret import build_questions, interpret
+from .interpret import ACTIONS, build_questions, interpret
 from .snapshot import async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ _FALLBACK = {
     "intent_failed": "Sorry, that did not work.",
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
+    "done": "Done.",
     "query_not_found": "I could not find that.",
     "budget_spent": "The daily token budget is spent, so I cannot do that today.",
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
@@ -241,11 +242,22 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
             return await self._speak(user_input, "intent_failed")
 
-        # Only a state question needs our lines, and loading them reads translations.
+        # Loading our lines reads translations, so only a reply without a sentence of
+        # its own loads them.
+        language = user_input.language or self.hass.config.language
         if intent_response.response_type is ha_intent.IntentResponseType.QUERY_ANSWER:
-            language = user_input.language or self.hass.config.language
             await _speak_the_answer(
                 self.hass, intent_response, language, await self._lines(language)
+            )
+        elif (
+            intent_response.response_type is ha_intent.IntentResponseType.ACTION_DONE
+            and not intent_response.speech
+        ):
+            spoken = await _render_action_answer(
+                self.hass, intent_response, decision.intent_type, decision.slots, language
+            )
+            intent_response.async_set_speech(
+                spoken or (await self._lines(language))["done"]
             )
         return conversation.ConversationResult(
             response=intent_response, conversation_id=user_input.conversation_id
@@ -347,6 +359,9 @@ class _Shipped:
     state_answer: str | None
     writes_the_state_word: bool
     errors: Mapping[str, str]
+    # The sentences for each action intent, keyed by the response name the default
+    # agent's own sentence data picks.
+    action_answers: Mapping[str, Mapping[str, str]]
 
 
 # Read once per language, keyed by the language that was asked for rather than the
@@ -389,6 +404,16 @@ def _load_shipped(language: str) -> _Shipped | None:
             key: text
             for key, text in responses.get("errors", {}).items()
             if isinstance(text, str) and text.strip()
+        },
+        action_answers={
+            intent_type: {
+                key: text
+                for key, text in (
+                    responses.get("intents", {}).get(intent_type) or {}
+                ).items()
+                if isinstance(text, str) and text.strip()
+            }
+            for intent_type in ACTIONS.values()
         },
     )
 
@@ -515,6 +540,107 @@ async def _render_state_answer(
         # the rest of the sentence.
         parts.append(sentence[0].upper() + sentence[1:])
     return ", ".join(parts) if parts else None
+
+
+# One kind of device across a room or the whole house. The names differ between
+# languages: English writes light_all and Polish lights_all.
+_AREA_RESPONSES = {"light": ("lights_area",), "fan": ("fans_area",)}
+_ALL_RESPONSES = {"light": ("light_all", "lights_all"), "fan": ("fan_all",)}
+
+_SLOT_REFERENCE = re.compile(r"slots\.(\w+)")
+
+
+def _response_keys(
+    intent_type: str, slots: Mapping[str, Any], domain: str | None
+) -> tuple[str, ...]:
+    """The response names to try, closest first, for what this command did.
+
+    The default agent reads the name from the sentence it matched. This agent has
+    no sentence, so it reads the same thing off the slots it sent.
+    """
+    if intent_type == "HassLightSet":
+        return ("brightness",)
+    kinds = slots.get("domain", {}).get("value") or []
+    kind = kinds[0] if len(kinds) == 1 else None
+    closest: tuple[str, ...]
+    if "area" in slots:
+        closest = _AREA_RESPONSES.get(kind or "", ())
+    elif slots.get("name", {}).get("value") == "all":
+        closest = _ALL_RESPONSES.get(kind or "", ())
+    elif domain is not None:
+        # A scene is activated rather than turned on, and German says "Licht
+        # eingeschaltet" for one light, where English has no sentence of its own.
+        closest = (domain,)
+    else:
+        closest = ()
+    return (*closest, "default")
+
+
+async def _render_action_answer(
+    hass: HomeAssistant,
+    response: ha_intent.IntentResponse,
+    intent_type: str | None,
+    slots: Mapping[str, Any],
+    language: str,
+) -> str | None:
+    """The sentence the default agent says after the same action, or None.
+
+    `async_handle` does the action and says nothing, and the Assist dialog shows no
+    reply at all for an empty one. The default agent's words come from the same
+    package as the state answers, written by the people who translate Assist.
+    None when the package has nothing that fits, and the agent says "Done." instead.
+    """
+    shipped = await _shipped(hass, language)
+    if shipped is None or intent_type is None:
+        return None
+    answers = shipped.action_answers.get(intent_type, {})
+    states = [*response.matched_states, *response.unmatched_states]
+    first = states[0] if states else None
+    # The name slot is the device's own name, as the model picked it. "all" is not a
+    # name to say back.
+    speech_slots = {
+        key: value["value"]
+        for key, value in slots.items()
+        if key in ("name", "area")
+        and isinstance(value.get("value"), str)
+        and value["value"] != "all"
+    } | response.speech_slots
+    for key in _response_keys(
+        intent_type, slots, first.domain if first is not None else None
+    ):
+        text = answers.get(key)
+        if text is None:
+            continue
+        # German says "{{ slots.name }} eingeschaltet". Rendered for a room, with no
+        # name to put there, that is a sentence that starts with a blank.
+        if any(name not in speech_slots for name in _SLOT_REFERENCE.findall(text)):
+            continue
+        try:
+            rendered = template.Template(text, hass).async_render(
+                {
+                    "slots": speech_slots,
+                    "state": template.TemplateState(hass, first) if first else None,
+                    "query": {
+                        "matched": [
+                            template.TemplateState(hass, state)
+                            for state in response.matched_states
+                        ],
+                        "unmatched": [
+                            template.TemplateState(hass, state)
+                            for state in response.unmatched_states
+                        ],
+                    },
+                },
+                parse_result=False,
+            )
+        except TemplateError as err:
+            _LOGGER.debug(
+                "the %s answer for %s did not render: %s", key, intent_type, err
+            )
+            continue
+        if sentence := " ".join(str(rendered).split()):
+            return sentence
+    return None
 
 
 async def _speak_the_answer(

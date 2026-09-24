@@ -41,6 +41,11 @@ A room command always carries the kinds of device the model was shown. Home
 Assistant otherwise acts on every exposed entity in the room, so "turn off the
 hallway" would reach a lock exposed there and unlock it.
 
+After an action it says the sentence Home Assistant's own agent says for the same
+command, in the pipeline's language, such as "Turned on the light". Those sentences
+come from Home Assistant's translations. Where they have none, as for a toggle, it
+says "Done."
+
 ## What it refuses
 
 | Case | What happens |

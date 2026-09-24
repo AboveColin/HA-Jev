@@ -350,6 +350,7 @@
     "intent_failed": "抱歉，没有成功。",
     "already_on": "{name} 已经开着了。",
     "already_off": "{name} 已经关着了。",
+    "done": "好的，完成了。",
     "preview_alone": "作为单独的请求发送。",
     "preview_grouped": "与以下问题合并在一个请求中发送：{others}。",
     "preview_cost": "为本次预览提问一次：{tokens} 个输入令牌，约 ${cost}，{ms} 毫秒。",

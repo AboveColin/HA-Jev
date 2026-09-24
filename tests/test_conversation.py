@@ -1256,3 +1256,81 @@ async def test_a_room_past_the_entity_cap_is_not_offered(hass, config_entry):
 
     assert [e.entity_id for e in snapshot.entities] == ["light.a", "light.b"]
     assert snapshot.areas == ["Attic"]
+
+
+_ENTITY = {}
+_AREA = {
+    "target_type": ChoiceAnswer(choice="area", probabilities={}, confidence=0.94),
+    "entity": ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+    "area": ChoiceAnswer(choice="Office", probabilities={}, confidence=0.93),
+}
+_ALL = {
+    "target_type": ChoiceAnswer(choice="everything", probabilities={}, confidence=0.95),
+    "entity": ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.9),
+}
+
+
+@pytest.mark.parametrize(
+    ("language", "service", "text", "answers"),
+    [
+        ("en", "turn_on", "turn on the kitchen light", _ENTITY),
+        ("en", "turn_off", "turn off the lights in the office", _AREA),
+        ("en", "turn_off", "turn off all the lights", _ALL),
+        ("nl", "turn_on", "zet de kitchen light aan", _ENTITY),
+        ("nl", "turn_off", "zet de lampen in de office uit", _AREA),
+        ("de", "turn_on", "schalte kitchen light ein", _ENTITY),
+        ("pl", "turn_off", "wyłącz światła w office", _AREA),
+    ],
+)
+async def test_an_action_says_what_the_default_agent_says(
+    hass, house, mock_client, language, service, text, answers
+):
+    """An action used to reply with no sentence, and the Assist dialog showed nothing.
+
+    The reference is the default agent itself, on a sentence it matches, for the
+    same command.
+    """
+    action = ChoiceAnswer(choice=service, probabilities={}, confidence=0.98)
+    mock_client.ask.return_value = build_response(**answer_set(action=action, **answers))
+    hass.services.async_register("light", service, lambda call: None)
+
+    ours = await converse(hass, text, language=language)
+    theirs = await converse(
+        hass, text, agent_id="conversation.home_assistant", language=language
+    )
+
+    spoken = ours.response.speech["plain"]["speech"]
+    assert spoken
+    assert spoken == theirs.response.speech["plain"]["speech"]
+
+
+@pytest.mark.parametrize(("language", "expected"), [("en", "Done."), ("nl", "Gedaan.")])
+async def test_an_action_with_no_sentence_of_its_own_says_done(
+    hass, house, mock_client, language, expected
+):
+    """home-assistant-intents writes nothing for a toggle."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="toggle", probabilities={}, confidence=0.92)
+        )
+    )
+    hass.services.async_register("light", "toggle", lambda call: None)
+
+    result = await converse(hass, "flip the kitchen light", language=language)
+
+    assert result.response.speech["plain"]["speech"] == expected
+
+
+async def test_a_brightness_command_says_it_was_set(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="set_brightness", probabilities={}, confidence=0.95
+            )
+        )
+    )
+    hass.services.async_register("light", "turn_on", lambda call: None)
+
+    result = await converse(hass, "set the kitchen light to 40%")
+
+    assert result.response.speech["plain"]["speech"] == "Brightness set"

@@ -350,6 +350,7 @@
     "intent_failed": "Désolé, cela n'a pas fonctionné.",
     "already_on": "{name} est déjà allumé.",
     "already_off": "{name} est déjà éteint.",
+    "done": "C'est fait.",
     "preview_alone": "Envoyée dans sa propre requête.",
     "preview_grouped": "Envoyée dans une seule requête avec : {others}.",
     "preview_cost": "Posée une fois pour cet aperçu : {tokens} jetons d'entrée, environ ${cost}, {ms} ms.",

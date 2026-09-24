@@ -350,6 +350,7 @@
     "intent_failed": "Entschuldigung, das hat nicht geklappt.",
     "already_on": "{name} ist schon an.",
     "already_off": "{name} ist schon aus.",
+    "done": "Erledigt.",
     "preview_alone": "Geht als eigene Anfrage raus.",
     "preview_grouped": "Geht in einer Anfrage zusammen mit: {others}.",
     "preview_cost": "Einmal für diese Vorschau gefragt: {tokens} Eingabe-Tokens, etwa ${cost}, {ms} ms.",
