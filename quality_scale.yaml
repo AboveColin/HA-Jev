@@ -87,7 +87,7 @@ rules:
       agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 97% measured across 407 tests, enforced in CI.
+    comment: 97% measured across 474 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -133,12 +133,12 @@ rules:
       placeholder. A question sensor is named by the user's own question text, which
       is theirs to write and cannot be translated by anyone else. The conversation
       agent and the AI Task entity take the device name, which is what every core
-      provider of either does, and the ten sentences the agent speaks itself go
+      provider of either does, and the twelve sentences the agent speaks itself go
       through the common translation category, so a Dutch pipeline answers in Dutch.
   exception-translations:
     status: done
     comment: >-
-      Twenty-eight keys, including the library's own limit errors, which are
+      Thirty-four keys, including the library's own limit errors, which are
       re-raised with the real numbers as placeholders rather than passed through in
       English. The coordinator's UpdateFailed and setup's ConfigEntryNotReady and
       ConfigEntryAuthFailed are translated too, since both reach the integrations
@@ -148,7 +148,7 @@ rules:
   icon-translations:
     status: done
     comment: >-
-      icons.json covers every translated entity and all four actions, and a test
+      icons.json covers every translated entity and all five actions, and a test
       asserts that. The conversation entity takes the conversation domain's own icon,
       as core's agents do.
   reconfiguration-flow:
@@ -176,4 +176,4 @@ rules:
       Assistant ships aiohttp and httpx, not httpx2.
   strict-typing:
     status: done
-    comment: mypy --strict passes on all 20 modules, enforced in CI.
+    comment: mypy --strict passes on all 22 modules, enforced in CI.
