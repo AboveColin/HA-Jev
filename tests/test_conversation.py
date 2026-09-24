@@ -453,6 +453,39 @@ async def test_a_device_that_is_not_exposed_is_never_acted_on(hass, house, mock_
     assert calls == []
 
 
+@pytest.mark.parametrize(
+    ("text", "acts"),
+    [
+        # The hidden name is said, in more words than the one the model picked.
+        ("turn on the kitchen light strip", False),
+        ("turn on the private light", False),
+        # Only the exposed name is said, or the hidden one is not said whole.
+        ("turn on the kitchen light", True),
+        ("turn on the kitchen lights", True),
+    ],
+)
+async def test_a_hidden_device_named_in_full_is_not_swapped_for_an_exposed_one(
+    hass, house, mock_client, text, acts
+):
+    """Measured: an unexposed "Desk lamp" was said, and the exposed "Lamp" went on."""
+    hass.states.async_set("light.strip", "off", {"friendly_name": "Kitchen light strip"})
+    async_expose_entity(hass, conversation.DOMAIN, "light.strip", False)
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert bool(calls) is acts
+    sent = mock_client.ask.call_args.args[0]
+    assert "light.strip" not in str(sent)
+    assert "Kitchen light strip" not in str(sent["entities"])
+    if not acts:
+        trace = house.runtime_data.conversation_traces[0]
+        assert trace["reason"] == "named a device that is not exposed"
+
+
 async def test_brightness_is_read_from_the_text_not_the_model(hass, house, mock_client):
     """Jev judges and does not calculate, so the number comes out of a regex."""
     mock_client.ask.return_value = build_response(
@@ -1370,6 +1403,8 @@ async def test_a_room_past_the_entity_cap_is_not_offered(hass, config_entry):
 
     assert [e.entity_id for e in snapshot.entities] == ["light.a", "light.b"]
     assert snapshot.areas == ["Attic"]
+    # Past the cap is as good as hidden: the model never saw it to pick it.
+    assert snapshot.hidden_names == ["c"]
 
 
 # --- asking which device ---
@@ -1463,6 +1498,26 @@ async def test_a_shared_name_is_asked_about_when_none_got_most_of_the_answer(
     assert result.response.speech["plain"]["speech"] == (
         "Do you mean Lamp (Kitchen) or Lamp (Office)?"
     )
+
+
+async def test_a_hidden_name_is_not_asked_about_as_a_shared_one(hass, house, mock_client):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    hass.states.async_set("light.desk", "off", {"friendly_name": "Desk lamp"})
+    async_expose_entity(hass, conversation.DOMAIN, "light.desk", False)
+    shares = {NONE: 0.55, "light.kitchen": 0.44, "light.office": 0.01}
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities=shares, confidence=0.55),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+
+    result = await converse(hass, "turn on the desk lamp")
+
+    assert result.continue_conversation is False
+    trace = house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == "named a device that is not exposed"
 
 
 async def test_a_room_that_is_named_settles_a_shared_name(hass, house, mock_client):
