@@ -1524,7 +1524,7 @@ async def test_the_reply_runs_the_first_command_on_the_device_it_picks(
     assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
     # The reply was one small question about the two devices, not a new command.
     state, questions = mock_client.ask.await_args.args
-    assert list(questions) == ["which"]
+    assert list(questions) == ["which", "new_request"]
     assert state == {"command": "light on", "reply": "the office one"}
     assert set(questions["which"].criteria) == {"light.kitchen", "light.office", NONE}
 
@@ -1562,6 +1562,32 @@ async def test_a_reply_that_picks_neither_is_a_new_command(hass, house, mock_cli
     assert mock_client.ask.await_count == 2
     assert "action" in mock_client.ask.await_args.args[1]
     assert result.continue_conversation is False
+
+
+async def test_a_reply_that_names_a_device_in_a_new_command_runs_that_command(
+    hass, house, mock_client
+):
+    """Measured: "never mind, turn off the lamp in the bedroom" picked that lamp."""
+    new_request = {"new_request": NoulAnswer(noul=0.96)}
+    turn_off = answer_set(
+        action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.98),
+        entity=ChoiceAnswer(choice="light.office", probabilities={}, confidence=0.97),
+    )
+    mock_client.ask.side_effect = [
+        build_response(**unsure_between("light.kitchen", "light.office")),
+        build_response(**reply("light.office"), **new_request),
+        build_response(**turn_off),
+    ]
+    turned_on, turned_off = [], []
+    hass.services.async_register("light", "turn_on", turned_on.append)
+    hass.services.async_register("light", "turn_off", turned_off.append)
+
+    asked = await converse(hass, "light on")
+    await converse_in(hass, "no, turn off the office light", asked.conversation_id)
+    await hass.async_block_till_done()
+
+    assert turned_on == []
+    assert [e for c in turned_off for e in c.data["entity_id"]] == ["light.office"]
 
 
 async def test_an_unsure_reply_acts_on_nothing(hass, house, mock_client):

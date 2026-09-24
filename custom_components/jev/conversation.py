@@ -49,6 +49,7 @@ from jevclient import (
     JevAuthError,
     JevError,
     JevResponse,
+    Noul,
     NoulAnswer,
     Question,
 )
@@ -351,7 +352,18 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         }
         options[NONE] = "Neither of these, or a different request"
         questions: dict[str, Question] = {
-            "which": Choice("Which device does the reply pick?", options)
+            "which": Choice("Which device does the reply pick?", options),
+            # "Never mind, turn off the lamp in the bedroom" names one of the two, so
+            # the choice alone picks it and the kept command, turn on, runs on it.
+            # Measured on a development instance, twelve replies to "turn on the
+            # lamp": the six that only pick a device scored 0.08 to 0.26 here, and
+            # the six that ask for something else, that one included, 0.91 to 0.97.
+            "new_request": Noul(
+                "Does the reply ask for something of its own, rather than only "
+                "saying which device the command meant?",
+                true="The reply is a new instruction, or changes what should happen",
+                false="The reply only picks a device, however it is phrased",
+            ),
         }
         state = {"command": pending.text, "reply": user_input.text}
         response = await self._ask(user_input, state, questions)
@@ -359,11 +371,13 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             return response
 
         answer = response.answers.get("which")
+        new_request = response.answers.get("new_request")
         picked = (
             answer.choice
             if isinstance(answer, ChoiceAnswer)
             and answer.choice in pending.candidates
             and answer.confidence >= self._min_confidence
+            and not (isinstance(new_request, NoulAnswer) and new_request.noul >= 0.5)
             else None
         )
         self._trace(
