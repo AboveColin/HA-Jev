@@ -52,8 +52,8 @@ hallway" would reach a lock exposed there and unlock it.
 | An entity you did not expose to Assist | Never described to the model at all |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
-| Two devices fit the name about equally | Asks which one, see below |
-| A spent budget, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was |
+| Two devices whose names fit the command equally well | Asks which one, see below |
+| Too little budget left for the command, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was, as an error reply |
 
 !!! info "It only sees what Assist sees"
     The agent describes only entities you exposed to Assist. You already decided
@@ -63,11 +63,18 @@ hallway" would reach a lock exposed there and unlock it.
 
 ## When two devices fit the name
 
-"Turn on the lamp" with a desk lamp and a floor lamp exposed can split the model's
-probability between the two, with neither above the confidence floor. When exactly two
-exposed devices each have at least 0.2, and the two together reach the floor, the agent
-asks **"Do you mean Desk lamp or Floor lamp?"** and keeps the conversation open. When
-the two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)".
+The agent compares what you said with the names of the exposed devices of the kind
+the model picked. The whole name said wins: with a "Lamp" and a "Desk lamp", "turn on
+the lamp" is the Lamp and "turn on the desk lamp" is the Desk lamp. When two names fit
+equally well, as "the lamp" does for a Desk lamp and a Floor lamp, the agent asks
+**"Do you mean Desk lamp or Floor lamp?"** and keeps the conversation open. When the
+two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)". A room
+you name settles it first, so "the lamp in the office" acts.
+
+The names decide this, not the model's confidence. On a test instance with two lights
+both called "Lamp", the model put 1.00 on one of them, every time, so a confidence
+split never showed that there were two. With three or more that fit equally well, the
+command goes to the fallback agent.
 
 Your reply, such as "the desk one", is one more request, and it counts against the
 budget. It asks which of the two the reply picks. A confident pick carries out the
@@ -75,9 +82,7 @@ first command on that device. A reply that picks neither is handled as a new com
 The question expires after five minutes, the same time Home Assistant keeps a
 conversation open.
 
-The 0.2 is not measured. It keeps a third device with a small share from turning the
-question into a guess between two.
-
+## What it costs
 
 Every command counts against the same daily token budget as your sensors. A
 satellite that mishears a wake word all night trips that tripwire instead of running
@@ -135,9 +140,12 @@ only sees what Jev could not route, which is the cheap arrangement.
 
 ## Diagnostics
 
-The Assist debug view (**Settings**, **Voice assistants**, the pipeline's menu,
-**Debug**) shows what Jev answered for each command: the model, every answer with its
-probabilities, and the reason for the decision.
+In the Assist dialog, each reply from Jev has a note under it with what Jev answered:
+the decision and its reason, the slots, each answer with its top three options, the
+model, the input tokens and the time the call took. The pipeline's debug view
+(**Settings**, **Voice assistants**, the pipeline's menu, **Debug**) keeps the same
+note as an `intent-progress` event of the run. The note goes to the pipeline only. It
+is not added to the conversation, so a fallback agent does not read it.
 
 The last 20 decisions the agent made are in the integration's diagnostics, with the
 reason for every decision and the action distribution behind it. The sentence itself

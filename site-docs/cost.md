@@ -83,7 +83,9 @@ When it trips:
 - the answer sensors of that context go unavailable, because Jev was not asked and
   there is no answer for right now. The last answers are not thrown away, and the
   next call that fits replaces them
-- `binary_sensor.jev_daily_budget_exceeded` turns on
+- `binary_sensor.jev_daily_budget_exceeded` turns on. It shows that contexts have
+  stopped, so a spoken command, an action or an AI Task that the budget refuses
+  does not turn it on. Each of those says so to whoever started it
 - a repair issue explains it, naming the budget, what has been used, and the context
   that was refused with the tokens it needed
 
