@@ -72,13 +72,17 @@ two have the same name, it adds the room: "Lamp (Office) or Lamp (Bedroom)". A r
 you name settles it first, so "the lamp in the office" acts.
 
 The names decide this, not the model's confidence. On a test instance with two lights
-both called "Lamp", the model put 1.00 on one of them, every time, so a confidence
-split never showed that there were two. With three or more that fit equally well, the
-command goes to the fallback agent.
+both called "Lamp", the model put 1.00 on one of them in one session. In another it put
+0.55 on "none of these", 0.44 on one Lamp and 0.01 on the other. Neither split showed
+that there were two. With three or more that fit equally well, the command goes to the
+fallback agent.
 
 Your reply, such as "the desk one", is one more request, and it counts against the
-budget. It asks which of the two the reply picks. A confident pick carries out the
-first command on that device. A reply that picks neither is handled as a new command.
+budget. It asks which of the two the reply picks, and if the reply asks for something
+of its own. A confident pick carries out the first command on that device. A reply
+that picks neither, or that is a new instruction, is handled as a new command. So
+"never mind, turn off the lamp in the bedroom" turns that lamp off, and does not run
+the first command on it.
 The question expires after five minutes, the same time Home Assistant keeps a
 conversation open.
 
