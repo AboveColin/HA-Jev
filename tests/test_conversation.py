@@ -11,11 +11,11 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.components import conversation
-from homeassistant.components.conversation.trace import async_get_traces
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import chat_session
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
@@ -523,7 +523,34 @@ async def test_traces_are_bounded(hass, house, mock_client):
     assert len(house.runtime_data.conversation_traces) == CONVERSATION_TRACE_LENGTH
 
 
-async def test_the_assist_debug_view_shows_what_jev_answered(hass, house, mock_client):
+async def converse_in_a_pipeline(hass, text):
+    """Converse the way assist_pipeline does, with a listener on the chat log."""
+    deltas = []
+    with (
+        chat_session.async_get_chat_session(hass, None) as session,
+        conversation.async_get_chat_log(
+            hass,
+            session,
+            conversation.ConversationInput(
+                text=text,
+                context=Context(),
+                conversation_id=session.conversation_id,
+                device_id=None,
+                satellite_id=None,
+                language="en",
+                agent_id=AGENT,
+            ),
+            chat_log_delta_listener=lambda _log, delta: deltas.append(delta),
+        ) as chat_log,
+    ):
+        result = await conversation.async_converse(
+            hass, text, session.conversation_id, Context(), "en", agent_id=AGENT
+        )
+        content = list(chat_log.content)
+    return result, deltas, content
+
+
+async def test_the_assist_dialog_shows_what_jev_answered(hass, house, mock_client):
     mock_client.ask.return_value = build_response(
         **answer_set(
             entity=ChoiceAnswer(
@@ -533,20 +560,34 @@ async def test_the_assist_debug_view_shows_what_jev_answered(hass, house, mock_c
             )
         )
     )
-    await converse(hass, "kitchen light on")
-    await hass.async_block_till_done()
+    _, deltas, content = await converse_in_a_pipeline(hass, "kitchen light on")
 
-    events = async_get_traces()[-1].as_dict()["events"]
-    details = [e["data"]["jev"] for e in events if e["event_type"] == "agent_detail"]
-    assert len(details) == 1
-    jev = details[0]
-    assert jev["text"] == "kitchen light on"
-    assert jev["intent_type"] == "HassTurnOn"
-    assert jev["input_tokens"] == 321
-    assert jev["answers"]["entity"]["probabilities"] == {
-        "light.kitchen": 0.8,
-        "light.office": 0.2,
-    }
+    assert len(deltas) == 1
+    assert deltas[0]["role"] == "assistant"
+    shown = deltas[0]["thinking_content"]
+    assert "Jev: turn_on, ok, confidence 0.97" in shown
+    assert "entity: light.kitchen 0.80 (light.kitchen 0.80, light.office 0.20)" in shown
+    assert "321 input tokens" in shown
+    # Shown to the pipeline, never written into the conversation a fallback reads.
+    assert [c.role for c in content] == ["system", "user"]
+
+
+async def test_the_assist_dialog_shows_why_jev_refused(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **answer_set(compound=NoulAnswer(noul=0.95))
+    )
+    result, deltas, _ = await converse_in_a_pipeline(hass, "two things at once")
+
+    assert "several commands in one sentence" in deltas[0]["thinking_content"]
+    assert "compound: 0.95" in deltas[0]["thinking_content"]
+    assert result.response.response_type is ha_intent.IntentResponseType.ERROR
+
+
+async def test_a_command_outside_a_pipeline_still_answers(hass, house, mock_client):
+    """No listener, as from conversation.process: nothing to show it to."""
+    mock_client.ask.return_value = build_response(**answer_set())
+    result = await converse(hass, "kitchen light on")
+    assert result.response.response_type is not ha_intent.IntentResponseType.ERROR
 
 
 @pytest.mark.parametrize(
