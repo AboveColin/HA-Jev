@@ -364,7 +364,7 @@
     "preview_mismatched": "API'en svarede, men ikke på det spørgsmål, der blev stillet.",
     "preview_template_error": "Skabelonen kan ikke gengives: {reason}",
     "query_not_found": "Det kunne jeg ikke finde.",
-    "budget_spent": "Det daglige tokenbudget er brugt, så det kan jeg ikke gøre i dag.",
+    "budget_spent": "Der er ikke nok tilbage af det daglige tokenbudget til det, så det kan jeg ikke gøre i dag.",
     "auth_failed": "TypeSafe afviste API-nøglen. Tjek den i indstillingerne for Jev.",
     "unavailable": "TypeSafe svarede ikke. Prøv igen om et øjeblik.",
     "which_device": "Mener du {first} eller {second}?",

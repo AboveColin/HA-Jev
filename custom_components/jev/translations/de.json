@@ -364,7 +364,7 @@
     "preview_mismatched": "Die API hat geantwortet, aber nicht auf die gestellte Frage.",
     "preview_template_error": "Die Vorlage lässt sich nicht rendern: {reason}",
     "query_not_found": "Das konnte ich nicht finden.",
-    "budget_spent": "Das tägliche Token-Budget ist aufgebraucht, deshalb kann ich das heute nicht tun.",
+    "budget_spent": "Vom täglichen Token-Budget ist dafür nicht mehr genug übrig, deshalb kann ich das heute nicht tun.",
     "auth_failed": "TypeSafe hat den API-Schlüssel abgelehnt. Prüfe ihn in den Jev-Einstellungen.",
     "unavailable": "TypeSafe hat nicht geantwortet. Versuche es gleich noch einmal.",
     "which_device": "Meinst du {first} oder {second}?",
