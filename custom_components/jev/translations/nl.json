@@ -389,6 +389,7 @@
     "intent_failed": "Sorry, dat is niet gelukt.",
     "already_on": "{name} staat al aan.",
     "already_off": "{name} staat al uit.",
+    "done": "Gedaan.",
     "preview_alone": "Gaat als eigen verzoek.",
     "preview_grouped": "Gaat in een verzoek samen met: {others}.",
     "preview_cost": "Een keer gevraagd voor deze controle: {tokens} invoertokens, ongeveer ${cost}, {ms} ms.",

@@ -389,6 +389,7 @@
     "intent_failed": "Sorry, that did not work.",
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
+    "done": "Done.",
     "preview_alone": "Sent as its own request.",
     "preview_grouped": "Sent in one request together with: {others}.",
     "preview_cost": "Asked once for this preview: {tokens} input tokens, about ${cost}, {ms} ms.",

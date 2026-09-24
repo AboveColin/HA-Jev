@@ -389,6 +389,7 @@
     "intent_failed": "Beklager, det virkede ikke.",
     "already_on": "{name} er allerede tændt.",
     "already_off": "{name} er allerede slukket.",
+    "done": "Færdig.",
     "preview_alone": "Sendes som sin egen anmodning.",
     "preview_grouped": "Sendes i én anmodning sammen med: {others}.",
     "preview_cost": "Spurgt én gang til denne forhåndsvisning: {tokens} input-tokens, cirka ${cost}, {ms} ms.",

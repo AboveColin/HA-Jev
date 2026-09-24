@@ -389,6 +389,7 @@
     "intent_failed": "Tyvärr, det gick inte.",
     "already_on": "{name} är redan på.",
     "already_off": "{name} är redan av.",
+    "done": "Klart.",
     "preview_alone": "Skickas som en egen förfrågan.",
     "preview_grouped": "Skickas i en förfrågan tillsammans med: {others}.",
     "preview_cost": "Frågade en gång för den här förhandsgranskningen: {tokens} indatatoken, ungefär ${cost}, {ms} ms.",

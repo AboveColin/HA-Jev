@@ -389,6 +389,7 @@
     "intent_failed": "Przepraszam, to się nie udało.",
     "already_on": "{name} jest już włączone.",
     "already_off": "{name} jest już wyłączone.",
+    "done": "Gotowe.",
     "preview_alone": "Wysyłane jako osobne żądanie.",
     "preview_grouped": "Wysyłane w jednym żądaniu razem z: {others}.",
     "preview_cost": "Zapytano raz na potrzeby tego podglądu: {tokens} tokenów wejściowych, około ${cost}, {ms} ms.",

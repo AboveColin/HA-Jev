@@ -389,6 +389,7 @@
     "intent_failed": "Scusa, non ha funzionato.",
     "already_on": "{name} è già acceso.",
     "already_off": "{name} è già spento.",
+    "done": "Fatto.",
     "preview_alone": "Inviata come richiesta a sé stante.",
     "preview_grouped": "Inviata in un'unica richiesta insieme a: {others}.",
     "preview_cost": "Chiesto una volta per questa anteprima: {tokens} token di input, circa ${cost}, {ms} ms.",

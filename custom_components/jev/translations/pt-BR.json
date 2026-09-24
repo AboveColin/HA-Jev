@@ -389,6 +389,7 @@
     "intent_failed": "Desculpe, isso não funcionou.",
     "already_on": "{name} já está ligado.",
     "already_off": "{name} já está desligado.",
+    "done": "Pronto.",
     "preview_alone": "Enviada como requisição própria.",
     "preview_grouped": "Enviada em uma requisição junto com: {others}.",
     "preview_cost": "Perguntado uma vez para esta prévia: {tokens} tokens de entrada, cerca de ${cost}, {ms} ms.",

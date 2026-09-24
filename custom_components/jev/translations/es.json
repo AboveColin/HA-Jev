@@ -389,6 +389,7 @@
     "intent_failed": "Lo siento, eso no ha funcionado.",
     "already_on": "{name} ya está encendido.",
     "already_off": "{name} ya está apagado.",
+    "done": "Hecho.",
     "preview_alone": "Se envía en una solicitud propia.",
     "preview_grouped": "Se envía en una sola solicitud junto con: {others}.",
     "preview_cost": "Preguntado una vez para esta vista previa: {tokens} tokens de entrada, unos ${cost}, {ms} ms.",
