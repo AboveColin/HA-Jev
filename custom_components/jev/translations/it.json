@@ -364,7 +364,7 @@
     "preview_mismatched": "L'API ha risposto, ma non alla domanda che è stata posta.",
     "preview_template_error": "Il template non si elabora: {reason}",
     "query_not_found": "Non sono riuscito a trovarlo.",
-    "budget_spent": "Il budget giornaliero di token è esaurito, quindi oggi non posso farlo.",
+    "budget_spent": "Non resta abbastanza budget giornaliero di token per questo, quindi oggi non posso farlo.",
     "auth_failed": "TypeSafe ha rifiutato la chiave API. Controllala nelle impostazioni di Jev.",
     "unavailable": "TypeSafe non ha risposto. Riprova tra un momento.",
     "preview_over_budget": "Il budget giornaliero di token è esaurito, quindi non c'è una risposta di prova. La domanda viene comunque salvata.",

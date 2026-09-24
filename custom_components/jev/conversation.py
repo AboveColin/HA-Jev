@@ -73,7 +73,9 @@ _FALLBACK = {
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
     "query_not_found": "I could not find that.",
-    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "budget_spent": (
+        "Not enough of the daily token budget is left for that, so I cannot do it today."
+    ),
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
     "unavailable": "TypeSafe did not answer. Try again in a moment.",
 }
@@ -276,7 +278,14 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         agent = self._fallback_agent
         _LOGGER.debug("falling back to %s because %s", agent or "nobody", why)
         if agent is None:
-            return await self._speak(user_input, line)
+            # An error, as the default agent answers one. A satellite and the Assist
+            # dialog treat an action_done reply as a command that went through.
+            code = (
+                ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
+                if line == "not_understood"
+                else ha_intent.IntentResponseErrorCode.FAILED_TO_HANDLE
+            )
+            return await self._speak(user_input, line, error=code)
         result = await conversation.async_converse(
             self.hass,
             user_input.text,
@@ -325,13 +334,17 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         self,
         user_input: conversation.ConversationInput,
         key: str,
+        error: ha_intent.IntentResponseErrorCode | None = None,
         **placeholders: str,
     ) -> conversation.ConversationResult:
         """Say one of our own lines, with its placeholders filled in."""
         language = user_input.language or self.hass.config.language
-        text = (await self._lines(language))[key]
+        text = (await self._lines(language))[key].format(**placeholders)
         response = ha_intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(text.format(**placeholders))
+        if error is None:
+            response.async_set_speech(text)
+        else:
+            response.async_set_error(error, text)
         return conversation.ConversationResult(
             response=response, conversation_id=user_input.conversation_id
         )
