@@ -22,11 +22,12 @@ it did not understand.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from homeassistant.components import conversation
 from homeassistant.components.conversation.models import AbstractConversationAgent
@@ -40,7 +41,7 @@ from homeassistant.helpers import template, translation
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 from homeassistant.util import language as language_util
-from jevclient import JevAuthError, JevError
+from jevclient import ChoiceAnswer, JevAuthError, JevError, JevResponse, NoulAnswer
 
 from .const import (
     CONF_ALLOW_WHOLE_HOME,
@@ -199,15 +200,26 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         runtime.usage.notify()
 
         decision = interpret(response, user_input.text, snapshot, self._min_confidence)
-        runtime.conversation_traces.appendleft(
-            {
-                "text": user_input.text,
-                "latency_ms": response.latency_ms,
-                "input_tokens": response.usage.input_tokens,
-                "exposed_entities": len(snapshot.entities),
-                **asdict(decision),
-            }
-        )
+        trace = {
+            "text": user_input.text,
+            "latency_ms": response.latency_ms,
+            "input_tokens": response.usage.input_tokens,
+            "exposed_entities": len(snapshot.entities),
+            **asdict(decision),
+        }
+        runtime.conversation_traces.appendleft(trace)
+        # The pipeline records a chat log delta as an intent-progress event: the
+        # Assist dialog shows its thinking_content under the reply, and the run's
+        # debug events keep it. The delta goes to the listener only, not into the
+        # log, so a fallback agent reading this conversation never takes it for
+        # something said. It carries each answer's distribution, because "why did
+        # it pick the office light" is answered by the entity question and by
+        # nothing in the decision alone.
+        if chat_log.delta_listener is not None:
+            chat_log.delta_listener(
+                chat_log,
+                {"role": "assistant", "thinking_content": _reasoning(trace, response)},
+            )
 
         if decision.already_satisfied is not None:
             name, settled = decision.already_satisfied
@@ -348,6 +360,31 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         return conversation.ConversationResult(
             response=response, conversation_id=user_input.conversation_id
         )
+
+
+def _reasoning(trace: Mapping[str, Any], response: JevResponse) -> str:
+    """The trace as lines a person reads in the Assist dialog."""
+    lines = [
+        f"Jev: {trace['action'] or 'no action'}, {trace['reason']}, "
+        f"confidence {trace['confidence']:.2f}",
+        f"Slots: {json.dumps(trace['slots'], ensure_ascii=False)}",
+    ]
+    for key, answer in response.answers.items():
+        if isinstance(answer, ChoiceAnswer):
+            ranked = sorted((answer.probabilities or {}).items(), key=lambda kv: -kv[1])[
+                :3
+            ]
+            spread = ", ".join(f"{k} {p:.2f}" for k, p in ranked)
+            lines.append(f"{key}: {answer.choice} {answer.confidence:.2f} ({spread})")
+        elif isinstance(answer, NoulAnswer):
+            lines.append(f"{key}: {answer.noul:.2f}")
+        else:
+            lines.append(f"{key}: {json.dumps(asdict(answer), ensure_ascii=False)}")
+    lines.append(
+        f"{response.model}, {trace['input_tokens']} input tokens, "
+        f"{trace['latency_ms']:.0f} ms, {trace['exposed_entities']} entities"
+    )
+    return "\n".join(lines)
 
 
 # A template that compares the state against an English word writes the state word
