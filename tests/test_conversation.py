@@ -21,7 +21,7 @@ from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-from jevclient import ChoiceAnswer, NoulAnswer
+from jevclient import ChoiceAnswer, NoulAnswer, Usage
 
 from custom_components.jev.const import (
     CONF_ALLOW_WHOLE_HOME,
@@ -375,16 +375,18 @@ async def test_a_voice_command_teaches_the_estimate(hass, house, mock_client):
     # The estimate reads bytes per token from the last call it could measure. A
     # voice command that did not report its size left the estimate on whatever
     # the last context taught it, which is a different shape of request.
-    mock_client.ask.return_value = build_response(**answer_set())
+    mock_client.ask.return_value = replace(
+        build_response(**answer_set()), usage=Usage(input_tokens=1371, output_tokens=42)
+    )
     usage = house.runtime_data.usage
-    usage.bytes_per_token = 1.0
 
-    await converse(hass, "kitchen light on")
-    await hass.async_block_till_done()
+    with patch.object(usage, "record", wraps=usage.record) as record:
+        await converse(hass, "kitchen light on")
+        await hass.async_block_till_done()
 
     sent_state, sent_questions = mock_client.ask.await_args.args
     sent = payload_bytes(sent_state, sent_questions, house.runtime_data.model)
-    assert usage.bytes_per_token == sent / 321
+    record.assert_called_once_with(1371, sent)
 
 
 async def test_a_rejected_key_is_said_out_loud(hass, house, mock_client):
