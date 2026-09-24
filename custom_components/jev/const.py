@@ -102,6 +102,10 @@ CONF_FALLBACK_AGENT: Final = "fallback_agent"
 CONF_MIN_CONFIDENCE: Final = "min_confidence"
 CONF_ALLOW_WHOLE_HOME: Final = "allow_whole_home"
 
+# --- Tools for other LLM agents ---
+
+CONF_LLM_TOOLS: Final = "llm_tools"
+
 # Below this, the router hands the sentence to the fallback agent rather than
 # guessing. 0.6 is a starting point and not a calibrated figure: TypeSafe publishes
 # no calibration evidence for confidence, so treat it as an ordering and measure it

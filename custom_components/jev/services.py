@@ -219,9 +219,25 @@ async def _ask(
         type(state).__name__,
         state,
     )
+    usage = entry.runtime_data.usage
+    usage.roll_over(dt_util.now().date())
     request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
+    # The same check a context and the voice agent make: a script that loops on an
+    # action is the runaway the budget exists for.
+    estimate = usage.estimate_tokens(request_bytes)
+    if usage.would_exceed_with(estimate):
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="action_over_budget",
+            translation_placeholders={
+                "estimate": str(estimate),
+                "remaining": str(usage.remaining()),
+                "budget": str(usage.budget),
+            },
+        )
     try:
-        response = await entry.runtime_data.client.ask(state, questions)
+        with usage.reservation(estimate):
+            response = await entry.runtime_data.client.ask(state, questions)
     except JevAuthError as err:
         entry.async_start_reauth(hass)
         raise HomeAssistantError(
@@ -235,8 +251,6 @@ async def _ask(
             translation_key="ask_failed",
             translation_placeholders={"reason": str(err)},
         ) from err
-    usage = entry.runtime_data.usage
-    usage.roll_over(dt_util.now().date())
     usage.record(response.usage.input_tokens, request_bytes)
     entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
     usage.notify()

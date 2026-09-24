@@ -447,3 +447,39 @@ async def test_without_the_recorder_it_says_so(hass, loaded_entry):
             {"entity_id": "sensor.x", "truth_entity_id": "binary_sensor.y"},
         )
     assert err.value.translation_key == "calibrate_needs_recorder"
+
+
+async def test_an_action_that_would_pass_the_budget_is_not_sent(
+    hass, loaded_entry, mock_client
+):
+    usage = loaded_entry.runtime_data.usage
+    usage.budget = 1000
+    usage.input_tokens = 999
+    mock_client.ask.reset_mock()
+
+    with pytest.raises(HomeAssistantError) as err:
+        await call(hass, "noul", {"state": "x", "instructions": "Is it done?"})
+
+    assert mock_client.ask.await_count == 0
+    assert err.value.translation_key == "action_over_budget"
+    placeholders = err.value.translation_placeholders
+    assert placeholders["remaining"] == "1"
+    assert placeholders["budget"] == "1000"
+    assert int(placeholders["estimate"]) > 1
+
+
+async def test_an_action_holds_its_estimate_while_it_runs(
+    hass, loaded_entry, mock_client
+):
+    usage = loaded_entry.runtime_data.usage
+    held = []
+
+    async def watch(state, questions):
+        held.append(usage.reserved)
+        return build_response(answer=NoulAnswer(noul=0.5))
+
+    mock_client.ask.side_effect = watch
+    await call(hass, "noul", {"state": "x", "instructions": "Is it done?"})
+
+    assert held[0] > 0
+    assert usage.reserved == 0

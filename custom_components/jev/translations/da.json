@@ -82,14 +82,16 @@
           "price_per_million": "Pris pr. million input-tokens, i USD",
           "fallback_agent": "Fald tilbage til denne agent",
           "min_confidence": "Handl kun over denne konfidens (0 til 1)",
-          "allow_whole_home": "Tillad kommandoer, der ikke nævner et rum eller en enhed"
+          "allow_whole_home": "Tillad kommandoer, der ikke nævner et rum eller en enhed",
+          "llm_tools": "Tilbyd Jev som værktøj til andre LLM-agenter"
         },
         "data_description": {
           "daily_token_budget": "Tælles fra midnat i Home Assistants tidszone. 0 betyder ingen grænse.",
           "price_per_million": "Bestemmer sensoren for anslået pris og prisen i forhåndsvisningen af spørgsmålet. Intet af det, der sendes, afhænger af den.",
           "fallback_agent": "Modtager hele sætningen, når Jev ikke er sikker på, hvad der skal gøres.",
           "min_confidence": "Under denne værdi gør Jev intet og sender kommandoen videre til reserveagenten.",
-          "allow_whole_home": "At slukke alt er altid tilladt, med eller uden denne indstilling."
+          "allow_whole_home": "At slukke alt er altid tilladt, med eller uden denne indstilling.",
+          "llm_tools": "Tilføjer to værktøjer til Assist-API'et, et til ja/nej-spørgsmål og et til at vælge en mulighed. Hver LLM-agent, der bruger Assist, får deres beskrivelser i hver prompt, hvilket koster tokens hos den agents udbyder. Hvert kald tæller også med i budgettet ovenfor."
         }
       }
     }
@@ -328,6 +330,9 @@
     "task_over_budget": {
       "message": "Opgaven {task} koster omkring {estimate} inputtokens, og der er {remaining} tilbage af dagsbudgettet på {budget}. Hæv eller ryd budgettet i integrationens indstillinger for at fortsætte."
     },
+    "action_over_budget": {
+      "message": "Denne handling koster omkring {estimate} input-tokens, og der er {remaining} tilbage af det daglige budget på {budget}. Hæv eller fjern budgettet i integrationens indstillinger for at fortsætte."
+    },
     "reserved_field": {
       "message": "Feltet {field} kan ikke bruges, fordi resultatet bærer sikkerheden bag hvert svar under det navn. Omdøb feltet."
     },
@@ -398,9 +403,10 @@
     "preview_mismatched": "API'en svarede, men ikke på det spørgsmål, der blev stillet.",
     "preview_template_error": "Skabelonen kan ikke gengives: {reason}",
     "query_not_found": "Det kunne jeg ikke finde.",
-    "budget_spent": "Det daglige tokenbudget er brugt, så det kan jeg ikke gøre i dag.",
+    "budget_spent": "Der er ikke nok tilbage af det daglige tokenbudget til det, så det kan jeg ikke gøre i dag.",
     "auth_failed": "TypeSafe afviste API-nøglen. Tjek den i indstillingerne for Jev.",
     "unavailable": "TypeSafe svarede ikke. Prøv igen om et øjeblik.",
+    "which_device": "Mener du {first} eller {second}?",
     "preview_over_budget": "Det daglige token-budget er brugt op, så der er intet prøvesvar. Spørgsmålet bliver gemt alligevel.",
     "preview_nothing_yet": "Intet prøvesvar: der er endnu intet at spørge om."
   },

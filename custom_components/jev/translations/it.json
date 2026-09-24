@@ -82,14 +82,16 @@
           "price_per_million": "Prezzo per milione di token di input, in USD",
           "fallback_agent": "Ripiega su questo agente",
           "min_confidence": "Agisci solo sopra questa confidenza (da 0 a 1)",
-          "allow_whole_home": "Consenti comandi che non nominano una stanza o un dispositivo"
+          "allow_whole_home": "Consenti comandi che non nominano una stanza o un dispositivo",
+          "llm_tools": "Offri Jev come strumento ad altri agenti LLM"
         },
         "data_description": {
           "daily_token_budget": "Conteggiato dalla mezzanotte nel fuso orario di Home Assistant. 0 significa nessun limite.",
           "price_per_million": "Determina il sensore del costo stimato e il costo nell'anteprima della domanda. Niente di ciò che viene inviato dipende da questo.",
           "fallback_agent": "Riceve l'intera frase quando Jev non è sicuro di cosa fare.",
           "min_confidence": "Sotto questo valore Jev non fa nulla e passa il comando all'agente di riserva.",
-          "allow_whole_home": "Spegnere tutto è sempre consentito, con o senza questa opzione."
+          "allow_whole_home": "Spegnere tutto è sempre consentito, con o senza questa opzione.",
+          "llm_tools": "Aggiunge due strumenti all'API Assist, uno per le domande sì/no e uno per scegliere un'opzione. Ogni agente LLM che usa Assist riceve le loro descrizioni in ogni prompt, il che costa token presso il fornitore di quell'agente. Ogni chiamata conta anche nel budget qui sopra."
         }
       }
     }
@@ -328,6 +330,9 @@
     "task_over_budget": {
       "message": "L'attività {task} costa circa {estimate} token di input e restano {remaining} del budget giornaliero di {budget}. Aumenta o cancella il budget nelle opzioni dell'integrazione per continuare."
     },
+    "action_over_budget": {
+      "message": "Questa azione costa circa {estimate} token di input e restano {remaining} del budget giornaliero di {budget}. Aumenta o rimuovi il budget nelle opzioni dell'integrazione per continuare."
+    },
     "reserved_field": {
       "message": "Il campo {field} non può essere usato, perché il risultato porta con quel nome la confidenza dietro ogni risposta. Rinomina il campo."
     },
@@ -398,9 +403,10 @@
     "preview_mismatched": "L'API ha risposto, ma non alla domanda che è stata posta.",
     "preview_template_error": "Il template non si elabora: {reason}",
     "query_not_found": "Non sono riuscito a trovarlo.",
-    "budget_spent": "Il budget giornaliero di token è esaurito, quindi oggi non posso farlo.",
+    "budget_spent": "Non resta abbastanza budget giornaliero di token per questo, quindi oggi non posso farlo.",
     "auth_failed": "TypeSafe ha rifiutato la chiave API. Controllala nelle impostazioni di Jev.",
     "unavailable": "TypeSafe non ha risposto. Riprova tra un momento.",
+    "which_device": "Intendi {first} o {second}?",
     "preview_over_budget": "Il budget giornaliero di token è esaurito, quindi non c'è una risposta di prova. La domanda viene comunque salvata.",
     "preview_nothing_yet": "Nessuna risposta di prova: non c'è ancora nulla su cui fare la domanda."
   },
