@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "La tarea {task} cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o borra el presupuesto en las opciones de la integración para continuar."
     },
+    "action_over_budget": {
+      "message": "Esta acción cuesta unos {estimate} tokens de entrada y quedan {remaining} del presupuesto diario de {budget}. Aumenta o elimina el presupuesto en las opciones de la integración para continuar."
+    },
     "reserved_field": {
       "message": "El campo {field} no se puede usar, porque el resultado lleva bajo ese nombre la confianza detrás de cada respuesta. Cambia el nombre del campo."
     },

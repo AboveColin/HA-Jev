@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "任务 {task} 大约需要 {estimate} 个输入令牌，而每日预算 {budget} 只剩 {remaining}。请在集成选项中提高或清除预算后再继续。"
     },
+    "action_over_budget": {
+      "message": "此操作约需 {estimate} 个输入令牌，每日预算 {budget} 还剩 {remaining}。要继续，请在集成选项中提高或清除预算。"
+    },
     "reserved_field": {
       "message": "字段 {field} 不能使用，因为结果在这个名称下携带每个答案背后的置信度。请重命名该字段。"
     },

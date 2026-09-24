@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Die Aufgabe {task} kostet etwa {estimate} Eingabetokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
     },
+    "action_over_budget": {
+      "message": "Diese Aktion kostet etwa {estimate} Eingabe-Tokens, und vom Tagesbudget von {budget} sind noch {remaining} übrig. Erhöhe oder entferne das Budget in den Optionen der Integration, um fortzufahren."
+    },
     "reserved_field": {
       "message": "Das Feld {field} kann nicht verwendet werden, weil das Ergebnis unter diesem Namen die Sicherheit hinter jeder Antwort mitliefert. Benenne das Feld um."
     },

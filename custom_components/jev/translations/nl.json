@@ -306,6 +306,9 @@
     "task_over_budget": {
       "message": "Taak {task} kost ongeveer {estimate} invoertokens en van het dagbudget van {budget} zijn er nog {remaining} over. Verhoog of wis het budget in de opties van de integratie om door te gaan."
     },
+    "action_over_budget": {
+      "message": "Deze actie kost ongeveer {estimate} invoertokens en er is nog {remaining} over van het dagbudget van {budget}. Verhoog of wis het budget in de opties van de integratie om door te gaan."
+    },
     "reserved_field": {
       "message": "Het veld {field} kan niet worden gebruikt, omdat het resultaat onder die naam de zekerheid achter elk antwoord meegeeft. Geef het veld een andere naam."
     },
