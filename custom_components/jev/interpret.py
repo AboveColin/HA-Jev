@@ -352,6 +352,12 @@ def interpret(
         described = snapshot.by_id(entity.choice)
         if described is None:
             return out("named a device that is not exposed")
+        # The model picks the closest option it was shown, and a hidden device is
+        # not one of them. Measured on a development instance with an unexposed
+        # "Desk lamp" and an exposed "Lamp": "turn on the desk lamp" came back as
+        # Lamp and switched it on, three times of three.
+        if _a_hidden_name_fits_better(text, described, snapshot):
+            return out("named a device that is not exposed")
         if ask_back:
             picked = pick(described, sure=True)
             if isinstance(picked, Interpretation):
@@ -379,6 +385,10 @@ def interpret(
         and entity is not None
         and (unsure := snapshot.by_id(_likeliest_device(entity))) is not None
     ):
+        # "Turn on the desk lamp" with a hidden desk lamp would otherwise ask
+        # which of two exposed lamps was meant.
+        if _a_hidden_name_fits_better(text, unsure, snapshot):
+            return out("named a device that is not exposed")
         picked = pick(unsure, sure=False)
         if isinstance(picked, Interpretation):
             return picked
@@ -486,6 +496,14 @@ def spoken_name(one: ExposedEntity, other: ExposedEntity) -> tuple[str, str] | N
     if one.area and other.area and one.area.casefold() != other.area.casefold():
         return f"{one.name} ({one.area})", f"{other.name} ({other.area})"
     return None
+
+
+def _a_hidden_name_fits_better(
+    text: str, chosen: ExposedEntity, snapshot: HomeSnapshot
+) -> bool:
+    """A hidden name that the command says in more words than the chosen one."""
+    said = _words_said(text, chosen.name)
+    return any(_words_said(text, name) > said for name in snapshot.hidden_names)
 
 
 def _words_said(text: str, name: str) -> int:
