@@ -51,8 +51,9 @@ into a token estimate, and a call that would not fit in what is left of the budg
 never sent. A budget is a limit on what gets spent, and one that only notices after
 the spending is a report.
 
-The estimate divides the request size by the bytes per token of the last answered
-call. A question, an action and an AI Task all update that ratio.
+The estimate is a fixed 250 tokens that every request pays, plus the body size
+divided by a bytes-per-token ratio. A question, an action and an AI Task all update
+that ratio.
 
 When it trips:
 
@@ -96,12 +97,13 @@ one request over the line rather than a runaway.
 
 ### How the estimate is worked out
 
-The estimate is `bytes / bytes-per-token`, with a 1.2 margin. The ratio is not
-hardcoded: the first call after a restart uses 2.29 bytes per token, measured against
-the live API, and every answered call after that replaces it with the payload size
-divided by the input tokens the endpoint actually reported. An endpoint that counts
-tokens differently, OpenRouter or a gateway of your own, is measured rather than
-assumed within one call. See the
+The estimate is `(250 + bytes / bytes-per-token) * 1.2`. The 250 is what every
+request is billed before its body counts. The ratio is not hardcoded: the first call
+after a restart uses 2.80 bytes per token, measured against the live API. After that,
+every answered call with a body of at least 250 tokens replaces it with what the
+endpoint actually billed. A small call leaves it alone, because its bill is nearly all
+fixed part. An endpoint that counts tokens differently, OpenRouter or a gateway of
+your own, is measured rather than assumed. See the
 [receipt](measurements.md#bytes-per-input-token).
 
 !!! tip "Size it past anything real"

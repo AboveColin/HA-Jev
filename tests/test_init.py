@@ -147,7 +147,7 @@ async def test_the_budget_stops_the_next_call_and_keeps_what_it_has(hass, mock_c
     mock_client.ask.return_value = build_response(
         laundry_laundry_forgotten=NoulAnswer(noul=0.81)
     )
-    await setup_with_context(hass, _budget_entry(400))
+    await setup_with_context(hass, _budget_entry(700))
 
     assert hass.states.get("sensor.jev_input_tokens_today").state == PROBED_AND_ASKED
     assert hass.states.get("sensor.jev_laundry_forgotten").state == "0.81"

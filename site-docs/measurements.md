@@ -154,27 +154,59 @@ the entities.
 
 The daily budget has to refuse a call before it is sent, and the only token count
 there is comes back with the reply. So the size of the request is measured locally and
-divided by a bytes-per-token ratio.
+turned into tokens: a fixed part that every request pays, plus the body bytes divided
+by a bytes-per-token ratio.
+
+### The fixed part
+
+Four requests against the live API on 2026-09-24, body bytes measured locally for the
+same request:
+
+| Request | Body bytes | Input tokens billed |
+|---|---|---|
+| `jev.noul`, one short state line | 138 | 278 |
+| `jev.noul`, 6 KB of state | 6,136 | 3,277 |
+| `jev.ask`, 1 question | 137 | 279 |
+| `jev.ask`, 8 questions | 613 | 377 |
+
+A straight line through each pair crosses zero bytes at 209 tokens (the two `noul`
+rows) and at 251 tokens (the two `ask` rows). The fixed part is 250. It is paid per
+request, not per question: seven more questions added 98 tokens, not seven times 250.
+
+Before this, the estimate was the bytes over a ratio and nothing else. The 138 byte
+action was estimated at 70 tokens and billed 278.
+
+### The ratio
 
 The cold-start ratio comes from the two readings above. The conversation payload with
 5 exposed entities and 7 questions is 3,142 bytes, and the same shape against the live
-API reported 1,329 to 1,371 input tokens per command:
+API reported 1,329 to 1,371 input tokens per command. Less the fixed part:
 
 | | |
 |---|---|
-| 3,142 / 1,371 | 2.29 bytes per token |
-| 3,142 / 1,329 | 2.36 bytes per token |
+| 3,142 / (1,371 - 250) | 2.80 bytes per token |
+| 3,142 / (1,329 - 250) | 2.91 bytes per token |
 
-2.29 is the seed, because the lower ratio is the larger token estimate and an estimate
+2.80 is the seed, because the lower ratio is the larger token estimate and an estimate
 that refuses slightly early beats one that lets a call through.
 
 This is a derivation across two runs rather than one payload counted both ways: the
 byte figures were measured locally with no API call, and the token figures came from a
-different set of sixteen live commands on the same fixtures. That is exactly why the
-ratio is a seed and not a constant. Every answered call replaces it with its own
-payload bytes divided by the input tokens the endpoint reported, so a different
-tokenizer, a gateway, or OpenRouter is measured rather than assumed, and the assumption
-lasts one call.
+different set of sixteen live commands on the same fixtures. That is why the ratio is
+a seed and not a constant. An answered call replaces it with its own body bytes
+divided by the tokens it was billed past the fixed part, so a different tokenizer, a
+gateway, or OpenRouter is measured rather than assumed.
+
+Only a call whose body was billed at least 250 tokens replaces it. The 278 token
+action above has 28 tokens of body, and a ratio taken from all of it said 0.5 bytes
+per token. With that ratio, the 6 KB request was estimated at 14,327 tokens after being billed
+3,277 one call earlier, and it was refused on every try, because a refused call
+measures nothing.
+
+The ratio depends on what the bytes are. The 6 KB state was a repeated two-byte word
+and came to 2.0 bytes per token. The questions of the `ask` rows came to 4.9. The first
+6 KB request after a restart was estimated below what it was billed. The next one was
+not.
 
 The estimate carries a 1.2 margin. Input tokens across those sixteen commands varied by
 3.2%, 1,329 to 1,371 for the same seven questions, so 20% sits well past anything

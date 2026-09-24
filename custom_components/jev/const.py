@@ -44,17 +44,34 @@ MIN_UPDATE_INTERVAL_SECONDS: Final = 30
 DEFAULT_SCAN_INTERVAL_SECONDS: Final = 300
 TRIGGER_DEBOUNCE_SECONDS: Final = 5.0
 
-# What the pre-flight budget check divides payload bytes by before any call of its
-# own has measured the real ratio. This one is derived rather than measured end to
-# end: the five-entity conversation payload in site-docs/measurements.md is 3,142
-# bytes and measured 1,329 to 1,371 input tokens live, which is 2.29 to 2.36 bytes
-# per token. The low end is the one that over-estimates the cost.
+# What every request is billed before its body counts, whatever its size. Measured
+# live on 2026-09-24 (site-docs/measurements.md): jev.noul with a 138 byte body was
+# billed 278 input tokens and one with 6,136 bytes 3,277, and jev.ask with 1 and 8
+# questions, 137 and 613 bytes, was billed 279 and 377. A straight line through
+# each pair crosses zero bytes at 209 and 251 tokens. 250 is near the higher one.
 #
-# Every answered call replaces it with the ratio that endpoint actually reported,
-# so an endpoint with another tokeniser calibrates this in one request. A hardcoded
-# divisor would be a landmine the day someone points the entry at OpenRouter or at
-# a gateway of their own.
-COLD_START_BYTES_PER_TOKEN: Final = 2.29
+# Without it, the estimate was bytes over a ratio and nothing else. A 138 byte
+# action was estimated at 70 tokens and billed 278.
+REQUEST_OVERHEAD_TOKENS: Final = 250
+
+# What the pre-flight budget check divides the body bytes by before any call of its
+# own has measured the real ratio. The five-entity conversation payload in
+# site-docs/measurements.md is 3,142 bytes and measured 1,329 to 1,371 input tokens
+# live. Less the fixed part, that is 2.80 to 2.91 bytes per token. The low end is the
+# one that over-estimates the cost.
+#
+# An answered call with a body worth measuring replaces it with the ratio that
+# endpoint actually reported, so an endpoint with another tokeniser calibrates this
+# in one request. A hardcoded divisor would be a landmine the day someone points the
+# entry at OpenRouter or at a gateway of their own.
+COLD_START_BYTES_PER_TOKEN: Final = 2.8
+
+# A call is worth measuring when its body was billed at least as much as the fixed
+# part. Below that, a few tokens of rounding in the fixed part swing the ratio.
+# Measured: with the ratio taken from the 278 token action, the next 6,136 byte
+# request was estimated at 14,327 tokens and billed 3,277, and it was refused again
+# on every try, because a refused call measures nothing.
+MIN_MEASURED_BODY_TOKENS: Final = REQUEST_OVERHEAD_TOKENS
 
 # The estimate is a tripwire, not an accounting figure. Sixteen live commands on one
 # payload shape varied by 3% (site-docs/measurements.md), so 20% sits well past any
