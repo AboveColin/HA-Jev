@@ -53,6 +53,7 @@ from .const import (
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
 from .interpret import build_questions, interpret
+from .payload import payload_bytes
 from .snapshot import async_snapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,7 +73,9 @@ _FALLBACK = {
     "already_on": "{name} is already on.",
     "already_off": "{name} is already off.",
     "query_not_found": "I could not find that.",
-    "budget_spent": "The daily token budget is spent, so I cannot do that today.",
+    "budget_spent": (
+        "Not enough of the daily token budget is left for that, so I cannot do it today."
+    ),
     "auth_failed": "TypeSafe rejected the API key. Check it in the Jev settings.",
     "unavailable": "TypeSafe did not answer. Try again in a moment.",
 }
@@ -154,14 +157,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
     ) -> conversation.ConversationResult:
         runtime: JevRuntimeData = self._entry.runtime_data
 
-        # The budget covers voice as well as sensors, because a satellite that
-        # mishears a wake word all night is exactly the runaway it exists to stop.
         runtime.usage.roll_over(dt_util.now().date())
-        if runtime.usage.would_exceed():
-            return await self._fall_back(
-                user_input, "the daily token budget is spent", "budget_spent"
-            )
-
         snapshot = async_snapshot(self.hass, MAX_CONVERSATION_ENTITIES)
         if not snapshot.entities:
             return await self._fall_back(user_input, "no entities are exposed to Assist")
@@ -169,8 +165,23 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         questions = build_questions(user_input.text, snapshot, MAX_CONVERSATION_ENTITIES)
         state = snapshot.as_state() | {"command": user_input.text}
 
+        # The budget covers voice as well as sensors, because a satellite that
+        # mishears a wake word all night is exactly the runaway it exists to stop.
+        # The check is on this command's estimate, the same as a context's, so the
+        # last command of the day cannot take the total past the budget.
+        request_bytes = payload_bytes(state, questions, runtime.model)
+        estimate = runtime.usage.estimate_tokens(request_bytes)
+        if runtime.usage.would_exceed_with(estimate):
+            return await self._fall_back(
+                user_input,
+                f"the daily token budget has {runtime.usage.remaining()} tokens left "
+                f"and this command needs about {estimate}",
+                "budget_spent",
+            )
+
         try:
-            response = await runtime.client.ask(state, questions)
+            with runtime.usage.reservation(estimate):
+                response = await runtime.client.ask(state, questions)
         except JevAuthError as err:
             _LOGGER.error("TypeSafe rejected the API key: %s", err)
             self._entry.async_start_reauth(self.hass)
@@ -183,7 +194,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
                 user_input, f"TypeSafe did not answer: {err}", "unavailable"
             )
 
-        runtime.usage.record(response.usage.input_tokens)
+        runtime.usage.record(response.usage.input_tokens, request_bytes)
         runtime.model_version = response.model or runtime.model_version
         runtime.usage.notify()
 
@@ -267,7 +278,14 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         agent = self._fallback_agent
         _LOGGER.debug("falling back to %s because %s", agent or "nobody", why)
         if agent is None:
-            return await self._speak(user_input, line)
+            # An error, as the default agent answers one. A satellite and the Assist
+            # dialog treat an action_done reply as a command that went through.
+            code = (
+                ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
+                if line == "not_understood"
+                else ha_intent.IntentResponseErrorCode.FAILED_TO_HANDLE
+            )
+            return await self._speak(user_input, line, error=code)
         result = await conversation.async_converse(
             self.hass,
             user_input.text,
@@ -316,13 +334,17 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         self,
         user_input: conversation.ConversationInput,
         key: str,
+        error: ha_intent.IntentResponseErrorCode | None = None,
         **placeholders: str,
     ) -> conversation.ConversationResult:
         """Say one of our own lines, with its placeholders filled in."""
         language = user_input.language or self.hass.config.language
-        text = (await self._lines(language))[key]
+        text = (await self._lines(language))[key].format(**placeholders)
         response = ha_intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(text.format(**placeholders))
+        if error is None:
+            response.async_set_speech(text)
+        else:
+            response.async_set_error(error, text)
         return conversation.ConversationResult(
             response=response, conversation_id=user_input.conversation_id
         )
