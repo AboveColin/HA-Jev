@@ -525,11 +525,11 @@ async def test_traces_are_bounded(hass, house, mock_client):
     assert len(house.runtime_data.conversation_traces) == CONVERSATION_TRACE_LENGTH
 
 
-async def converse_in_a_pipeline(hass, text):
+async def converse_in_a_pipeline(hass, text, conversation_id=None):
     """Converse the way assist_pipeline does, with a listener on the chat log."""
     deltas = []
     with (
-        chat_session.async_get_chat_session(hass, None) as session,
+        chat_session.async_get_chat_session(hass, conversation_id) as session,
         conversation.async_get_chat_log(
             hass,
             session,
@@ -1527,6 +1527,24 @@ async def test_the_reply_runs_the_first_command_on_the_device_it_picks(
     assert list(questions) == ["which"]
     assert state == {"command": "light on", "reply": "the office one"}
     assert set(questions["which"].criteria) == {"light.kitchen", "light.office", NONE}
+
+
+async def test_the_assist_dialog_shows_what_the_reply_picked(hass, house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **unsure_between("light.kitchen", "light.office"), **reply("light.office")
+    )
+    hass.services.async_register("light", "turn_on", lambda call: None)
+
+    asked = await converse(hass, "light on")
+    result, deltas, _ = await converse_in_a_pipeline(
+        hass, "the office one", asked.conversation_id
+    )
+
+    assert result.response.response_type is ha_intent.IntentResponseType.ACTION_DONE
+    [delta] = deltas
+    assert delta["thinking_content"].startswith(
+        'Jev: a reply to "light on", picked light.office\n'
+    )
 
 
 async def test_a_reply_that_picks_neither_is_a_new_command(hass, house, mock_client):

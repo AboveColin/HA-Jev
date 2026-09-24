@@ -538,11 +538,17 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
 
 def _reasoning(trace: Mapping[str, Any], response: JevResponse) -> str:
     """The trace as lines a person reads in the Assist dialog."""
-    lines = [
-        f"Jev: {trace['action'] or 'no action'}, {trace['reason']}, "
-        f"confidence {trace['confidence']:.2f}",
-        f"Slots: {json.dumps(trace['slots'], ensure_ascii=False)}",
-    ]
+    if "answers_command" in trace:
+        lines = [
+            f'Jev: a reply to "{trace["answers_command"]}", '
+            f"picked {trace['picked'] or 'neither'}"
+        ]
+    else:
+        lines = [
+            f"Jev: {trace['action'] or 'no action'}, {trace['reason']}, "
+            f"confidence {trace['confidence']:.2f}",
+            f"Slots: {json.dumps(trace['slots'], ensure_ascii=False)}",
+        ]
     for key, answer in response.answers.items():
         if isinstance(answer, ChoiceAnswer):
             ranked = sorted((answer.probabilities or {}).items(), key=lambda kv: -kv[1])[
@@ -554,10 +560,11 @@ def _reasoning(trace: Mapping[str, Any], response: JevResponse) -> str:
             lines.append(f"{key}: {answer.noul:.2f}")
         else:
             lines.append(f"{key}: {json.dumps(asdict(answer), ensure_ascii=False)}")
-    lines.append(
-        f"{response.model}, {trace['input_tokens']} input tokens, "
-        f"{trace['latency_ms']:.0f} ms, {trace['exposed_entities']} entities"
-    )
+    footer = f"{response.model}, {trace['input_tokens']} input tokens, "
+    footer += f"{trace['latency_ms']:.0f} ms"
+    if "exposed_entities" in trace:
+        footer += f", {trace['exposed_entities']} entities"
+    lines.append(footer)
     return "\n".join(lines)
 
 
