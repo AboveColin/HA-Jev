@@ -227,8 +227,13 @@ def interpret(
     text: str,
     snapshot: HomeSnapshot,
     min_confidence: float,
+    *,
+    ask_back: bool = True,
 ) -> Interpretation:
-    """Read the answers that matter and ignore the rest."""
+    """Read the answers that matter and ignore the rest.
+
+    ask_back=False reads a command whose device a reply has already picked.
+    """
 
     def choice(key: str) -> ChoiceAnswer | None:
         answer = response.answers.get(key)
@@ -293,6 +298,28 @@ def interpret(
     area = choice("area")
     slots: dict[str, Any] = {}
     targets_everything = False
+    named_area = (
+        area.choice
+        if area is not None and area.choice != NONE and area.confidence >= min_confidence
+        else None
+    )
+
+    def ask(first: ExposedEntity, second: ExposedEntity) -> Interpretation:
+        # The action is sure and the device is one of two. Asking costs one short
+        # question, and handing the sentence to the fallback agent gets the same
+        # guess made again by something that does not know it was a guess.
+        if spoken_name(first, second) is None:
+            return out("two devices fit the name and nothing tells them apart")
+        return Interpretation(
+            None,
+            {},
+            action.choice,
+            action.confidence,
+            "two devices fit the name",
+            fallback=False,
+            action_probabilities=dict(action.probabilities or {}),
+            candidates=(first.entity_id, second.entity_id),
+        )
 
     # Trust the confident answer rather than the ordering. Measured: a scope answer
     # of one_room at 0.41 alongside a device answer at 1.00, where branching on
@@ -305,6 +332,12 @@ def interpret(
         described = snapshot.by_id(entity.choice)
         if described is None:
             return out("named a device that is not exposed")
+        if ask_back:
+            tied = _fit_as_well(text, described, snapshot, named_area)
+            if len(tied) == 2:
+                return ask(*tied)
+            if len(tied) > 2:
+                return out(f"{len(tied)} devices fit the name")
         slots["name"] = {"value": described.name}
         # The domain keeps a same-named entity the model was never shown, a lock
         # called "Front door" beside a cover called "Front door", out of the match.
@@ -328,20 +361,13 @@ def interpret(
         # unbounded off is not something to infer from one ambiguous sentence.
         slots["name"] = {"value": "all"}
         targets_everything = True
-    elif pair := _two_that_fit(entity, snapshot, min_confidence):
-        # The action is sure and the device is one of two. Asking costs one short
-        # question, and handing the sentence to the fallback agent gets the same
-        # guess made again by something that does not know it was a guess.
-        return Interpretation(
-            None,
-            {},
-            action.choice,
-            action.confidence,
-            "two devices fit the name",
-            fallback=False,
-            action_probabilities=dict(action.probabilities or {}),
-            candidates=pair,
-        )
+    elif (
+        ask_back
+        and entity is not None
+        and (unsure := snapshot.by_id(entity.choice)) is not None
+        and len(tied := _fit_as_well(text, unsure, snapshot, named_area)) == 2
+    ):
+        return ask(*tied)
     else:
         return out("no target named with enough confidence")
 
@@ -379,37 +405,39 @@ def interpret(
     )
 
 
-# The least share of the entity answer a device needs to be offered as one of two.
-# With this, the two named devices hold at least 40% between them and the rest is
-# spread across the others. Not measured on a real instance yet.
-ASK_BACK_FLOOR = 0.2
+def _fit_as_well(
+    text: str, chosen: ExposedEntity, snapshot: HomeSnapshot, area: str | None
+) -> list[ExposedEntity]:
+    """The devices of the chosen kind whose names fit the words as well as its own.
 
+    The model gives one device all of its answer even when two fit: measured on a
+    development instance with two lights both called "Lamp", "turn on the lamp"
+    came back as one of them at 1.00, every time. The probabilities cannot say the
+    name was shared, the names can. A room the command names narrows the list.
 
-def _two_that_fit(
-    entity: ChoiceAnswer | None, snapshot: HomeSnapshot, min_confidence: float
-) -> tuple[str, str] | None:
-    """The two devices a command could mean, when it is one of them and not a third.
-
-    Both must be exposed, each must hold ASK_BACK_FLOOR of the answer, and the two
-    together must reach the confidence the agent acts on. A third device above the
-    floor means the question would not settle it, so the agent does not ask.
+    Only the chosen device when it fits best alone, or when no name fits the words
+    at all, which is where the model's reading is all there is.
     """
-    if entity is None or not entity.probabilities:
-        return None
-    ranked = sorted(
-        (
-            (probability, entity_id)
-            for entity_id, probability in entity.probabilities.items()
-            if entity_id != NONE and probability >= ASK_BACK_FLOOR
-        ),
-        reverse=True,
-    )
-    if len(ranked) != 2 or ranked[0][0] + ranked[1][0] < min_confidence:
-        return None
-    first, second = (snapshot.by_id(entity_id) for _, entity_id in ranked)
-    if first is None or second is None or spoken_name(first, second) is None:
-        return None
-    return first.entity_id, second.entity_id
+    kind = [
+        e
+        for e in snapshot.entities
+        if e.domain == chosen.domain and (area is None or e.area == area)
+    ]
+    if chosen not in kind:
+        return [chosen]
+    fit = {e.entity_id: _name_fit(text, e.name) for e in kind}
+    best = max(fit.values())
+    if best == 0 or fit[chosen.entity_id] < best:
+        return [chosen]
+    return [e for e in kind if fit[e.entity_id] == best]
+
+
+def _name_fit(text: str, name: str) -> int:
+    """How well the words fit a name. The whole name said beats any part of it."""
+    if said := _words_said(text, name):
+        return 100 + said
+    words = set(re.findall(r"\w+", text.casefold()))
+    return len(set(name.casefold().split()) & words)
 
 
 def spoken_name(one: ExposedEntity, other: ExposedEntity) -> tuple[str, str] | None:
@@ -422,6 +450,19 @@ def spoken_name(one: ExposedEntity, other: ExposedEntity) -> tuple[str, str] | N
     if one.area and other.area and one.area.casefold() != other.area.casefold():
         return f"{one.name} ({one.area})", f"{other.name} ({other.area})"
     return None
+
+
+def _words_said(text: str, name: str) -> int:
+    """How many words of the name the text says, as one phrase, or 0.
+
+    Whole words only, so a hidden "Lamp" is not found inside "lamps". In a language
+    written without spaces a name rarely stands apart, so the check seldom fires.
+    """
+    words = name.casefold().split()
+    if not words:
+        return 0
+    phrase = r"\s+".join(re.escape(w) for w in words)
+    return len(words) if re.search(rf"(?<!\w){phrase}(?!\w)", text.casefold()) else 0
 
 
 # What "already done" looks like for each action the check covers.

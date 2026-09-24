@@ -1311,7 +1311,8 @@ async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_clien
         **answer_set(
             entity=ChoiceAnswer(
                 choice="light.office_ceiling", probabilities={}, confidence=1.0
-            )
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.95),
         )
     )
     calls = []
@@ -1382,6 +1383,12 @@ def unsure_between(first, second, first_share=0.5, second_share=0.45, **rest):
     )
 
 
+def rename(hass, entity_id, name):
+    """Rename in the registry too, which is where the intent layer matches names."""
+    er.async_get(hass).async_update_entity(entity_id, name=name)
+    hass.states.async_set(entity_id, "off", {"friendly_name": name})
+
+
 def reply(choice, confidence=0.95):
     return {"which": ChoiceAnswer(choice=choice, probabilities={}, confidence=confidence)}
 
@@ -1409,6 +1416,69 @@ async def test_two_devices_that_fit_the_name_get_a_question(hass, house, mock_cl
         result.response.speech["plain"]["speech"]
         == "Do you mean Kitchen light or Office light?"
     )
+
+
+async def test_a_sure_answer_is_still_asked_about_when_the_name_is_shared(
+    hass, house, mock_client
+):
+    """Measured: two lights called "Lamp", and the model gave one of them 1.00."""
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert result.response.speech["plain"]["speech"] == (
+        "Do you mean Lamp (Kitchen) or Lamp (Office)?"
+    )
+
+
+async def test_a_room_that_is_named_settles_a_shared_name(hass, house, mock_client):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice="light.office", probabilities={}, confidence=1.0),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.99),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lamp in the office")
+    await hass.async_block_till_done()
+
+    assert result.continue_conversation is False
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+@pytest.mark.parametrize(
+    ("text", "chosen"),
+    [
+        # The whole name said beats a name that only shares a word with it.
+        ("turn on the lamp", "light.kitchen"),
+        ("turn on the desk lamp", "light.office"),
+    ],
+)
+async def test_the_whole_name_said_is_the_device_meant(
+    hass, house, mock_client, text, chosen
+):
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Desk lamp")
+    mock_client.ask.return_value = build_response(
+        **answer_set(entity=ChoiceAnswer(choice=chosen, probabilities={}, confidence=1.0))
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == [chosen]
 
 
 async def test_the_reply_runs_the_first_command_on_the_device_it_picks(
@@ -1442,11 +1512,11 @@ async def test_a_reply_that_picks_neither_is_a_new_command(hass, house, mock_cli
     result = await converse_in(hass, "never mind", asked.conversation_id)
     await hass.async_block_till_done()
 
-    # The reply question, then the whole reply as a command of its own, which
-    # this mock answers with the same split and so asks again.
+    # The reply question, then the whole reply as a command of its own. It fits
+    # no device's name, so it is not asked about again.
     assert mock_client.ask.await_count == 2
     assert "action" in mock_client.ask.await_args.args[1]
-    assert result.continue_conversation is True
+    assert result.continue_conversation is False
 
 
 async def test_an_unsure_reply_acts_on_nothing(hass, house, mock_client):
@@ -1515,7 +1585,7 @@ async def test_two_devices_with_nothing_to_tell_them_apart_get_no_question(
     kitchen = ar.async_get(hass).async_get_area_by_name("Kitchen")
     assert kitchen is not None
     er.async_get(hass).async_update_entity("light.office", area_id=kitchen.id)
-    hass.states.async_set("light.office", "off", {"friendly_name": "Kitchen light"})
+    rename(hass, "light.office", "Kitchen light")
     mock_client.ask.return_value = build_response(
         **unsure_between("light.kitchen", "light.office")
     )
@@ -1527,7 +1597,7 @@ async def test_two_devices_with_nothing_to_tell_them_apart_get_no_question(
 
 
 async def test_the_same_name_in_two_rooms_is_asked_by_room(hass, house, mock_client):
-    hass.states.async_set("light.office", "off", {"friendly_name": "Kitchen light"})
+    rename(hass, "light.office", "Kitchen light")
     mock_client.ask.return_value = build_response(
         **unsure_between("light.kitchen", "light.office")
     )
@@ -1540,6 +1610,8 @@ async def test_the_same_name_in_two_rooms_is_asked_by_room(hass, house, mock_cli
 
 
 async def test_the_question_is_asked_in_the_pipeline_language(hass, house, mock_client):
+    rename(hass, "light.kitchen", "Lamp keuken")
+    rename(hass, "light.office", "Lamp kantoor")
     mock_client.ask.return_value = build_response(
         **unsure_between("light.kitchen", "light.office")
     )
@@ -1548,7 +1620,7 @@ async def test_the_question_is_asked_in_the_pipeline_language(hass, house, mock_
 
     assert (
         result.response.speech["plain"]["speech"]
-        == "Bedoel je Kitchen light of Office light?"
+        == "Bedoel je Lamp keuken of Lamp kantoor?"
     )
 
 

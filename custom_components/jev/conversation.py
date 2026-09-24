@@ -381,7 +381,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         first = replace(
             pending.response, answers=pending.response.answers | {"entity": settled}
         )
-        decision = interpret(first, pending.text, snapshot, self._min_confidence)
+        decision = interpret(
+            first, pending.text, snapshot, self._min_confidence, ask_back=False
+        )
         return await self._act(user_input, decision, pending.text)
 
     # --- acting ---
