@@ -867,6 +867,7 @@ async def _render_state_answer(
 # One kind of device across a room or the whole house. The names differ between
 # languages: English writes light_all and Polish lights_all.
 _AREA_RESPONSES = {"light": ("lights_area",), "fan": ("fans_area",)}
+_FLOOR_RESPONSES = {"light": ("lights_floor",)}
 _ALL_RESPONSES = {"light": ("light_all", "lights_all"), "fan": ("fan_all",)}
 
 _SLOT_REFERENCE = re.compile(r"slots\.(\w+)")
@@ -887,6 +888,8 @@ def _response_keys(
     closest: tuple[str, ...]
     if "area" in slots:
         closest = _AREA_RESPONSES.get(kind or "", ())
+    elif "floor" in slots:
+        closest = _FLOOR_RESPONSES.get(kind or "", ())
     elif slots.get("name", {}).get("value") == "all":
         closest = _ALL_RESPONSES.get(kind or "", ())
     elif domain is not None:
@@ -923,7 +926,7 @@ async def _render_action_answer(
     speech_slots = {
         key: value["value"]
         for key, value in slots.items()
-        if key in ("name", "area")
+        if key in ("name", "area", "floor")
         and isinstance(value.get("value"), str)
         and value["value"] != "all"
     } | response.speech_slots

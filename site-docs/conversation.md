@@ -7,12 +7,12 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying nine to eleven questions. Nine are always
+One sentence becomes one request carrying nine to twelve questions. Nine are always
 there: what should happen, is it compound, does it need text written, is it for
 another time or on a condition, is it a position part of the way, does it leave
 something out, does it say how bright, how is the target named, which entity. Which room is added when you have rooms holding exposed
-entities, and which kind of device when the exposed entities span two domains or
-more. A one-domain house with no areas is asked nine.
+entities, which floor when those rooms are on floors, and which kind of device when
+the exposed entities span two domains or more. A one-domain house with no areas is asked nine.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -59,7 +59,13 @@ does.
 Covers with the `garage`, `gate` or `door` device class are left out for the same
 reason. Blinds, shades and curtains stay in.
 
-A room command always carries the kinds of device the model was shown. Home
+A floor you name is a target of its own, as it is for Home Assistant's agent, so
+`turn off the lights upstairs` turns off the lights in the rooms on that floor. Before
+1.17 it went to the fallback agent. In two runs each, five floor commands in English,
+Dutch and German acted on the right floor, and six commands naming a device, a room
+or every light acted as before.
+
+A room or floor command always carries the kinds of device the model was shown. Home
 Assistant otherwise acts on every exposed entity in the room, so "turn off the
 hallway" would reach a lock exposed there and unlock it.
 
@@ -136,6 +142,8 @@ same time warm: 261 ms before, 263 ms after. The question about something left o
 and the option for nothing asked for, added in 1.17, cost 48 more: 1,743 to 1,751
 before and 1,791 to 1,799 after, with twelve entities exposed. The question about
 how bright cost 19 more: 1,733 before and 1,752 after, with eleven entities exposed.
+The floor question cost 63 more on a house with two floors: 1,733 before and 1,796
+after, with eleven entities exposed. A house with no floors is not asked it.
 
 In a test of 22 sentences run twice, 11 of them things to refuse, 14 runs acted when
 they should not have before these two and 2 do now. Both are "turn off the lamps",

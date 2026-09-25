@@ -19,6 +19,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import chat_session
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.setup import async_setup_component
@@ -850,6 +851,31 @@ async def test_turn_on_with_a_percent_sets_the_level(
 
     assert len(calls) == 1
     assert {k: v for k, v in calls[0].data.items() if k == "brightness_pct"} == expected
+
+
+async def test_a_floor_acts_on_that_floor_only(hass, house, mock_client):
+    """A floor is a target of its own, as it is for Home Assistant's agent."""
+    upstairs = fr.async_get(hass).async_create("Upstairs")
+    areas = ar.async_get(hass)
+    kitchen = areas.async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    areas.async_update(kitchen.id, floor_id=upstairs.floor_id)
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            target_type=ChoiceAnswer(choice="area", probabilities={}, confidence=0.95),
+            entity=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.96),
+            floor=ChoiceAnswer(choice="Upstairs", probabilities={}, confidence=0.99),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lights upstairs")
+    await hass.async_block_till_done()
+
+    assert [c.data["entity_id"] for c in calls] == [["light.kitchen"]]
+    assert "floor" in mock_client.ask.call_args.args[1]
+    assert result.response.speech["plain"]["speech"] == "Turned on the lights"
 
 
 async def test_turn_on_with_a_level_in_words_asks_for_it(hass, house, mock_client):
