@@ -2199,3 +2199,41 @@ async def test_a_reply_past_the_budget_is_refused_like_a_command(
 
     assert mock_client.ask.await_count == 0
     assert "budget is left" in result.response.speech["plain"]["speech"]
+
+
+async def test_the_model_is_shown_the_area_aliases(hass, house, mock_client):
+    areas = ar.async_get(hass)
+    office = areas.async_get_area_by_name("Office")
+    areas.async_update(office.id, aliases={"Study", "snug", "office"})
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    await converse(hass, "snug lights on")
+
+    # With the names only, "snug lights on" turned on every light.
+    options = mock_client.ask.call_args.args[1]["area"].criteria
+    assert options["Office"] == "Office, also called snug, Study"
+    assert options["Kitchen"] is None
+    assert mock_client.ask.call_args.args[0]["areas"] == [
+        "Kitchen",
+        {"name": "Office", "also_called": ["snug", "Study"]},
+    ]
+
+
+async def test_a_room_named_by_its_alias_is_reached(hass, house, mock_client):
+    areas = ar.async_get(hass)
+    office = areas.async_get_area_by_name("Office")
+    areas.async_update(office.id, aliases={"Study"})
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.95),
+            target_type=ChoiceAnswer(choice="area", probabilities={}, confidence=0.95),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the lights in the study")
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]

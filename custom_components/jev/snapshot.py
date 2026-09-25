@@ -102,6 +102,9 @@ class HomeSnapshot:
 
     entities: list[ExposedEntity] = field(default_factory=list)
     areas: list[str] = field(default_factory=list)
+    # The Assist aliases of each area, by area name. Home Assistant matches an area
+    # by its aliases, and the model has to know them to name the area.
+    area_aliases: dict[str, list[str]] = field(default_factory=dict)
     floors: list[str] = field(default_factory=list)
     # Names of the entities the model is not shown: not exposed, left out above, or
     # past the cap. They never leave Home Assistant. interpret() reads them so that
@@ -138,7 +141,12 @@ class HomeSnapshot:
                 }
                 for e in self.entities
             ],
-            "areas": self.areas,
+            "areas": [
+                {"name": a, "also_called": self.area_aliases[a]}
+                if self.area_aliases.get(a)
+                else a
+                for a in self.areas
+            ],
             "floors": self.floors,
         }
 
@@ -239,6 +247,17 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     return HomeSnapshot(
         entities=found,
         areas=sorted(a.name for a in used_areas if a),
+        area_aliases={
+            a.name: aliases
+            for a in used_areas
+            if a
+            and (
+                aliases := sorted(
+                    {x for x in a.aliases if x.casefold() != a.name.casefold()},
+                    key=str.casefold,
+                )
+            )
+        },
         floors=sorted(
             f.name for f in floors.async_list_floors() if f.floor_id in used_floor_ids
         ),

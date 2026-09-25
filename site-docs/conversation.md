@@ -32,6 +32,12 @@ about 15 input tokens each. An alias counts as a name when two devices fit what 
 said, so a "Lamp" also called "Worktop lamp" wins "turn on the worktop lamp" over a
 second "Lamp".
 
+The aliases of an area go with it the same way: "Office, also called Snug, Study". On
+a test house with four aliases on three areas, eight sentences run twice each, 9 of
+16 found the room by its alias without the aliases, and "snug lights on" turned on
+every light. With the aliases, 16 of 16 found it. They cost 75 input tokens in that
+house, and nothing in a house whose areas have no aliases.
+
 It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
 `HassLightSet` and `HassGetState`. Lights, switches, fans, covers, media players,
 climate entities, vacuums, input booleans, scenes and scripts are turned on and off
