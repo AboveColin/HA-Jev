@@ -305,6 +305,22 @@ def without_names(text: str, names: Iterable[str]) -> str:
     return text
 
 
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def _only_a_name(text: str, snapshot: HomeSnapshot) -> bool:
+    """Whether the sentence is nothing but one name, as "Good night!" for Goodnight."""
+    said = _letters(text)
+    names = [
+        *(n for e in snapshot.entities for n in e.names),
+        *snapshot.areas,
+        *(a for aliases in snapshot.area_aliases.values() for a in aliases),
+        *snapshot.floors,
+    ]
+    return bool(said) and any(_letters(n) == said for n in names)
+
+
 def said_a_digit(text: str) -> bool:
     """Whether the regex had a number to read, so its answer is the last word."""
     return _BARE_NUMBER.search(text) is not None
@@ -612,13 +628,18 @@ def interpret(
         return out("a position part of the way")
     if noul("except") >= 0.5:
         return out("something is left out")
+    # "goodnight" ran a script called Goodnight, 2 runs of 2. A name on its own
+    # asks for nothing, and Home Assistant's own agent needs a verb for it too.
+    if _only_a_name(text, snapshot):
+        return out("only a name, no action said")
 
     # A digit in a name is not a level: "lamp 2", "Bedroom 2".
     spoken = without_names(
         text,
         [
-            *(e.name for e in snapshot.entities),
+            *(n for e in snapshot.entities for n in e.names),
             *snapshot.areas,
+            *(a for aliases in snapshot.area_aliases.values() for a in aliases),
             *snapshot.floors,
             *snapshot.hidden_names,
         ],

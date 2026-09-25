@@ -766,6 +766,24 @@ async def test_a_digit_in_a_name_is_not_a_level(
     assert mock_client.ask.call_count == before + (2 if level else 1)
 
 
+@pytest.mark.parametrize("where", ["entity", "area"])
+async def test_a_digit_in_an_alias_is_not_a_level(hass, house, mock_client, where):
+    if where == "entity":
+        alias(hass, "light.kitchen", "Lamp 3")
+    else:
+        areas = ar.async_get(hass)
+        areas.async_update(areas.async_get_area_by_name("Kitchen").id, aliases={"Lamp 3"})
+    mock_client.ask.return_value = said_in_words(level=4.0)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "set lamp 3 brightness to fifty percent")
+    await hass.async_block_till_done()
+
+    # With the names only, the 3 was read as the level.
+    assert [c.data["brightness_pct"] for c in calls] == [50]
+
+
 @pytest.mark.parametrize(
     ("text", "level", "expected"),
     [
@@ -2527,3 +2545,24 @@ async def test_a_room_named_by_its_alias_is_reached(hass, house, mock_client):
     await hass.async_block_till_done()
 
     assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+@pytest.mark.parametrize(
+    ("text", "acts"),
+    [
+        ("Kitchen light", False),
+        ("kitchen light!", False),
+        ("Kitchen", False),
+        ("kitchen light on", True),
+    ],
+)
+async def test_a_name_on_its_own_acts_on_nothing(hass, house, mock_client, text, acts):
+    # "goodnight" ran a script called Goodnight, 2 runs of 2.
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert bool(calls) is acts
