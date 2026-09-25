@@ -878,6 +878,23 @@ async def test_a_floor_acts_on_that_floor_only(hass, house, mock_client):
     assert result.response.speech["plain"]["speech"] == "Turned on the lights"
 
 
+async def test_the_model_is_shown_the_floor_aliases(hass, house, mock_client):
+    """Home Assistant matches a floor by its aliases, as it does an area."""
+    upstairs = fr.async_get(hass).async_create("First floor", aliases={"the loft"})
+    areas = ar.async_get(hass)
+    kitchen = areas.async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    areas.async_update(kitchen.id, floor_id=upstairs.floor_id)
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    await converse(hass, "turn off the lights in the loft")
+
+    state, questions = mock_client.ask.call_args.args[:2]
+    floor = questions["floor"].criteria["First floor"]
+    assert floor == "First floor, also called the loft"
+    assert state["floors"] == [{"name": "First floor", "also_called": ["the loft"]}]
+
+
 async def test_turn_on_with_a_level_in_words_asks_for_it(hass, house, mock_client):
     """HassTurnOn has no level, so "at half brightness" came on at the last one."""
     mock_client.ask.side_effect = [
