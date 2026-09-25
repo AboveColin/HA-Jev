@@ -444,6 +444,14 @@ class Interpretation:
         return self.fallback or self.intent_type is None
 
 
+# Measured, four runs per sentence over two wordings of the house: "turn off the
+# lamps", "turn on the lamps" and "switch off both lamps" scored 0.64 to 0.77. Every
+# light said generically scored at most 0.56 ("doe de lampen uit", "éteins les
+# lampes"), and "turn off the lamps" in a house with no lamp in any name 0.45 to
+# 0.54. The margin is 0.08, so this is a tripwire on the clear plurals only.
+PLURAL_FLOOR = 0.6
+
+
 def build_questions(
     text: str, snapshot: HomeSnapshot, max_options: int
 ) -> dict[str, Question]:
@@ -532,6 +540,15 @@ def build_questions(
             "Does the command also say how bright a light should be?",
             true="It names a brightness, such as half, full, dimmed or a percentage",
             false="It says nothing about brightness",
+        ),
+        # "turn off the lamps" with a Lamp, a Desk lamp and a Ceiling light came
+        # back as every light, and turned off the ceiling light too.
+        "plural": Noul(
+            "Does the command name several devices by a word from their names, "
+            "such as the lamps, rather than every device of one kind?",
+            true="It names several devices by part of their name",
+            false="It names one device, a room, or every device of one kind, "
+            "such as all the lights",
         ),
         "target_type": Choice(
             "How is the target named?",
@@ -769,6 +786,11 @@ def interpret(
         and target.choice == "everything"
         and target.confidence >= min_confidence
     ):
+        # "de lampen" and "les lampes" are every light as often as some, and
+        # scored 0.44 to 0.56 in two houses. "the lamps" and "both lamps" scored
+        # 0.64 to 0.77. See PLURAL_FLOOR.
+        if noul("plural") >= PLURAL_FLOOR:
+            return out("several devices named by part of their name")
         # Home Assistant requires one of name, area or floor, and reads the literal
         # name "all" as every entity, clearing it after the check. Sending no target
         # at all failed that check on a real instance: "turn everything off"

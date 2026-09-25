@@ -1322,6 +1322,31 @@ async def test_a_whole_house_command_names_a_target_the_intent_accepts(
     )
 
 
+@pytest.mark.parametrize(("plural", "acts"), [(0.72, False), (0.56, True)])
+async def test_the_lamps_is_not_every_light(hass, house, mock_client, plural, acts):
+    """ "turn off the lamps" came back as every light and turned off all of them."""
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="turn_off", probabilities={}, confidence=0.99),
+            target_type=ChoiceAnswer(
+                choice="everything", probabilities={}, confidence=0.95
+            ),
+            entity=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.99),
+            plural=NoulAnswer(noul=plural),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    await converse(hass, "turn off the lamps")
+    await hass.async_block_till_done()
+
+    assert bool(calls) is acts
+    if not acts:
+        trace = house.runtime_data.conversation_traces[0]
+        assert trace["reason"] == "several devices named by part of their name"
+
+
 async def test_a_whole_house_command_with_no_kind_asks_which(hass, house, mock_client):
     """Home Assistant refuses "all" with no domain beside it, and so does this."""
     hass.states.async_set("switch.fan", "on", {"friendly_name": "Fan"})

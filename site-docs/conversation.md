@@ -7,12 +7,14 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying nine to twelve questions. Nine are always
+One sentence becomes one request carrying ten to thirteen questions. Ten are always
 there: what should happen, is it compound, does it need text written, is it for
 another time or on a condition, is it a position part of the way, does it leave
-something out, does it say how bright, how is the target named, which entity. Which room is added when you have rooms holding exposed
-entities, which floor when those rooms are on floors, and which kind of device when
-the exposed entities span two domains or more. A one-domain house with no areas is asked nine.
+something out, does it say how bright, does it name several devices by part of
+their names, how is the target named, which entity. Which room is added when you
+have rooms holding exposed entities, which floor when those rooms are on floors, and
+which kind of device when the exposed entities span two domains or more. A
+one-domain house with no areas is asked ten.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -90,6 +92,7 @@ says "Done."
 | An entity you did not expose to Assist | Never described to the model at all |
 | A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
+| Several devices named by part of their names, such as "turn off the lamps" | Fallback. Home Assistant's intents have no target for some of the lights, and every light is the wrong answer |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
 | Two devices whose names fit the command equally well | Asks which one, see below |
 | The device cannot do the action, such as a player with no `turn_off` | Fallback. Home Assistant reports this only when no device changed |
@@ -100,6 +103,19 @@ says "Done."
     which entities a voice assistant may touch, and a question is not a reason to
     widen that. This is the voice path only. The [four actions](actions.md) send
     whatever an automation targets, exposed or not.
+
+## When a word from the names means some devices
+
+With a Lamp, a Desk lamp and a Ceiling light, "turn off the lamps" came back as every
+light, and the ceiling light went off too. A question now asks if the command names
+several devices by a word from their names. At 0.6 or more, a whole-house command
+goes to the fallback agent. In four runs each, "turn off the lamps", "turn on the
+lamps" and "switch off both lamps" scored 0.64 to 0.77.
+
+The line is at 0.6 because a plural is not always a name. "doe de lampen uit" and
+"éteins les lampes" mean every light as often as some, and scored 0.44 to 0.56. In
+a house with no lamp in any name, "turn off the lamps" scored 0.45 to 0.54 and turns
+off every light, as it should. The margin is 0.08.
 
 ## When two devices fit the name
 
@@ -143,11 +159,14 @@ and the option for nothing asked for, added in 1.17, cost 48 more: 1,743 to 1,75
 before and 1,791 to 1,799 after, with twelve entities exposed. The question about
 how bright cost 19 more: 1,733 before and 1,752 after, with eleven entities exposed.
 The floor question cost 63 more on a house with two floors: 1,733 before and 1,796
-after, with eleven entities exposed. A house with no floors is not asked it.
+after, with eleven entities exposed. A house with no floors is not asked it. The
+question about devices named by part of their names cost 33 more: 1,733 before and
+1,766 after, with eleven entities exposed.
 
 In a test of 22 sentences run twice, 11 of them things to refuse, 14 runs acted when
 they should not have before these two and 2 do now. Both are "turn off the lamps",
-which turns off every light. In a control run of 77 sentences run twice, no sentence
+which turned off every light. It goes to the fallback agent now, see
+[below](#when-a-word-from-the-names-means-some-devices). In a control run of 77 sentences run twice, no sentence
 that was right before is wrong now.
 
 ## Brightness
