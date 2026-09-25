@@ -834,6 +834,46 @@ async def test_turn_on_with_a_percent_sets_the_level(
     assert {k: v for k, v in calls[0].data.items() if k == "brightness_pct"} == expected
 
 
+async def test_turn_on_with_a_level_in_words_asks_for_it(hass, house, mock_client):
+    """HassTurnOn has no level, so "at half brightness" came on at the last one."""
+    mock_client.ask.side_effect = [
+        build_response(**answer_set(bright=NoulAnswer(noul=0.8))),
+        build_response(
+            level=ScoreAnswer(score=4.0, legend={}, probabilities={}, confidence=1.0),
+            relative=NoulAnswer(noul=0.1),
+        ),
+    ]
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the kitchen light at half brightness")
+    await hass.async_block_till_done()
+
+    assert [c.data.get("brightness_pct") for c in calls] == [50]
+    assert set(mock_client.ask.call_args.args[1]) == {"level", "relative"}
+
+
+async def test_a_level_in_words_on_a_light_that_is_on_is_not_already_done(
+    hass, house, mock_client
+):
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    mock_client.ask.side_effect = [
+        build_response(
+            **answer_set(
+                action=ChoiceAnswer(
+                    choice="turn_on",
+                    probabilities={"turn_on": 0.45, "get_state": 0.4},
+                    confidence=0.45,
+                ),
+                bright=NoulAnswer(noul=0.8),
+            )
+        ),
+    ]
+    await converse(hass, "turn on the kitchen light at half brightness")
+    trace = next(iter(house.runtime_data.conversation_traces))
+    assert trace["reason"] == "action confidence 0.45 below 0.60"
+
+
 async def test_a_trace_records_what_was_decided(hass, house, mock_client):
     """A misrouted sentence is only fixable if you can see what was made of it."""
     mock_client.ask.return_value = build_response(**answer_set())
