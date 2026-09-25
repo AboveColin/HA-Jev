@@ -580,6 +580,16 @@ def interpret(
     if noul("part") >= 0.5:
         return out("a position part of the way")
 
+    # A digit in a name is not a level: "lamp 2", "Bedroom 2".
+    spoken = without_names(
+        text,
+        [
+            *(e.name for e in snapshot.entities),
+            *snapshot.areas,
+            *snapshot.floors,
+            *snapshot.hidden_names,
+        ],
+    )
     action = choice("action")
     entity = choice("entity")
     if action is None or action.choice == NONE:
@@ -593,7 +603,11 @@ def interpret(
         # the rest went to get_state, because with the lamp already on the sentence
         # really could be either. Refusing that as not understood is the wrong
         # answer to a sentence the model read correctly.
-        if settled := _already_done(action, entity, snapshot, min_confidence):
+        # "turn on the lamp at 50%" with the lamp on is a new level, not done.
+        # It came back as already on in 1 of 2 runs.
+        if find_brightness(spoken, bare=False) is None and (
+            settled := _already_done(action, entity, snapshot, min_confidence)
+        ):
             return Interpretation(
                 None,
                 {},
@@ -733,16 +747,6 @@ def interpret(
         elif not targets_everything or len(snapshot.domains) == 1:
             slots["domain"] = {"value": snapshot.domains}
 
-    # A digit in a name is not a level: "lamp 2", "Bedroom 2".
-    spoken = without_names(
-        text,
-        [
-            *(e.name for e in snapshot.entities),
-            *snapshot.areas,
-            *snapshot.floors,
-            *snapshot.hidden_names,
-        ],
-    )
     needs_level = False
     # "turn on the lamp at 50%" scored turn_on, and HassTurnOn has no level, so the
     # lamp came on at whatever it was before. Only a percent counts here: a bare

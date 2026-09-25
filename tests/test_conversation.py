@@ -1254,6 +1254,30 @@ async def test_a_command_that_is_already_done_says_so(hass, house, mock_client):
     assert result.response.speech["plain"]["speech"] == "Kitchen light is already on."
 
 
+async def test_a_level_on_a_light_that_is_on_is_not_already_done(
+    hass, house, mock_client
+):
+    """With the light on, "at 50%" still has something to do."""
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="turn_on",
+                probabilities={
+                    "turn_on": 0.53,
+                    "set_brightness": 0.40,
+                    "get_state": 0.07,
+                },
+                confidence=0.53,
+            )
+        )
+    )
+
+    result = await converse(hass, "turn on the kitchen light at 50%")
+
+    assert "did not understand" in result.response.speech["plain"]["speech"]
+
+
 async def test_a_low_confidence_command_that_is_not_done_still_falls_back(
     hass, house, mock_client
 ):
