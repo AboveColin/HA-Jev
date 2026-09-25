@@ -523,6 +523,16 @@ def build_questions(
             true="It says except, but, apart from or other than, and what to leave out",
             false="Nothing is left out",
         ),
+        # "turn on the lamp dimmed" scored turn_on, and HassTurnOn has no level,
+        # so the lamp came on at its last one. set_brightness alone put 0.04 to
+        # 0.39 on such a sentence, too little to act on. This question put 0.60 to
+        # 0.96 on six such sentences and 0.01 to 0.02 on seven with no level, in
+        # two runs each.
+        "bright": Noul(
+            "Does the command also say how bright a light should be?",
+            true="It names a brightness, such as half, full, dimmed or a percentage",
+            false="It says nothing about brightness",
+        ),
         "target_type": Choice(
             "How is the target named?",
             {
@@ -651,8 +661,10 @@ def interpret(
         # answer to a sentence the model read correctly.
         # "turn on the lamp at 50%" with the lamp on is a new level, not done.
         # It came back as already on in 1 of 2 runs.
-        if find_brightness(spoken, bare=False) is None and (
-            settled := _already_done(action, entity, snapshot, min_confidence)
+        if (
+            find_brightness(spoken, bare=False) is None
+            and noul("bright") < 0.5
+            and (settled := _already_done(action, entity, snapshot, min_confidence))
         ):
             return Interpretation(
                 None,
@@ -805,6 +817,16 @@ def interpret(
     ):
         intent_type = ACTIONS["set_brightness"]
         slots["brightness"] = {"value": level}
+        slots["domain"] = {"value": ["light"]}
+    elif (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and noul("bright") >= 0.5
+    ):
+        # A level in words, "at half brightness", goes to the second request, as
+        # for set_brightness.
+        intent_type = ACTIONS["set_brightness"]
+        needs_level = True
         slots["domain"] = {"value": ["light"]}
     if action.choice == "set_brightness":
         brightness = find_brightness(spoken)
