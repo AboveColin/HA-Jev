@@ -750,6 +750,12 @@ def interpret(
         # name that two devices share is a reason to go on.
         tied = _fit_as_well(text, chosen, snapshot, named_area)
         if not sure and len(tied) < 2:
+            # The room answer can back an unsure device only where the room holds
+            # nothing else of its kind, so acting on it is acting on the room.
+            if named_area is not None and snapshot.in_area(named_area, chosen.domain) == [
+                chosen
+            ]:
+                return chosen
             return out("no target named with enough confidence")
         # A name that fits two devices is settled by the room it was said in, as
         # Home Assistant's own agent settles it. A room the command names came first.
@@ -766,6 +772,14 @@ def interpret(
     # of one_room at 0.41 alongside a device answer at 1.00, where branching on
     # scope first threw away the certain answer and acted on the whole house.
     described: ExposedEntity | None = None
+    # A command that names one device is not a command for its room. Reported:
+    # "Włącz lampkę pod szafkami." scored its light at 0.52 and the kitchen at 0.89,
+    # and every kitchen light came on. The room answer says where the device is.
+    one_device = (
+        target is not None
+        and target.choice == "entity"
+        and target.confidence >= min_confidence
+    )
     if (
         entity is not None
         and entity.choice != NONE
@@ -785,10 +799,18 @@ def interpret(
             if isinstance(picked, Interpretation):
                 return picked
             described = picked
-    elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
+    elif (
+        not one_device
+        and area is not None
+        and area.choice != NONE
+        and area.confidence >= min_confidence
+    ):
         slots["area"] = {"value": area.choice}
     elif (
-        floor is not None and floor.choice != NONE and floor.confidence >= min_confidence
+        not one_device
+        and floor is not None
+        and floor.choice != NONE
+        and floor.confidence >= min_confidence
     ):
         slots["floor"] = {"value": floor.choice}
     elif (
