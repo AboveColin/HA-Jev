@@ -14,6 +14,7 @@ from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.core import Context, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import chat_session
 from homeassistant.helpers import device_registry as dr
@@ -311,6 +312,74 @@ async def test_a_free_text_request_goes_to_the_fallback_agent(hass, house, mock_
     assert len(handovers) == 1
     assert handovers[0].args[1] == "add milk to the shopping list"
     assert handovers[0].kwargs["agent_id"] == "conversation.home_assistant"
+
+
+async def test_an_action_the_device_cannot_do_goes_to_the_fallback_agent(
+    hass, house, mock_client
+):
+    """A Music Assistant player with no turn_off raised ServiceNotSupported on a real
+    instance, and the agent answered with an error. Home Assistant raises
+    IntentHandleError only when no target succeeded, so nothing has changed and the
+    fallback agent can try its own way.
+    """
+    hass.config_entries.async_update_entry(
+        house, options={CONF_FALLBACK_AGENT: "conversation.home_assistant"}
+    )
+    await hass.async_block_till_done()
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    async def unsupported(call):
+        raise HomeAssistantError("Entity light.kitchen does not support this action")
+
+    hass.services.async_register("light", "turn_on", unsupported)
+
+    with patch(
+        "custom_components.jev.conversation.conversation.async_converse",
+        wraps=conversation.async_converse,
+    ) as handed_over:
+        await converse(hass, "kitchen light on")
+
+    handovers = [
+        c for c in handed_over.await_args_list if c.kwargs.get("agent_id") != AGENT
+    ]
+    assert len(handovers) == 1
+    assert handovers[0].args[1] == "kitchen light on"
+
+
+async def test_an_action_the_device_cannot_do_is_an_error_with_no_fallback(
+    hass, house, mock_client
+):
+    """A satellite reads an action_done reply as a command that went through."""
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    async def unsupported(call):
+        raise HomeAssistantError("Entity light.kitchen does not support this action")
+
+    hass.services.async_register("light", "turn_on", unsupported)
+
+    result = await converse(hass, "kitchen light on")
+
+    assert result.response.response_type is ha_intent.IntentResponseType.ERROR
+    assert (
+        result.response.error_code is ha_intent.IntentResponseErrorCode.FAILED_TO_HANDLE
+    )
+    assert result.response.speech["plain"]["speech"] == "Sorry, that did not work."
+
+
+async def test_playback_is_not_described_as_switching_on_or_off(hass, house, mock_client):
+    """Measured on hosted Jev: with "or stop it" in turn_off, "stop the music" came
+    back turn_off at 0.98, and "play Metallica in the salon" turn_on at 0.43. With
+    playback named under none_of_these, all six playback sentences came back
+    none_of_these at 0.92 or more, and all six power commands kept their action.
+    """
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    await converse(hass, "stop the music")
+
+    criteria = mock_client.ask.call_args.args[1]["action"].criteria
+    assert "stop" not in criteria["turn_off"]
+    assert "start" not in criteria["turn_on"]
+    assert "media" in criteria[NONE]
 
 
 async def test_the_fallback_never_points_at_itself(hass, house, mock_client):
@@ -657,6 +726,7 @@ def test_brightness_parsing(text, expected):
         ("saet lampen til 40 procent", 40),
         ("nastav lampu na 40 procent", 40),
         ("установи лампу на 40 процентов", 40),
+        ("kapcsold fel 40 százalékra", 40),
         # Chinese puts the marker in front of the number.
         ("把灯设为百分之40", 40),
         ("把灯设为 40%", 40),
@@ -671,6 +741,7 @@ def test_brightness_parsing(text, expected):
         ("dæmp lampen til 30", 30),
         ("ztlum lampu na 30", 30),
         ("приглуши лампу до 30", 30),
+        ("állítsd a fényerejét 40-re", 40),
         ("把灯调暗到 30", 30),
         # Chinese writes no space in front of the number.
         ("把灯调暗到30", 30),
@@ -1372,6 +1443,9 @@ async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_clien
         ("0.5%", None),
         ("make it 20% brighter", None),
         ("dim it by 20", None),
+        # Hungarian says "by" with a suffix on the number. This one set 20%.
+        ("vedd 20%-kal halványabbra", None),
+        ("vedd 20 százalékkal halványabbra", None),
     ],
 )
 def test_a_brightness_is_only_read_when_it_is_a_level(text, expected):

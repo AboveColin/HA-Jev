@@ -26,6 +26,11 @@ It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
 climate entities, vacuums, input booleans, scenes and scripts are turned on and off
 this way. Climate setpoints, and anything else, go to the fallback agent.
 
+Playing, pausing, stopping and skipping media also go to the fallback agent. A
+music player often has no `turn_off`, so "stop the music" read as turning it off
+fails. With playback named as none of the above, a test of six playback sentences
+all came back none of the above at 0.92 or more.
+
 Locks are not on that list and are never described to the model. Home Assistant reads
 turn_on on a lock as `lock.lock` and turn_off as `lock.unlock`, the opposite way
 round from how the command is spoken, and a probability with no reasoning should not
@@ -59,6 +64,7 @@ says "Done."
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
 | Two devices whose names fit the command equally well | Asks which one, see below |
+| The device cannot do the action, such as a player with no `turn_off` | Fallback. Home Assistant reports this only when no device changed |
 | Too little budget left for the command, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was, as an error reply |
 
 !!! info "It only sees what Assist sees"
@@ -112,14 +118,14 @@ asking the model. Jev judges and does not calculate, and a regex is exact and fr
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
 
-The percent word is read in every language the integration is translated into, so
-`40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`, `40 procent`,
-`40 процентов` and `百分之40` all give 40. A bare number needs a word about light
-level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
+The percent word is read in every language the integration is translated into, and
+in Hungarian, so `40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`,
+`40 procent`, `40 процентов`, `40 százalékra` and `百分之40` all give 40. A bare
+number needs a word about light level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
 With several numbers, the last one is the level: `dim bedroom 2 to 30` gives 30.
 
-A relative change gives no brightness, so `20% brighter` and `dim it by 20` go to the
-fallback agent rather than setting 20. A number over 100 or with a decimal point is
+A relative change gives no brightness, so `20% brighter`, `dim it by 20` and
+`20%-kal halványabbra` go to the fallback agent rather than setting 20. A number over 100 or with a decimal point is
 not a percentage.
 
 ## A command that is already done

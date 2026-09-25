@@ -35,8 +35,8 @@ ACTIONS: dict[str, str] = {
 }
 
 # The words that turn a number into a percentage, in the languages the integration
-# is translated into. "%" carries most of the traffic; these are for a satellite
-# that transcribes the word instead of the sign.
+# is translated into, and in Hungarian. "%" carries most of the traffic; these are
+# for a satellite that transcribes the word instead of the sign.
 _PERCENT_WORDS = (
     "%",
     r"per ?cento?",  # en, and it "per cento"
@@ -46,6 +46,7 @@ _PERCENT_WORDS = (
     "por ?ciento",  # es
     "por ?cento",  # pt-BR
     r"процент\w*",  # ru
+    r"százalék\w*",  # hu
 )
 # The lookarounds keep a number whole: "1000 percent" and "12.5 percent" are not
 # brightnesses, and without them the regex found 0 and 5 inside them.
@@ -61,7 +62,10 @@ _BARE_NUMBER = re.compile(_NUMBER)
 # sets a level, so these go to the fallback agent rather than being read as 20%.
 _RELATIVE = re.compile(
     r"\b(?:brighter|dimmer|darker)\b"
-    r"|\b(?:by|met|um)\s+\d",
+    r"|\b(?:by|met|um)\s+\d"
+    # Hungarian puts "by" on the number as a suffix: "20%-kal", "20 százalékkal".
+    r"|\d\s*(?:%|százalék)-?(?:kal|kel)\b"
+    r"|\b(?:halványabb|világosabb|fényesebb|sötétebb)",
     re.IGNORECASE,
 )
 
@@ -82,6 +86,7 @@ _LEVEL_STEMS = {
     "da": ("lys", "dæmp"),
     "cs": ("jas", "ztlum", "stmív"),
     "ru": ("ярк", "приглуш", "свет"),
+    "hu": ("fény", "halvány", "világos"),
 }
 _LEVEL = re.compile(
     r"\b(?:" + "|".join(s for g in _LEVEL_STEMS.values() for s in g) + ")",
@@ -158,14 +163,16 @@ def build_questions(
                 # No lock wording here on purpose. The agent does not control
                 # locks, and Home Assistant's on/off convention for them runs the
                 # opposite way round from speech. See CONTROLLABLE in snapshot.py.
-                "turn_on": "Switch something on, open it, start it, "
-                "or run a script or scene",
-                "turn_off": "Switch something off, close it, or stop it",
+                # No playback wording either. "Stop the music" is not a power
+                # command, and a player without turn_off fails it.
+                "turn_on": "Switch something on, open it, or run a script or scene",
+                "turn_off": "Switch something off or close it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
                 "changing nothing",
-                NONE: "None of these, or the request is not about the house",
+                NONE: "None of these, such as playing, pausing, stopping or "
+                "skipping media, or the request is not about the house",
             },
         ),
         "compound": Noul(
