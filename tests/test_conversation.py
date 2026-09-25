@@ -705,6 +705,99 @@ async def test_an_amount_in_digits_sends_no_second_request(hass, house, mock_cli
     assert trace["reason"] == "a brightness was asked for but no level was said"
 
 
+@pytest.mark.parametrize(
+    ("text", "level", "expected"),
+    [
+        # The 2 in the name was the only digit, and it set 2%.
+        ("set lamp 2 brightness to fifty percent", 4.0, 50),
+        ("brightness 50 on lamp 2", None, 50),
+    ],
+)
+async def test_a_digit_in_a_name_is_not_a_level(
+    hass, house, mock_client, text, level, expected
+):
+    rename(hass, "light.kitchen", "Lamp 2")
+    mock_client.ask.return_value = said_in_words(level=level or 0.0)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    before = mock_client.ask.call_count
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert [c.data["brightness_pct"] for c in calls] == [expected]
+    # Only a level said in words sends the second request.
+    assert mock_client.ask.call_count == before + (2 if level else 1)
+
+
+@pytest.mark.parametrize(
+    ("text", "level", "expected"),
+    [
+        # A score starts at 10%, so this read as 10 and turned the light on.
+        ("set the kitchen light to zero percent", 0.1, [0]),
+        ("zet de keukenlamp op nul procent", 0.1, [0]),
+        # Zero said, and the model read another level: nothing to trust.
+        ("set the kitchen light to zero", 3.0, []),
+    ],
+)
+async def test_zero_in_words_is_zero(hass, house, mock_client, text, level, expected):
+    mock_client.ask.return_value = said_in_words(level=level)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert [c.data.get("brightness_pct") for c in calls] == expected
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        # With every language's "to" words, the Spanish "a" in "a bit" let this
+        # through to the model, and only the model refused it.
+        ("en", []),
+        ("es", [40]),
+    ],
+)
+async def test_the_change_words_read_the_pipeline_language(
+    hass, house, mock_client, language, expected
+):
+    mock_client.ask.return_value = said_in_words(level=3.0)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn up the kitchen light a bit", language=language)
+    await hass.async_block_till_done()
+
+    assert [c.data["brightness_pct"] for c in calls] == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # HassTurnOn has no level, so the light came on at its last one.
+        ("turn on the kitchen light at 50%", {"brightness_pct": 50}),
+        # A bare number is a count or a name here, not a level.
+        ("turn on the kitchen light 2", {}),
+        ("turn on the kitchen light and brighten it 20%", {}),
+    ],
+)
+async def test_turn_on_with_a_percent_sets_the_level(
+    hass, house, mock_client, text, expected
+):
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    assert {k: v for k, v in calls[0].data.items() if k == "brightness_pct"} == expected
+
+
 async def test_a_trace_records_what_was_decided(hass, house, mock_client):
     """A misrouted sentence is only fixable if you can see what was made of it."""
     mock_client.ask.return_value = build_response(**answer_set())
@@ -1559,6 +1652,11 @@ async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_clien
         # Hungarian says "by" with a suffix on the number. This one set 20%.
         ("vedd 20%-kal halványabbra", None),
         ("vedd 20 százalékkal halványabbra", None),
+        # A scale of its own. "3 out of 10" set 10 and "level 5" set 5.
+        ("set the brightness to 3 out of 10", None),
+        ("set the lamp to 50/100", None),
+        ("set brightness to level 5", None),
+        ("zet de lamp op stand 3", None),
     ],
 )
 def test_a_brightness_is_only_read_when_it_is_a_level(text, expected):
@@ -1590,7 +1688,22 @@ def test_a_brightness_is_only_read_when_it_is_a_level(text, expected):
         ("把灯调亮20%", None),
         ("亮度降低百分之20", None),
         ("növeld a fényerőt 20%-kal", None),
+        # Each of these set 20 in a sweep of 70 sentences.
+        ("lamp +20%", None),
+        ("lamp -20%", None),
+        ("bump the lamp 20%", None),
+        ("drop the lamp 20%", None),
+        ("fade the lamp 20%", None),
+        ("take 20% off the lamp", None),
+        ("dimme die Lampe 20 Prozent", None),
+        ("zet de lamp 20% lager", None),
+        ("de lamp 20 procent omhoog", None),
+        ("dämpa lampan 20%", None),
+        ("ランプを20%明るく", None),
+        ("조명 20% 밝게", None),
         # A change word with "to" in front of the number is a level.
+        ("drop the lamp to 20%", 20),
+        ("dimme die Lampe auf 30", 30),
         ("turn up the lamp to 80%", 80),
         ("lower the lamp to 20%", 20),
         ("Helligkeit auf 50 Prozent erhöhen", 50),

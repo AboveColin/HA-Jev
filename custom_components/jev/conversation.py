@@ -435,7 +435,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         response = await self._ask(user_input, {"command": text}, level_questions())
         if isinstance(response, conversation.ConversationResult):
             return response
-        level = read_level(response, text, self._min_confidence)
+        level = read_level(response, text, self._min_confidence, user_input.language)
         self._trace(chat_log, response, {"text": text, "level_for": level})
         if level is None:
             return replace(

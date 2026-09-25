@@ -16,6 +16,7 @@ alternative, a chain of calls each waiting on the last, is slower and costs more
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -95,12 +96,15 @@ _BY_SUFFIX = re.compile(r"^(?:\s*százalék)?-?(?:kal|kel)\b", re.IGNORECASE)
 # still 50. Stems, matched at a word start.
 _CHANGE_STEMS = {
     "en": (
-        # "dim the lamp 20 percent" can mean either. "dim it to 20" is a level.
-        r"(?:increase|decrease|raise|lower|reduce|boost|add|brighten)",
+        # "dim the lamp 20 percent" can mean either, as can "fade". "dim it to 20"
+        # is a level.
+        r"(?:increase|decrease|raise|lower|reduce|boost|add|brighten|bump|drop|fade)",
         r"dim\b",
         r"(?:up|down|more|less|plus|minus|brighter|dimmer|darker)\b",
     ),
     "de": (
+        # "dimme die Lampe 20 Prozent" can mean either, as "dim" can.
+        "dimm",
         "erhöh",
         "verringer",
         "reduzier",
@@ -118,6 +122,10 @@ _CHANGE_STEMS = {
         "feller",
         "lichter",
         "donkerder",
+        "hoger",
+        "lager",
+        "omhoog",
+        "omlaag",
         "meer\b",
         "minder\b",
         "min\b",
@@ -136,7 +144,7 @@ _CHANGE_STEMS = {
         "więcej",
         "mniej",
     ),
-    "sv": ("öka", "sänk", "minska", "ljusare", "mörkare", "mer\b", "mindre\b"),
+    "sv": ("dämp", "öka", "sänk", "minska", "ljusare", "mörkare", "mer\b", "mindre\b"),
     "da": ("øg\b", "sænk", "lysere", "mørkere", "mere\b", "mindre\b"),
     "cs": ("zvyš", "zvýš", "sniž", "jasněji", "tmavěji", "víc", "méně"),
     "ru": (
@@ -169,23 +177,62 @@ _CHANGE_CJK = (
     "调低",
     "更亮",
     "更暗",
+    # Japanese and Korean, which the integration is not translated into, for a
+    # satellite that is: "ランプを20%明るく" set 20.
+    "明るく",
+    "暗く",
+    "밝게",
+    "어둡게",
 )
 # A comparative straight after the number is an amount even behind "to": the
 # sentence says "20% brighter", not "to 20%".
 _COMPARATIVE_AFTER = re.compile(
     r"^\s*(?:%|" + "|".join(_PERCENT_WORDS[1:]) + r")?\s*(?:"
     r"brighter|dimmer|darker|more|less|heller|dunkler|feller|lichter|donkerder"
-    r"|plus|ljusare|mörkare|lysere|mørkere|ярче|темнее|更亮|更暗)",
+    r"|plus|off\b|ljusare|mörkare|lysere|mørkere|ярче|темнее|更亮|更暗)",
     re.IGNORECASE,
 )
 
 
 # The same "to" words anywhere in the sentence, for a level said in words, where
-# there is no number to stand in front of. Hungarian "-ra" and "-re" sit on the
-# word itself. A word taken for "to" only leaves the decision to the model.
-_TO_ANYWHERE = re.compile(
-    r"\b(?:to|at|auf|zu|op|naar|tot|à|a|au|al|allo|alla|para|na|do|på|till|til|до)\b"
-    r"|到|为|成|至|\w(?:ra|re)\b",
+# there is no number to stand in front of. A word taken for "to" only leaves the
+# decision to the model, so these are read in the pipeline's language: with every
+# language at once, Spanish "a" and the Hungarian suffix are in "turn up the lamp a
+# bit" and "dim it some more", and the change words never refused an English
+# sentence.
+_TO_WORDS = {
+    "en": r"\b(?:to|at)\b",
+    "de": r"\b(?:auf|zu)\b",
+    "nl": r"\b(?:op|naar|tot)\b",
+    "fr": r"\b(?:à|a|au)\b",
+    "it": r"\b(?:a|al|allo|alla)\b",
+    "es": r"\b(?:a|al|para)\b",
+    "pt": r"\b(?:a|para)\b",
+    "pl": r"\b(?:na|do)\b",
+    "sv": r"\b(?:på|till)\b",
+    "da": r"\b(?:på|til)\b",
+    "cs": r"\b(?:na|do)\b",
+    "ru": r"\bдо\b",  # noqa: RUF001
+    "hu": r"\w(?:ra|re)\b",
+    "zh": "到|为|成|至",
+}
+_TO_IN = {
+    language: re.compile(words, re.IGNORECASE) for language, words in _TO_WORDS.items()
+}
+_TO_ANYWHERE = re.compile("|".join(_TO_WORDS.values()), re.IGNORECASE)
+
+# Zero said in words. A score's lowest level is 10%, so "zero percent" read as 10
+# and turned the lamp on, three runs of three in English and in Dutch.
+_ZERO = re.compile(
+    r"\b(?:zero|zéro|nul|null|cero|nulla|noll|nula|ноль|нуль)\b|零", re.IGNORECASE
+)
+
+# A number on a scale of its own is not a percentage: "3 out of 10" set 10 and
+# "level 5" set 5.
+_SCALE_AFTER = re.compile(r"^\s*(?:/|out of\b)", re.IGNORECASE)
+_SCALE_BEFORE = re.compile(
+    r"(?:\b(?:level|stufe|niveau|stand|nivel|livello|poziom|nivå|úroveň|уровень|szint)"
+    r"|/|\bout of)\s*$",
     re.IGNORECASE,
 )
 
@@ -222,22 +269,36 @@ def _in_range(raw: str) -> int | None:
     return value if 0 <= value <= 100 else None
 
 
-def find_brightness(text: str) -> int | None:
+def find_brightness(text: str, *, bare: bool = True) -> int | None:
     """The level a sentence sets, if it says one.
 
     Prefers an explicit percent sign, because "turn on 2 lamps" holds a number that
     is not a brightness. Without one, the last number wins, because a device name
     comes before its level: "lamp 2 brightness to 40" means 40. A number that is an
-    amount to change the level by gives None.
+    amount to change the level by gives None. bare=False reads only a number with a
+    percent sign or word.
     """
     found = (
         _PERCENT.search(text)
         or _PERCENT_PREFIX.search(text)
-        or (_last_level_number(text))
+        or (_last_level_number(text) if bare else None)
     )
-    if found is None or _is_an_amount(text, found):
+    if found is None or _is_an_amount(text, found) or _is_a_scale(text, found):
         return None
     return _in_range(found.group(1))
+
+
+def without_names(text: str, names: Iterable[str]) -> str:
+    """The text with every name that holds a digit taken out.
+
+    "set lamp 2 brightness to fifty percent" set 2, because the 2 was the only
+    digit. Taken out, the sentence has no digit, and the level is asked for.
+    """
+    held = {n for n in names if any(c.isdigit() for c in n)}
+    for name in sorted(held, key=len, reverse=True):
+        phrase = r"\s+".join(re.escape(w) for w in name.split())
+        text = re.sub(rf"(?<!\w){phrase}(?!\w)", " ", text, flags=re.IGNORECASE)
+    return text
 
 
 def said_a_digit(text: str) -> bool:
@@ -273,7 +334,12 @@ def level_questions() -> dict[str, Question]:
     }
 
 
-def read_level(response: JevResponse, text: str, min_confidence: float) -> int | None:
+def read_level(
+    response: JevResponse,
+    text: str,
+    min_confidence: float,
+    language: str | None = None,
+) -> int | None:
     """The level a sentence says in words, or None to leave it to the fallback.
 
     Three things refuse. On 22 amounts in words in 10 languages, run twice, only the
@@ -282,6 +348,8 @@ def read_level(response: JevResponse, text: str, min_confidence: float) -> int |
     the lamp a bit dimmer", were refused by both the amount question and the floor,
     at 0.69 or less. On 20 levels in words, four runs set 17 right each time and
     refused 3.
+
+    A zero word gives 0, when the model put the sentence on the lowest level.
     """
     level = response.answers.get("level")
     relative = response.answers.get("relative")
@@ -289,14 +357,18 @@ def read_level(response: JevResponse, text: str, min_confidence: float) -> int |
         return None
     if relative.noul >= 0.5 or level.confidence < max(min_confidence, _LEVEL_FLOOR):
         return None
-    if _names_a_change(text):
+    if _names_a_change(text, language):
         return None
-    return _WORD_LEVELS[min(round(level.score), len(_WORD_LEVELS) - 1)]
+    index = min(round(level.score), len(_WORD_LEVELS) - 1)
+    if _ZERO.search(text):
+        return 0 if index == 0 else None
+    return _WORD_LEVELS[index]
 
 
-def _names_a_change(text: str) -> bool:
+def _names_a_change(text: str, language: str | None) -> bool:
     change = _CHANGE.search(text) or any(word in text for word in _CHANGE_CJK)
-    return bool(change) and not _TO_ANYWHERE.search(text)
+    to = _TO_IN.get((language or "").split("-")[0].lower(), _TO_ANYWHERE)
+    return bool(change) and not to.search(text)
 
 
 def _last_level_number(text: str) -> re.Match[str] | None:
@@ -306,10 +378,18 @@ def _last_level_number(text: str) -> re.Match[str] | None:
     return last
 
 
+def _is_a_scale(text: str, number: re.Match[str]) -> bool:
+    before, after = text[: number.start()], text[number.end() :]
+    return bool(_SCALE_AFTER.search(after) or _SCALE_BEFORE.search(before))
+
+
 def _is_an_amount(text: str, number: re.Match[str]) -> bool:
     before, after = text[: number.start()], text[number.end() :]
     # "百分之" sits in front of the number, so the words before it come before that.
     before = before.removesuffix("百分之").rstrip()
+    # A sign is an amount: "lamp +20%" set 20.
+    if before.endswith(("+", "-", "−", "±")):  # noqa: RUF001
+        return True
     if _COMPARATIVE_AFTER.search(after) or _BY_SUFFIX.search(after):
         return True
     if _TO.search(before) or _TO_SUFFIX.search(after):
@@ -653,12 +733,34 @@ def interpret(
         elif not targets_everything or len(snapshot.domains) == 1:
             slots["domain"] = {"value": snapshot.domains}
 
+    # A digit in a name is not a level: "lamp 2", "Bedroom 2".
+    spoken = without_names(
+        text,
+        [
+            *(e.name for e in snapshot.entities),
+            *snapshot.areas,
+            *snapshot.floors,
+            *snapshot.hidden_names,
+        ],
+    )
     needs_level = False
+    # "turn on the lamp at 50%" scored turn_on, and HassTurnOn has no level, so the
+    # lamp came on at whatever it was before. Only a percent counts here: a bare
+    # number next to "ljus" or "свет", which are also the words for a light, would
+    # read "tänd 2 ljus" as 2%.
+    if (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and (level := find_brightness(spoken, bare=False)) is not None
+    ):
+        intent_type = ACTIONS["set_brightness"]
+        slots["brightness"] = {"value": level}
+        slots["domain"] = {"value": ["light"]}
     if action.choice == "set_brightness":
-        brightness = find_brightness(text)
+        brightness = find_brightness(spoken)
         if brightness is not None:
             slots["brightness"] = {"value": brightness}
-        elif said_a_digit(text):
+        elif said_a_digit(spoken):
             return out("a brightness was asked for but no level was said")
         else:
             needs_level = True
