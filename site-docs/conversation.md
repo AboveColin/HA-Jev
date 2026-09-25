@@ -131,10 +131,11 @@ commands came to $0.0017. That was with seven questions. The two added in 1.16.1
 cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
 same time warm: 261 ms before, 263 ms after.
 
-## Brightness comes from a regex
+## Brightness
 
 `set the lamp to 40 percent` has its number pulled out by pattern matching, not by
 asking the model. Jev judges and does not calculate, and a regex is exact and free.
+A level said in words has no digit to read, so the agent asks for it, see below.
 
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
@@ -154,6 +155,51 @@ brightness by 20%`, `turn the lamp down 20%`, `erhöhe die Helligkeit um 20%` an
 `把灯调亮20%` give none. In a test of 52 relative sentences in 14 languages, 45 set
 the amount as the level before this rule and none do now. A number over 100 or with
 a decimal point is not a percentage.
+
+A sign in front of the number makes it an amount too, so `lamp +20%` and `lamp -20%`
+give none. So do `bump`, `drop`, `fade`, `take 20% off`, `dimme`, `lager`, `omhoog`,
+`dämpa`, `明るく` and `밝게` with no word for "to". A number on a scale of its own is
+not a percentage: `3 out of 10`, `50/100`, `level 5` and `op stand 3` go to the
+fallback agent rather than setting 10, 100, 5 and 3.
+
+The agent reads the words for "to" in the pipeline's language. With the words of
+every language at once, the Spanish `a` in `turn up the lamp a bit` counted as "to".
+
+A digit in the name of a device, room or floor is not a level. `set lamp 2 brightness
+to fifty percent` set 2% before, because the 2 was the only digit. Now the agent
+removes the names first, so it reads no digit and asks for the level in words.
+
+`turn on the lamp at 50%` sets 50. Home Assistant's `HassTurnOn` has no level, so
+before this the lamp came on at its last level. Only a number with a percent counts
+here, because `tänd 2 ljus` and `включи 2 свет` hold a word for light that is also a
+word for brightness.
+
+In a test of 70 sentences with a digit, 24 read differently from the intended level
+before these rules and 3 do now. Two are speech-to-text forms, `forty 5 percent` and
+`4 0 percent`. The third, `set the lamp to 40% at 7`, goes to the fallback agent.
+
+### A level said in words
+
+`set the lamp to forty percent`, `zet de lamp op zestig procent`, `half brightness`
+and `full brightness` have no digit in them. For such a sentence, and only for it,
+the agent sends one more request with two questions: which level, from 10% to 100%
+in steps of ten, and does the sentence change the brightness by an amount rather
+than name a level. A word gives a whole ten, so `a quarter` sets 20.
+
+It acts only when all three of these agree. The level question is sure, at 0.8 or
+the agent's own floor if that is higher. The amount question says it is a level. The
+sentence has no word for changing with no word for "to", the same words the regex
+uses. Only those words refused `把灯调亮百分之二十`, which the model read as a level at
+0.84 and 0.90. Only the floor refused a run that read `тридцать процентов` as 40.
+
+In four runs of 20 levels and 22 amounts in words, in 10 languages, 17 levels were
+set right each time and 3 went to the fallback, and no amount was set as a level.
+
+The level options start at 10%, so `zero percent` and `nul procent` set 10 in 6 runs
+of 6. A word for zero now sets 0, but only when the model also picked the lowest
+level. When it picked another level, the sentence goes to the fallback agent.
+Before this, all 20 levels went to the fallback. The second request costs 400 to 565
+input tokens and 220 to 646 ms. A sentence with a digit in it never sends it.
 
 ## A command that is already done
 
