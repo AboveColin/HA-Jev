@@ -607,8 +607,9 @@ def interpret(
     spoken = without_names(
         text,
         [
-            *(e.name for e in snapshot.entities),
+            *(n for e in snapshot.entities for n in e.names),
             *snapshot.areas,
+            *(a for aliases in snapshot.area_aliases.values() for a in aliases),
             *snapshot.floors,
             *snapshot.hidden_names,
         ],

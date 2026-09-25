@@ -176,7 +176,7 @@ every language at once, the Spanish `a` in `turn up the lamp a bit` counted as "
 
 A digit in the name of a device, room or floor is not a level. `set lamp 2 brightness
 to fifty percent` set 2% before, because the 2 was the only digit. Now the agent
-removes the names first, so it reads no digit and asks for the level in words.
+removes the names and their aliases first, so it reads no digit and asks for the level in words.
 
 `turn on the lamp at 50%` sets 50. Home Assistant's `HassTurnOn` has no level, so
 before this the lamp came on at its last level. Only a number with a percent counts
