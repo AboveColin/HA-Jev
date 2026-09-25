@@ -23,7 +23,7 @@ from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-from jevclient import ChoiceAnswer, NoulAnswer, Usage
+from jevclient import ChoiceAnswer, NoulAnswer, ScoreAnswer, Usage
 
 from custom_components.jev.const import (
     CONF_ALLOW_WHOLE_HOME,
@@ -626,6 +626,83 @@ async def test_a_brightness_command_with_no_number_acts_on_nothing(
     await converse(hass, "make the kitchen light brighter")
     await hass.async_block_till_done()
     assert calls == []
+
+
+def said_in_words(level=3.0, confidence=1.0, relative=0.1):
+    """A brightness command, with the second request's answers beside it."""
+    return build_response(
+        **answer_set(
+            action=ChoiceAnswer(
+                choice="set_brightness", probabilities={}, confidence=0.93
+            ),
+            level=ScoreAnswer(
+                score=level, legend={}, probabilities={}, confidence=confidence
+            ),
+            relative=NoulAnswer(noul=relative),
+        )
+    )
+
+
+async def test_a_level_said_in_words_is_asked_for(hass, house, mock_client):
+    """No digit for the regex, so a second request asks for the level."""
+    mock_client.ask.return_value = said_in_words(level=3.0)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "set the kitchen light to forty percent")
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    assert calls[0].data["brightness_pct"] == 40
+    state, questions = mock_client.ask.call_args.args
+    assert state == {"command": "set the kitchen light to forty percent"}
+    assert set(questions) == {"level", "relative"}
+    level, command = list(house.runtime_data.conversation_traces)[:2]
+    assert level["level_for"] == 40
+    assert command["reason"] == "the level is said in words and asked for next"
+
+
+@pytest.mark.parametrize(
+    ("text", "answers"),
+    [
+        # The relative question says it is an amount.
+        ("dim the kitchen light by twenty percent", {"relative": 0.95}),
+        # The score is not sure enough. "тридцать процентов" read as 40 at 0.67.
+        ("set the kitchen light to thirty percent", {"confidence": 0.67}),
+        # A change word with no "to". The relative question missed
+        # "把灯调亮百分之二十" in a measured run, and this is what refused it.
+        ("brighten the kitchen light twenty percent", {}),
+    ],
+)
+async def test_a_level_in_words_that_is_not_sure_acts_on_nothing(
+    hass, house, mock_client, text, answers
+):
+    mock_client.ask.return_value = said_in_words(**answers)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert set(mock_client.ask.call_args.args[1]) == {"level", "relative"}
+    assert house.runtime_data.conversation_traces[0]["level_for"] is None
+
+
+async def test_an_amount_in_digits_sends_no_second_request(hass, house, mock_client):
+    """The regex had a number to read, and it said the number is an amount."""
+    mock_client.ask.return_value = said_in_words()
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    before = mock_client.ask.call_count
+
+    await converse(hass, "turn the kitchen light down 20%")
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert mock_client.ask.call_count == before + 1
+    trace = house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == "a brightness was asked for but no level was said"
 
 
 async def test_a_trace_records_what_was_decided(hass, house, mock_client):

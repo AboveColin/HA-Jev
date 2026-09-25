@@ -115,10 +115,11 @@ commands came to $0.0017. That was with seven questions. The two added in 1.16.1
 cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
 same time warm: 261 ms before, 263 ms after.
 
-## Brightness comes from a regex
+## Brightness
 
 `set the lamp to 40 percent` has its number pulled out by pattern matching, not by
 asking the model. Jev judges and does not calculate, and a regex is exact and free.
+A level said in words has no digit to read, so the agent asks for it, see below.
 
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
@@ -138,6 +139,25 @@ brightness by 20%`, `turn the lamp down 20%`, `erhöhe die Helligkeit um 20%` an
 `把灯调亮20%` give none. In a test of 52 relative sentences in 14 languages, 45 set
 the amount as the level before this rule and none do now. A number over 100 or with
 a decimal point is not a percentage.
+
+### A level said in words
+
+`set the lamp to forty percent`, `zet de lamp op zestig procent`, `half brightness`
+and `full brightness` have no digit in them. For such a sentence, and only for it,
+the agent sends one more request with two questions: which level, from 10% to 100%
+in steps of ten, and does the sentence change the brightness by an amount rather
+than name a level. A word gives a whole ten, so `a quarter` sets 20.
+
+It acts only when all three of these agree. The level question is sure, at 0.8 or
+the agent's own floor if that is higher. The amount question says it is a level. The
+sentence has no word for changing with no word for "to", the same words the regex
+uses. Only those words refused `把灯调亮百分之二十`, which the model read as a level at
+0.84 and 0.90. Only the floor refused a run that read `тридцать процентов` as 40.
+
+In four runs of 20 levels and 22 amounts in words, in 10 languages, 17 levels were
+set right each time and 3 went to the fallback, and no amount was set as a level.
+Before this, all 20 levels went to the fallback. The second request costs 400 to 565
+input tokens and 220 to 646 ms. A sentence with a digit in it never sends it.
 
 ## A command that is already done
 
