@@ -481,10 +481,15 @@ def build_questions(
                 "turn_off": "Switch something off or close it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
-                "get_state": "Answer a question about the current state, "
-                "changing nothing",
-                "get_temperature": "Say how warm or cold it is now, in a room or "
-                "at a heating or cooling device",
+                # "a question about the current state" took "what does the
+                # bedroom heater read" at 0.81 to 0.85, and a climate device's
+                # state is its mode. This pair sends it to get_temperature at 0.83
+                # to 0.90, and "what mode is the air conditioner in" stays here.
+                "get_state": "Answer whether something is on, off, open, locked "
+                "or running, or which mode it is in, changing nothing",
+                "get_temperature": "Say a temperature: how warm or cold it is, "
+                "indoors or out, or what a heater, thermostat or air conditioner "
+                "reads or shows",
                 REPORT: "Nothing is asked for: it tells what someone already did, "
                 "or says not to do something",
                 NONE: "None of these, such as playing, pausing, stopping or "
@@ -501,7 +506,8 @@ def build_questions(
         # "is the front door locked" 0.55. This one scored lists, messages and
         # questions for the world 0.69 to 0.98, and commands and questions for the
         # devices 0.01 to 0.11, garden and driveway lights too. "how warm is it
-        # outside" is at 0.48.
+        # outside" scored 0.90 to 0.96, and the fallback agent answers it with the
+        # weather.
         "free_text": Noul(
             {
                 "question": "Is this request about something other than the "
@@ -697,7 +703,14 @@ def interpret(
         return out("not a house command")
     if action.choice == REPORT:
         return out("nothing is asked for")
-    if action.confidence < min_confidence:
+    # A split between the two questions is not doubt about whether to act, and
+    # neither answer changes anything. Measured: "what does the bedroom heater read"
+    # gave get_temperature 0.54 to 0.58 and get_state the rest, at confidence 0.47
+    # to 0.52.
+    asked = sum((action.probabilities or {}).get(a, 0.0) for a in _QUESTIONS)
+    if action.confidence < min_confidence and not (
+        action.choice in _QUESTIONS and asked >= min_confidence
+    ):
         # A command that is already done reads as a low-confidence one.
         #
         # Measured on a real instance, three runs per starting state: "could you put
@@ -1093,6 +1106,10 @@ def _words_said(text: str, name: str) -> int:
         return 0
     phrase = r"\s+".join(re.escape(w) for w in words)
     return len(words) if re.search(rf"(?<!\w){phrase}(?!\w)", text.casefold()) else 0
+
+
+# The actions that only ask, and change nothing.
+_QUESTIONS = ("get_state", "get_temperature")
 
 
 # What "already done" looks like for each action the check covers.

@@ -108,6 +108,10 @@ class HomeSnapshot:
     floors: list[str] = field(default_factory=list)
     # The same for floors. Home Assistant matches a floor by its aliases too.
     floor_aliases: dict[str, list[str]] = field(default_factory=dict)
+    # The areas whose own temperature sensor Home Assistant reads when asked how warm
+    # the area is. The sensor is not a device the agent controls, so without this a
+    # room with only a sensor was not offered at all (issue #50).
+    temperature_areas: list[str] = field(default_factory=list)
     # Names of the entities the model is not shown: not exposed, left out above, or
     # past the cap. They never leave Home Assistant. interpret() reads them so that
     # "the desk lamp" cannot land on an exposed "Lamp" when the desk lamp is hidden.
@@ -143,12 +147,7 @@ class HomeSnapshot:
                 }
                 for e in self.entities
             ],
-            "areas": [
-                {"name": a, "also_called": self.area_aliases[a]}
-                if self.area_aliases.get(a)
-                else a
-                for a in self.areas
-            ],
+            "areas": [self._area_label(a) for a in self.areas],
             "floors": [
                 {"name": f, "also_called": self.floor_aliases[f]}
                 if self.floor_aliases.get(f)
@@ -156,6 +155,14 @@ class HomeSnapshot:
                 for f in self.floors
             ],
         }
+
+    def _area_label(self, area: str) -> object:
+        extra: dict[str, object] = {}
+        if aliases := self.area_aliases.get(area):
+            extra["also_called"] = aliases
+        if area in self.temperature_areas:
+            extra["has_a_temperature_sensor"] = True
+        return {"name": area, **extra} if extra else area
 
 
 def _other_names(name: str, aliases: set[str]) -> list[str]:
@@ -255,7 +262,17 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     # the right answer to the question asked and named a room holding nothing
     # exposed. The intent then matched nothing and the sentence fell back. A room
     # the agent cannot act in is not an option, it is a trap.
-    used_areas = [areas.async_get_area(a) for a in used_area_ids]
+    # And rooms whose temperature Home Assistant can read. Its intent only reads a
+    # sensor that is exposed and in the room, so the same holds here.
+    sensed_area_ids = {
+        a.id
+        for a in areas.async_list_areas()
+        if a.temperature_entity_id
+        and hass.states.get(a.temperature_entity_id) is not None
+        and async_should_expose(hass, CONVERSATION_DOMAIN, a.temperature_entity_id)
+        and area_id_of(a.temperature_entity_id) == a.id
+    }
+    used_areas = [areas.async_get_area(a) for a in used_area_ids | sensed_area_ids]
     used_floor_ids = {a.floor_id for a in used_areas if a and a.floor_id}
     used_floors = [f for f in floors.async_list_floors() if f.floor_id in used_floor_ids]
 
@@ -273,5 +290,8 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
             for f in used_floors
             if (aliases := _other_names(f.name, f.aliases))
         },
+        temperature_areas=sorted(
+            a.name for a in used_areas if a and a.id in sensed_area_ids
+        ),
         hidden_names=hidden,
     )

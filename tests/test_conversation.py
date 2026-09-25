@@ -2869,3 +2869,99 @@ async def test_a_temperature_that_cannot_be_read_goes_to_the_fallback_agent(
 
     trace = warm_house.runtime_data.conversation_traces[0]
     assert trace["reason"] == reason
+
+
+def _sensor_in(hass, area, object_id, *, exposed=True):
+    entry = er.async_get(hass).async_get_or_create(
+        "sensor", "demo", object_id, suggested_object_id=object_id
+    )
+    er.async_get(hass).async_update_entity(entry.entity_id, area_id=area.id)
+    hass.states.async_set(entry.entity_id, "19.5", {"device_class": "temperature"})
+    async_expose_entity(hass, conversation.DOMAIN, entry.entity_id, exposed)
+    return entry.entity_id
+
+
+async def test_a_room_with_only_a_temperature_sensor_is_offered(hass, warm_house):
+    """Reported on issue #50: such a room answered "I could not find that"."""
+    from custom_components.jev.snapshot import async_snapshot
+
+    areas = ar.async_get(hass)
+    study = areas.async_create("Study")
+    areas.async_update(
+        study.id, temperature_entity_id=_sensor_in(hass, study, "study_temperature")
+    )
+
+    snapshot = async_snapshot(hass, 150)
+
+    assert "Study" in snapshot.areas
+    assert snapshot.temperature_areas == ["Kitchen", "Study"]
+    assert {"name": "Study", "has_a_temperature_sensor": True} in snapshot.as_state()[
+        "areas"
+    ]
+
+
+async def test_a_temperature_sensor_home_assistant_would_not_read_offers_no_room(
+    hass, warm_house
+):
+    """Its intent reads only a sensor that is exposed and in the room."""
+    from custom_components.jev.snapshot import async_snapshot
+
+    areas = ar.async_get(hass)
+    hall = areas.async_create("Hall")
+    areas.async_update(
+        hall.id,
+        temperature_entity_id=_sensor_in(hass, hall, "hall_temperature", exposed=False),
+    )
+    loft = areas.async_create("Loft")
+    areas.async_update(loft.id, temperature_entity_id="sensor.kitchen_temperature")
+
+    snapshot = async_snapshot(hass, 150)
+
+    assert "Hall" not in snapshot.areas
+    assert "Loft" not in snapshot.areas
+    assert snapshot.temperature_areas == ["Kitchen"]
+
+
+async def test_a_split_between_the_two_questions_still_answers(
+    hass, warm_house, mock_client
+):
+    """Measured: "what does the bedroom heater read" at 0.54 and get_state 0.46."""
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            action=ChoiceAnswer(
+                choice="get_temperature",
+                probabilities={"get_temperature": 0.54, "get_state": 0.46},
+                confidence=0.47,
+            ),
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=1.0
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=1.0),
+        )
+    )
+
+    result = await converse(hass, "what does the office heater read")
+
+    assert result.response.speech["plain"]["speech"] == "21.5 degrees"
+
+
+async def test_a_split_between_a_question_and_a_command_goes_out(
+    hass, warm_house, mock_client
+):
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            action=ChoiceAnswer(
+                choice="get_temperature",
+                probabilities={"get_temperature": 0.5, "turn_on": 0.45},
+                confidence=0.47,
+            ),
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=1.0
+            ),
+        )
+    )
+
+    await converse(hass, "the office heater")
+
+    trace = warm_house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == "action confidence 0.47 below 0.60"
