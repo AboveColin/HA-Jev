@@ -895,6 +895,40 @@ async def test_the_model_is_shown_the_floor_aliases(hass, house, mock_client):
     assert state["floors"] == [{"name": "First floor", "also_called": ["the loft"]}]
 
 
+def unsure_device_in_a_named_room():
+    """A reported answer set: one device named, its light at 0.52, the room at 0.89."""
+    return answer_set(
+        target_type=ChoiceAnswer(choice="entity", probabilities={}, confidence=0.73),
+        entity=ChoiceAnswer(choice="light.office", probabilities={}, confidence=0.52),
+        area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.89),
+    )
+
+
+async def test_an_unsure_device_does_not_widen_to_its_room(hass, house, mock_client):
+    """With two lights in the room, the room answer turned both of them on."""
+    async_expose_entity(hass, conversation.DOMAIN, "light.private", True)
+    mock_client.ask.return_value = build_response(**unsure_device_in_a_named_room())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the little light under the shelf")
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_an_unsure_device_alone_in_its_room_acts(hass, house, mock_client):
+    """Where the room holds nothing else of its kind, the room answer backs it."""
+    mock_client.ask.return_value = build_response(**unsure_device_in_a_named_room())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the little light under the shelf")
+    await hass.async_block_till_done()
+
+    assert [c.data["entity_id"] for c in calls] == [["light.office"]]
+
+
 async def test_turn_on_with_a_level_in_words_asks_for_it(hass, house, mock_client):
     """HassTurnOn has no level, so "at half brightness" came on at the last one."""
     mock_client.ask.side_effect = [
