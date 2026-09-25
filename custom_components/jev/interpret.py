@@ -748,7 +748,7 @@ def interpret(
     def pick(chosen: ExposedEntity, *, sure: bool) -> ExposedEntity | Interpretation:
         # sure is False when the model put most of its answer on none. Then only a
         # name that two devices share is a reason to go on.
-        tied = _fit_as_well(text, chosen, snapshot, named_area)
+        tied = _fit_as_well(text, chosen, snapshot, named_area, whole=sure)
         if not sure and len(tied) < 2:
             # The room answer can back an unsure device only where the room holds
             # nothing else of its kind, so acting on it is acting on the room.
@@ -933,7 +933,12 @@ def _likeliest_device(entity: ChoiceAnswer) -> str:
 
 
 def _fit_as_well(
-    text: str, chosen: ExposedEntity, snapshot: HomeSnapshot, area: str | None
+    text: str,
+    chosen: ExposedEntity,
+    snapshot: HomeSnapshot,
+    area: str | None,
+    *,
+    whole: bool = False,
 ) -> list[ExposedEntity]:
     """The devices of the chosen kind whose names fit the words as well as its own.
 
@@ -944,6 +949,11 @@ def _fit_as_well(
 
     Only the chosen device when it fits best alone, or when no name fits the words
     at all, which is where the model's reading is all there is.
+
+    With whole, only names said in full can tie. A sure answer is not overruled by
+    shared words: "turn on the little light under the cabinets" scored its light at
+    0.97, and "light" in two other names and "the" in "Pendant over the table" made
+    a three-way tie that sent the sentence to the fallback agent, 3 runs of 3.
     """
     kind = [
         e
@@ -954,7 +964,7 @@ def _fit_as_well(
         return [chosen]
     fit = {e.entity_id: max(_name_fit(text, n) for n in e.names) for e in kind}
     best = max(fit.values())
-    if best == 0 or fit[chosen.entity_id] < best:
+    if best < (100 if whole else 1) or fit[chosen.entity_id] < best:
         return [chosen]
     return [e for e in kind if fit[e.entity_id] == best]
 

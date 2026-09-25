@@ -2120,6 +2120,21 @@ async def test_a_sure_answer_is_still_asked_about_when_the_name_is_shared(
     )
 
 
+async def test_a_sure_answer_is_not_overruled_by_words_the_names_share(
+    hass, house, mock_client
+):
+    """Measured: "the little light under the cabinets" at 0.97, and three lights tied
+    on "light" and "the"."""
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the light under the cabinets")
+    await hass.async_block_till_done()
+
+    assert [c.data["entity_id"] for c in calls] == [["light.kitchen"]]
+
+
 async def test_a_shared_name_is_asked_about_when_none_got_most_of_the_answer(
     hass, house, mock_client
 ):
