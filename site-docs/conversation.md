@@ -78,6 +78,7 @@ says "Done."
 | For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
 | A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
 | Something left out, such as "turn off everything but the TV" | Fallback. Home Assistant's intents cannot leave a device out, so the TV went off too |
+| Only a name, such as "goodnight" for a script called Goodnight | Fallback. The script ran, 2 runs of 2. A name can be a greeting, and Home Assistant's own agent also needs a verb |
 | Nothing asked for, such as "I turned off the lamp" or "zet de lamp niet aan" | Fallback. Both acted before: the first turned the lamp off, the second turned it off instead of leaving it |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |

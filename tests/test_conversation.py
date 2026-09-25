@@ -2487,3 +2487,24 @@ async def test_a_room_named_by_its_alias_is_reached(hass, house, mock_client):
     await hass.async_block_till_done()
 
     assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+@pytest.mark.parametrize(
+    ("text", "acts"),
+    [
+        ("Kitchen light", False),
+        ("kitchen light!", False),
+        ("Kitchen", False),
+        ("kitchen light on", True),
+    ],
+)
+async def test_a_name_on_its_own_acts_on_nothing(hass, house, mock_client, text, acts):
+    # "goodnight" ran a script called Goodnight, 2 runs of 2.
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert bool(calls) is acts
