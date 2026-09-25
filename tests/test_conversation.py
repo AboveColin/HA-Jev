@@ -2683,3 +2683,285 @@ async def test_a_name_on_its_own_acts_on_nothing(hass, house, mock_client, text,
     await hass.async_block_till_done()
 
     assert bool(calls) is acts
+
+
+@pytest.fixture
+async def warm_house(hass, house):
+    """A kitchen with its temperature sensor set, and an office with a heater."""
+    assert await async_setup_component(hass, "sensor", {})
+    assert await async_setup_component(hass, "climate", {})
+    entities = er.async_get(hass)
+    areas = ar.async_get(hass)
+    kitchen = areas.async_get_area_by_name("Kitchen")
+    office = areas.async_get_area_by_name("Office")
+    for entity_id, name, area, state, attributes in (
+        (
+            "sensor.kitchen_temperature",
+            "Kitchen temperature",
+            kitchen,
+            "24.8",
+            {"device_class": "temperature", "unit_of_measurement": "°C"},
+        ),
+        (
+            "climate.office",
+            "Office heater",
+            office,
+            "heat",
+            {"current_temperature": 21.5},
+        ),
+    ):
+        domain, object_id = entity_id.split(".")
+        entry = entities.async_get_or_create(
+            domain, "demo", object_id, suggested_object_id=object_id
+        )
+        entities.async_update_entity(entry.entity_id, name=name, area_id=area.id)
+        hass.states.async_set(entity_id, state, {"friendly_name": name, **attributes})
+        async_expose_entity(hass, conversation.DOMAIN, entity_id, True)
+    areas.async_update(kitchen.id, temperature_entity_id="sensor.kitchen_temperature")
+    return house
+
+
+def temperature_of(**overrides):
+    return answer_set(
+        **{
+            "action": ChoiceAnswer(
+                choice="get_temperature", probabilities={}, confidence=0.93
+            ),
+            "entity": ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+            **overrides,
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "24.8 degrees"),
+        # The default agent says "Nem várt eredmény: 24.8" here.
+        ("hu", "24,8 fok"),
+        # German keys its sentence current_temperature, not default.
+        ("de", "24,8 Grad"),
+        ("pl", "Temperatura wynosi 24,8 stopnia"),
+        # No sentences ship for this language, so the answer is in English.
+        ("xx", "24.8 degrees"),
+    ],
+)
+async def test_a_room_temperature_is_read_from_its_sensor(
+    hass, warm_house, mock_client, language, expected
+):
+    """Reported on issue #50: "I could not find that" for a room with a sensor."""
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            area=ChoiceAnswer(choice="Kitchen", probabilities={}, confidence=0.97)
+        )
+    )
+
+    result = await converse(
+        hass, "what's the temperature in the kitchen", language=language
+    )
+
+    assert result.response.speech["plain"]["speech"] == expected
+
+
+async def test_a_room_with_a_heater_answers_its_temperature_not_its_mode(
+    hass, warm_house, mock_client
+):
+    """Reported on issue #50: the state of a climate device is its mode."""
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.97)
+        )
+    )
+
+    result = await converse(hass, "how warm is it in the office")
+
+    assert result.response.speech["plain"]["speech"] == "21.5 degrees"
+
+
+async def test_a_room_temperature_reads_the_room_when_its_heater_is_likely_too(
+    hass, warm_house, mock_client
+):
+    """Measured: the room's air conditioner scored 0.61 to 0.84 beside the room."""
+    entities = er.async_get(hass)
+    areas = ar.async_get(hass)
+    office = areas.async_get_area_by_name("Office")
+    entry = entities.async_get_or_create(
+        "sensor", "demo", "office_temperature", suggested_object_id="office_temperature"
+    )
+    entities.async_update_entity(entry.entity_id, area_id=office.id)
+    hass.states.async_set(entry.entity_id, "19.0", {"device_class": "temperature"})
+    areas.async_update(office.id, temperature_entity_id=entry.entity_id)
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=0.8
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.97),
+        )
+    )
+
+    result = await converse(hass, "what's the temperature in the office")
+
+    assert result.response.speech["plain"]["speech"] == "19.0 degrees"
+
+
+async def test_a_heater_named_answers_its_temperature(hass, warm_house, mock_client):
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=0.95
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.97),
+        )
+    )
+
+    result = await converse(hass, "what does the office heater read")
+
+    assert result.response.speech["plain"]["speech"] == "21.5 degrees"
+
+
+async def test_a_satellite_room_answers_a_temperature_with_no_room_said(
+    hass, warm_house, mock_client
+):
+    mock_client.ask.return_value = build_response(**temperature_of())
+
+    result = await conversation.async_converse(
+        hass,
+        "what's the temperature",
+        None,
+        Context(),
+        language="en",
+        agent_id=AGENT,
+        device_id=a_satellite_in(hass, warm_house, "Kitchen"),
+    )
+
+    assert result.response.speech["plain"]["speech"] == "24.8 degrees"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        (
+            {
+                "entity": ChoiceAnswer(
+                    choice="light.kitchen", probabilities={}, confidence=0.95
+                )
+            },
+            "a temperature asked of a device that has none",
+        ),
+        (
+            {"floor": ChoiceAnswer(choice="Ground", probabilities={}, confidence=0.9)},
+            "a temperature asked of a whole floor",
+        ),
+        ({}, "a temperature asked with no room"),
+    ],
+)
+async def test_a_temperature_that_cannot_be_read_goes_to_the_fallback_agent(
+    hass, warm_house, mock_client, overrides, reason
+):
+    ground = fr.async_get(hass).async_create("Ground")
+    areas = ar.async_get(hass)
+    kitchen = areas.async_get_area_by_name("Kitchen")
+    areas.async_update(kitchen.id, floor_id=ground.floor_id)
+    mock_client.ask.return_value = build_response(**temperature_of(**overrides))
+
+    await converse(hass, "what's the temperature")
+
+    trace = warm_house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == reason
+
+
+def _sensor_in(hass, area, object_id, *, exposed=True):
+    entry = er.async_get(hass).async_get_or_create(
+        "sensor", "demo", object_id, suggested_object_id=object_id
+    )
+    er.async_get(hass).async_update_entity(entry.entity_id, area_id=area.id)
+    hass.states.async_set(entry.entity_id, "19.5", {"device_class": "temperature"})
+    async_expose_entity(hass, conversation.DOMAIN, entry.entity_id, exposed)
+    return entry.entity_id
+
+
+async def test_a_room_with_only_a_temperature_sensor_is_offered(hass, warm_house):
+    """Reported on issue #50: such a room answered "I could not find that"."""
+    from custom_components.jev.snapshot import async_snapshot
+
+    areas = ar.async_get(hass)
+    study = areas.async_create("Study")
+    areas.async_update(
+        study.id, temperature_entity_id=_sensor_in(hass, study, "study_temperature")
+    )
+
+    snapshot = async_snapshot(hass, 150)
+
+    assert "Study" in snapshot.areas
+    assert snapshot.temperature_areas == ["Kitchen", "Study"]
+    assert {"name": "Study", "has_a_temperature_sensor": True} in snapshot.as_state()[
+        "areas"
+    ]
+
+
+async def test_a_temperature_sensor_home_assistant_would_not_read_offers_no_room(
+    hass, warm_house
+):
+    """Its intent reads only a sensor that is exposed and in the room."""
+    from custom_components.jev.snapshot import async_snapshot
+
+    areas = ar.async_get(hass)
+    hall = areas.async_create("Hall")
+    areas.async_update(
+        hall.id,
+        temperature_entity_id=_sensor_in(hass, hall, "hall_temperature", exposed=False),
+    )
+    loft = areas.async_create("Loft")
+    areas.async_update(loft.id, temperature_entity_id="sensor.kitchen_temperature")
+
+    snapshot = async_snapshot(hass, 150)
+
+    assert "Hall" not in snapshot.areas
+    assert "Loft" not in snapshot.areas
+    assert snapshot.temperature_areas == ["Kitchen"]
+
+
+async def test_a_split_between_the_two_questions_still_answers(
+    hass, warm_house, mock_client
+):
+    """Measured: "what does the bedroom heater read" at 0.54 and get_state 0.46."""
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            action=ChoiceAnswer(
+                choice="get_temperature",
+                probabilities={"get_temperature": 0.54, "get_state": 0.46},
+                confidence=0.47,
+            ),
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=1.0
+            ),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=1.0),
+        )
+    )
+
+    result = await converse(hass, "what does the office heater read")
+
+    assert result.response.speech["plain"]["speech"] == "21.5 degrees"
+
+
+async def test_a_split_between_a_question_and_a_command_goes_out(
+    hass, warm_house, mock_client
+):
+    mock_client.ask.return_value = build_response(
+        **temperature_of(
+            action=ChoiceAnswer(
+                choice="get_temperature",
+                probabilities={"get_temperature": 0.5, "turn_on": 0.45},
+                confidence=0.47,
+            ),
+            entity=ChoiceAnswer(
+                choice="climate.office", probabilities={}, confidence=1.0
+            ),
+        )
+    )
+
+    await converse(hass, "the office heater")
+
+    trace = warm_house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == "action confidence 0.47 below 0.60"

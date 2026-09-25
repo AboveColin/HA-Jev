@@ -524,7 +524,11 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         language = user_input.language or self.hass.config.language
         if intent_response.response_type is ha_intent.IntentResponseType.QUERY_ANSWER:
             await _speak_the_answer(
-                self.hass, intent_response, language, await self._lines(language)
+                self.hass,
+                intent_response,
+                decision.intent_type,
+                language,
+                await self._lines(language),
             )
         elif (
             intent_response.response_type is ha_intent.IntentResponseType.ACTION_DONE
@@ -680,6 +684,7 @@ class _Shipped:
 
     state_answer: str | None
     writes_the_state_word: bool
+    temperature_answer: str | None
     errors: Mapping[str, str]
     # The sentences for each action intent, keyed by the response name the default
     # agent's own sentence data picks.
@@ -719,9 +724,15 @@ def _load_shipped(language: str) -> _Shipped | None:
     answer = responses.get("intents", {}).get("HassGetState", {}).get("one")
     if not isinstance(answer, str):
         answer = None
+    # German keys its one sentence current_temperature, every other language default.
+    temperatures = (
+        responses.get("intents", {}).get(ha_intent.INTENT_GET_TEMPERATURE) or {}
+    )
+    temperature = temperatures.get("default") or temperatures.get("current_temperature")
     return _Shipped(
         state_answer=answer,
         writes_the_state_word=bool(answer and _COMPARES_STATE.search(answer)),
+        temperature_answer=temperature if isinstance(temperature, str) else None,
         errors={
             key: text
             for key, text in responses.get("errors", {}).items()
@@ -864,6 +875,53 @@ async def _render_state_answer(
     return ", ".join(parts) if parts else None
 
 
+class _Reading(template.TemplateState):
+    """A state whose `state` is its number, where it is one."""
+
+    __slots__ = ("_reading",)
+
+    def __init__(self, hass: HomeAssistant, state: State, reading: float | None) -> None:
+        """Carry the number, or None to leave the state as it is."""
+        super().__init__(hass, state)
+        self._reading = reading
+
+    # State has a plain state attribute. TemplateStateBase makes it a property with
+    # the same ignore, so this one follows it.
+    @property
+    def state(self) -> Any:  # type: ignore[override]
+        """The number, or the state string when it is not one."""
+        return super().state if self._reading is None else self._reading
+
+
+async def _render_temperature_answer(
+    hass: HomeAssistant, state: State, language: str
+) -> str | None:
+    """The temperature as the default agent would say it, or None if it cannot.
+
+    The template reads current_temperature from a climate device and the state
+    from a sensor, and writes the unit and the decimal sign of the language. A
+    sensor's state is a string, and the Hungarian template writes only a number: the
+    default agent answered a 24.8 sensor with "Nem várt eredmény: 24.8". So a
+    sensor's state goes in as a number, as a climate device gives it.
+    """
+    shipped = await _shipped(hass, language)
+    if shipped is None or shipped.temperature_answer is None:
+        return None
+    try:
+        reading: float | None = float(state.state)
+    except ValueError:
+        reading = None
+    try:
+        rendered = template.Template(shipped.temperature_answer, hass).async_render(
+            {"slots": {}, "state": _Reading(hass, state, reading)},
+            parse_result=False,
+        )
+    except TemplateError as err:
+        _LOGGER.debug("the %s temperature answer did not render: %s", language, err)
+        return None
+    return " ".join(str(rendered).split()) or None
+
+
 # One kind of device across a room or the whole house. The names differ between
 # languages: English writes light_all and Polish lights_all.
 _AREA_RESPONSES = {"light": ("lights_area",), "fan": ("fans_area",)}
@@ -971,6 +1029,7 @@ async def _render_action_answer(
 async def _speak_the_answer(
     hass: HomeAssistant,
     response: ha_intent.IntentResponse,
+    intent_type: str,
     language: str,
     say: dict[str, str],
 ) -> None:
@@ -990,6 +1049,13 @@ async def _speak_the_answer(
     matched = response.matched_states
     if not matched:
         response.async_set_speech(say["query_not_found"])
+        return
+    if intent_type == ha_intent.INTENT_GET_TEMPERATURE:
+        spoken = await _render_temperature_answer(hass, matched[0], language)
+        if spoken is None:
+            temperature = matched[0].attributes.get("current_temperature")
+            spoken = f"{matched[0].state if temperature is None else temperature} degrees"
+        response.async_set_speech(spoken)
         return
     spoken = await _render_state_answer(
         hass, list(matched), list(response.unmatched_states), language
