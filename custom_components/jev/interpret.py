@@ -346,8 +346,9 @@ def build_questions(
                 # Answered in the same request as action, so it must fit a
                 # status check too.
                 "question": "Which device is this about?",
-                "background": "Match on the name and on the room. Pick "
-                "none_of_these when no single device is meant.",
+                "background": "Match on the name, any other name it is also "
+                "called, and the room. Pick none_of_these when no single device "
+                "is meant.",
             },
             entity_options,
         ),
@@ -547,7 +548,7 @@ def interpret(
         return out("no target named with enough confidence")
 
     if described is not None:
-        slots["name"] = {"value": described.name}
+        slots["name"] = {"value": described.slot_name}
         # The domain keeps a same-named entity the model was never shown, a lock
         # called "Front door" beside a cover called "Front door", out of the match.
         slots["domain"] = {"value": [described.domain]}
@@ -621,7 +622,7 @@ def _fit_as_well(
     ]
     if chosen not in kind:
         return [chosen]
-    fit = {e.entity_id: _name_fit(text, e.name) for e in kind}
+    fit = {e.entity_id: max(_name_fit(text, n) for n in e.names) for e in kind}
     best = max(fit.values())
     if best == 0 or fit[chosen.entity_id] < best:
         return [chosen]
@@ -652,7 +653,7 @@ def _a_hidden_name_fits_better(
     text: str, chosen: ExposedEntity, snapshot: HomeSnapshot
 ) -> bool:
     """A hidden name that the command says in more words than the chosen one."""
-    said = _words_said(text, chosen.name)
+    said = max(_words_said(text, name) for name in chosen.names)
     return any(_words_said(text, name) > said for name in snapshot.hidden_names)
 
 

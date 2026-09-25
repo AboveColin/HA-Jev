@@ -19,6 +19,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
+from homeassistant.helpers import intent
 
 # Domains a spoken command can act on through a built-in intent. Anything else is
 # left to the fallback agent rather than half-handled here.
@@ -56,10 +57,43 @@ class ExposedEntity:
     state: str
     # Home Assistant matches areas by id, and the model reads them by name.
     area_id: str | None = None
+    # The names Home Assistant's intents match this entity by, in the user's order.
+    # Empty means only the state name, as for an entity with no registry entry.
+    intent_names: tuple[str, ...] = ()
+
+    @property
+    def aliases(self) -> list[str]:
+        """The other names the entity answers to, each once."""
+        seen = {self.name.casefold()}
+        found = []
+        for alias in self.intent_names:
+            if alias.casefold() not in seen:
+                seen.add(alias.casefold())
+                found.append(alias)
+        return found
+
+    @property
+    def names(self) -> list[str]:
+        """Every name the command may use for this entity, its own first."""
+        return [self.name, *self.aliases]
+
+    @property
+    def slot_name(self) -> str:
+        """A name Home Assistant matches, for the intent's name slot.
+
+        The state name when it is one of them. A user can delete the entity's own
+        name from its aliases, and then only an alias finds it.
+        """
+        if not self.intent_names or self.name.casefold() in (
+            n.casefold() for n in self.intent_names
+        ):
+            return self.name
+        return self.intent_names[0]
 
     def as_option(self) -> str:
         where = f", in the {self.area}" if self.area else ""
-        return f"{self.name}{where} ({self.domain}, currently {self.state})"
+        also = f", also called {', '.join(self.aliases)}" if self.aliases else ""
+        return f"{self.name}{where}{also} ({self.domain}, currently {self.state})"
 
 
 @dataclass(slots=True)
@@ -95,6 +129,9 @@ class HomeSnapshot:
                 {
                     "entity_id": e.entity_id,
                     "name": e.name,
+                    # Every question reads this, not only the entity one. Without
+                    # the aliases, "turn on the worktop" scored its action 0.49.
+                    **({"also_called": list(e.aliases)} if e.aliases else {}),
                     "domain": e.domain,
                     "area": e.area or "unassigned",
                     "state": e.state,
@@ -146,6 +183,15 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     found: list[ExposedEntity] = []
     hidden: list[str] = []
     for state in hass.states.async_all():
+        # allow_empty=False gives the name Home Assistant falls back to. That name
+        # is "" for an entity with no name of its own, which matches nothing said.
+        intent_names = tuple(
+            name
+            for name in intent.async_get_entity_aliases(
+                hass, entities.async_get(state.entity_id), state=state, allow_empty=False
+            )
+            if name
+        )
         if (
             state.domain not in CONTROLLABLE
             or not async_should_expose(hass, CONVERSATION_DOMAIN, state.entity_id)
@@ -154,7 +200,7 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
                 and state.attributes.get("device_class") in ENTRANCE_COVERS
             )
         ):
-            hidden.append(state.name)
+            hidden.extend(dict.fromkeys((state.name, *intent_names)))
             continue
         area_id = area_id_of(state.entity_id)
         area = areas.async_get_area(area_id) if area_id else None
@@ -166,12 +212,13 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
                 area=area.name if area else None,
                 state=state.state,
                 area_id=area.id if area else None,
+                intent_names=intent_names,
             )
         )
     # Sorted so the option list is stable between requests, which makes a trace
     # readable when the same command is tried twice.
     found.sort(key=lambda e: e.entity_id)
-    hidden.extend(e.name for e in found[limit:])
+    hidden.extend(name for e in found[limit:] for name in e.names)
     found = found[:limit]
     # Counted after the cap, so a room that only had entities past the limit is not
     # offered as somewhere the command could go.

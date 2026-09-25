@@ -22,6 +22,16 @@ each other.
 The options for "which device" come from your entity registry, so what comes back is
 an `entity_id` that exists. The model picks from a list rather than writing one.
 
+The aliases you give an entity in its voice settings go with it: "Lamp, in the
+Office, also called Worktop". So "turn on the worktop" reaches the Lamp. On a test
+house of twelve entities, seven with an alias, 3 of 8 alias sentences picked their
+device below 0.6 without the aliases, and all 8 picked it at 0.91 or more with them.
+The action question reads the aliases too: without them, "turn on the worktop" scored
+its action 0.49 and went to the fallback. With them it scored 1.00. The aliases cost
+about 15 input tokens each. An alias counts as a name when two devices fit what you
+said, so a "Lamp" also called "Worktop lamp" wins "turn on the worktop lamp" over a
+second "Lamp".
+
 It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
 `HassLightSet` and `HassGetState`. Lights, switches, fans, covers, media players,
 climate entities, vacuums, input booleans, scenes and scripts are turned on and off
