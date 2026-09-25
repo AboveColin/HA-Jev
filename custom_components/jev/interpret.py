@@ -23,6 +23,10 @@ from jevclient import Choice, ChoiceAnswer, JevResponse, Noul, NoulAnswer, Quest
 from .snapshot import ExposedEntity, HomeSnapshot
 
 NONE = "none_of_these"
+# Not an action: the sentence tells what someone already did, or says not to do
+# something. Without this option, "I turned off the lamp" turned the lamp off and
+# "zet de lamp niet aan" turned it off.
+REPORT = "report"
 
 # Every action the router can take, and the intent each one runs. Anything absent
 # goes to the fallback agent rather than being approximated here.
@@ -290,6 +294,8 @@ def build_questions(
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
                 "changing nothing",
+                REPORT: "Nothing is asked for: it tells what someone already did, "
+                "or says not to do something",
                 NONE: "None of these, such as playing, pausing, stopping or "
                 "skipping media, or the request is not about the house",
             },
@@ -330,6 +336,13 @@ def build_questions(
             true="It asks for a position between open and closed",
             false="It asks for fully open or closed, or it is not about opening "
             "or closing",
+        ),
+        # Home Assistant's intents have no way to leave a device out, so "turn off
+        # everything but the TV" turned off the TV too.
+        "except": Noul(
+            "Does the command name a device or room to leave out?",
+            true="It says except, but, apart from or other than, and what to leave out",
+            false="Nothing is left out",
         ),
         "target_type": Choice(
             "How is the target named?",
@@ -416,11 +429,15 @@ def interpret(
         return out("for another time or on a condition")
     if noul("part") >= 0.5:
         return out("a position part of the way")
+    if noul("except") >= 0.5:
+        return out("something is left out")
 
     action = choice("action")
     entity = choice("entity")
     if action is None or action.choice == NONE:
         return out("not a house command")
+    if action.choice == REPORT:
+        return out("nothing is asked for")
     if action.confidence < min_confidence:
         # A command that is already done reads as a low-confidence one.
         #
