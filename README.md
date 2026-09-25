@@ -2,6 +2,7 @@
 [![hassfest](https://github.com/AboveColin/HA-Jev/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/AboveColin/HA-Jev/actions/workflows/hassfest.yaml)
 [![HACS Action](https://github.com/AboveColin/HA-Jev/actions/workflows/hacs.yaml/badge.svg)](https://github.com/AboveColin/HA-Jev/actions/workflows/hacs.yaml)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Home Assistant](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FAboveColin%2FHA-Jev%2Fmain%2Fhacs.json&query=%24.homeassistant&label=Home%20Assistant&prefix=%E2%89%A5%20&color=41BDF5&logo=homeassistant)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/AboveColin/HA-Jev)](https://github.com/AboveColin/HA-Jev/releases)
 [![License](https://img.shields.io/github/license/AboveColin/HA-Jev)](LICENSE)
 
