@@ -7,11 +7,12 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying five to seven questions. Five are always
-there: what should happen, is it compound, does it need text written, how is the
-target named, which entity. Which room is added when you have rooms holding exposed
+One sentence becomes one request carrying seven to nine questions. Seven are always
+there: what should happen, is it compound, does it need text written, is it for
+another time or on a condition, is it a position part of the way, how is the target
+named, which entity. Which room is added when you have rooms holding exposed
 entities, and which kind of device when the exposed entities span two domains or
-more. A one-domain house with no areas is asked five.
+more. A one-domain house with no areas is asked seven.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -58,6 +59,8 @@ says "Done."
 | Below the confidence floor | The whole sentence goes to the fallback agent, nothing done first |
 | Two commands in one sentence | Fallback |
 | Needs words written or looked up | Fallback |
+| For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
+| A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
 | A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
@@ -108,7 +111,9 @@ up a bill.
 
 Measured live: 257 to 455 ms warm, 512 to 753 ms on the first call after a restart,
 and 1,329 to 1,371 input tokens per command with five entities exposed. Thirty
-commands came to $0.0017.
+commands came to $0.0017. That was with seven questions. The two added in 1.16.1
+cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
+same time warm: 261 ms before, 263 ms after.
 
 ## Brightness comes from a regex
 
@@ -125,8 +130,14 @@ number needs a word about light level next to it, `dimme ... auf 30` or `ztlum .
 With several numbers, the last one is the level: `dim bedroom 2 to 30` gives 30.
 
 A relative change gives no brightness, so `20% brighter`, `dim it by 20` and
-`20%-kal halványabbra` go to the fallback agent rather than setting 20. A number over 100 or with a decimal point is
-not a percentage.
+`20%-kal halványabbra` go to the fallback agent rather than setting 20. A word for
+"to" in front of the number makes it a level, so `turn up the lamp to 80%`,
+`verhoog de helderheid naar 80%` and `növeld a fényerőt 80%-ra` give 80. A word for
+"by", or a word for changing with no "to", makes it an amount: `increase the
+brightness by 20%`, `turn the lamp down 20%`, `erhöhe die Helligkeit um 20%` and
+`把灯调亮20%` give none. In a test of 52 relative sentences in 14 languages, 45 set
+the amount as the level before this rule and none do now. A number over 100 or with
+a decimal point is not a percentage.
 
 ## A command that is already done
 

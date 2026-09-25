@@ -46,6 +46,8 @@ def answer_set(**overrides):
         "action": ChoiceAnswer(choice="turn_on", probabilities={}, confidence=0.97),
         "compound": NoulAnswer(noul=0.02),
         "free_text": NoulAnswer(noul=0.01),
+        "later": NoulAnswer(noul=0.03),
+        "part": NoulAnswer(noul=0.04),
         "target_type": ChoiceAnswer(choice="entity", probabilities={}, confidence=0.9),
         "entity": ChoiceAnswer(choice="light.kitchen", probabilities={}, confidence=1.0),
         "area": ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.4),
@@ -149,9 +151,16 @@ async def test_every_question_goes_in_one_request(hass, house, mock_client):
 
     assert mock_client.ask.await_count == 1
     questions = mock_client.ask.call_args.args[1]
-    assert {"action", "compound", "free_text", "target_type", "entity", "area"} <= set(
-        questions
-    )
+    assert {
+        "action",
+        "compound",
+        "free_text",
+        "later",
+        "part",
+        "target_type",
+        "entity",
+        "area",
+    } <= set(questions)
 
 
 async def test_an_area_command_reaches_both_lights_in_that_area(hass, house, mock_client):
@@ -205,6 +214,33 @@ async def test_a_compound_command_acts_on_nothing(hass, house, mock_client):
 
     assert calls == []
     assert "did not understand" in result.response.speech["plain"]["speech"]
+    assert result.response.error_code is ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
+
+
+@pytest.mark.parametrize(
+    ("question", "text"),
+    [
+        # Measured: turn_off 0.97 and turn_on 0.98 with nothing else to stop them.
+        ("later", "turn off the lamp in 10 minutes"),
+        ("later", "turn on the kitchen light when I get home"),
+        # turn_on opens a cover all the way.
+        ("part", "open the blinds halfway"),
+    ],
+)
+async def test_a_command_for_later_or_part_of_the_way_acts_on_nothing(
+    hass, house, mock_client, question, text
+):
+    mock_client.ask.return_value = build_response(
+        **answer_set(**{question: NoulAnswer(noul=0.97)})
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    result = await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert calls == []
     assert result.response.error_code is ha_intent.IntentResponseErrorCode.NO_INTENT_MATCH
 
 
@@ -1450,6 +1486,53 @@ async def test_two_devices_with_one_name_resolve_by_room(hass, house, mock_clien
 )
 def test_a_brightness_is_only_read_when_it_is_a_level(text, expected):
     """A relative change, a fraction or a room number is not a level to set."""
+    assert find_brightness(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A change by an amount. Before, each of these set the amount as the level.
+        ("increase the brightness by 20%", None),
+        ("turn the lamp down 20%", None),
+        ("20% less", None),
+        ("brightness minus 20%", None),
+        ("dim the lamp 20 percent", None),
+        ("set the lamp to 20% brighter", None),
+        ("erhöhe die Helligkeit um 20%", None),
+        ("verhoog de helderheid met 20%", None),
+        ("augmente la luminosité de 20%", None),
+        ("abbassa la luce del 20 per cento", None),
+        ("sube el brillo un 20%", None),
+        ("aumente o brilho em 20%", None),
+        ("zwiększ jasność o 20%", None),
+        ("öka ljusstyrkan med 20%", None),
+        ("gør lampen 20% lysere", None),
+        ("zvyš jas o 20 %", None),
+        ("уменьши яркость на 20 процентов", None),
+        ("把灯调亮20%", None),
+        ("亮度降低百分之20", None),
+        ("növeld a fényerőt 20%-kal", None),
+        # A change word with "to" in front of the number is a level.
+        ("turn up the lamp to 80%", 80),
+        ("lower the lamp to 20%", 20),
+        ("Helligkeit auf 50 Prozent erhöhen", 50),
+        ("verhoog de helderheid naar 80%", 80),
+        ("augmente la luminosité à 80%", 80),
+        ("aumenta la luminosità al 80%", 80),
+        ("sube el brillo al 80%", 80),
+        ("aumente o brilho para 80%", 80),
+        ("zwiększ jasność do 80%", 80),
+        ("öka ljusstyrkan till 80%", 80),
+        ("øg lysstyrken til 80%", 80),
+        ("zvyš jas na 80 %", 80),
+        ("увеличь яркость до 80%", 80),
+        ("增加亮度到80%", 80),
+        ("növeld a fényerőt 80%-ra", 80),
+        ("legyen világosabb 30-ra", 30),
+    ],
+)
+def test_a_change_by_an_amount_is_not_a_level(text, expected):
     assert find_brightness(text) == expected
 
 
