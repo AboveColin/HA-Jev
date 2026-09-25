@@ -317,6 +317,7 @@ def _only_a_name(text: str, snapshot: HomeSnapshot) -> bool:
         *snapshot.areas,
         *(a for aliases in snapshot.area_aliases.values() for a in aliases),
         *snapshot.floors,
+        *(a for aliases in snapshot.floor_aliases.values() for a in aliases),
     ]
     return bool(said) and any(_letters(n) == said for n in names)
 
@@ -590,11 +591,19 @@ def build_questions(
     # With no floor question, "turn off the lights upstairs" went to the fallback
     # agent, 2 runs of 2. With it, five floor commands in three languages acted on
     # the right floor in two runs each, at 0.97 to 1.00, and six controls acted as
-    # before.
+    # before. A floor alias needs the aliases: with the names only, four commands
+    # naming a floor by its alias ("the loft", "zolder") went to the fallback agent
+    # in 8 runs of 8, and with them all 8 acted on the right floor.
     if snapshot.floors:
         questions["floor"] = Choice(
             "Which floor is meant?",
-            dict.fromkeys(snapshot.floors) | {NONE: "No floor is named"},
+            {
+                f: f"{f}, also called {', '.join(also)}"
+                if (also := snapshot.floor_aliases.get(f))
+                else None
+                for f in snapshot.floors
+            }
+            | {NONE: "No floor is named"},
         )
     if len(snapshot.domains) >= 2:
         questions["domain"] = Choice(
@@ -667,6 +676,7 @@ def interpret(
             *snapshot.areas,
             *(a for aliases in snapshot.area_aliases.values() for a in aliases),
             *snapshot.floors,
+            *(a for aliases in snapshot.floor_aliases.values() for a in aliases),
             *snapshot.hidden_names,
         ],
     )

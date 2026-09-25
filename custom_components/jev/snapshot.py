@@ -106,6 +106,8 @@ class HomeSnapshot:
     # by its aliases, and the model has to know them to name the area.
     area_aliases: dict[str, list[str]] = field(default_factory=dict)
     floors: list[str] = field(default_factory=list)
+    # The same for floors. Home Assistant matches a floor by its aliases too.
+    floor_aliases: dict[str, list[str]] = field(default_factory=dict)
     # Names of the entities the model is not shown: not exposed, left out above, or
     # past the cap. They never leave Home Assistant. interpret() reads them so that
     # "the desk lamp" cannot land on an exposed "Lamp" when the desk lamp is hidden.
@@ -147,8 +149,20 @@ class HomeSnapshot:
                 else a
                 for a in self.areas
             ],
-            "floors": self.floors,
+            "floors": [
+                {"name": f, "also_called": self.floor_aliases[f]}
+                if self.floor_aliases.get(f)
+                else f
+                for f in self.floors
+            ],
         }
+
+
+def _other_names(name: str, aliases: set[str]) -> list[str]:
+    """The aliases of an area or a floor that differ from its name, sorted."""
+    return sorted(
+        {a for a in aliases if a.casefold() != name.casefold()}, key=str.casefold
+    )
 
 
 @callback
@@ -243,6 +257,7 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     # the agent cannot act in is not an option, it is a trap.
     used_areas = [areas.async_get_area(a) for a in used_area_ids]
     used_floor_ids = {a.floor_id for a in used_areas if a and a.floor_id}
+    used_floors = [f for f in floors.async_list_floors() if f.floor_id in used_floor_ids]
 
     return HomeSnapshot(
         entities=found,
@@ -250,16 +265,13 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
         area_aliases={
             a.name: aliases
             for a in used_areas
-            if a
-            and (
-                aliases := sorted(
-                    {x for x in a.aliases if x.casefold() != a.name.casefold()},
-                    key=str.casefold,
-                )
-            )
+            if a and (aliases := _other_names(a.name, a.aliases))
         },
-        floors=sorted(
-            f.name for f in floors.async_list_floors() if f.floor_id in used_floor_ids
-        ),
+        floors=sorted(f.name for f in used_floors),
+        floor_aliases={
+            f.name: aliases
+            for f in used_floors
+            if (aliases := _other_names(f.name, f.aliases))
+        },
         hidden_names=hidden,
     )
