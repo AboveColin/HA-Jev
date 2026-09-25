@@ -464,9 +464,22 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             # miss, not a failure, so the fallback agent gets the sentence intact.
             _LOGGER.debug("intent %s matched nothing: %s", decision.intent_type, err)
             return await self._fall_back(user_input, "the named target was not found")
+        except ha_intent.IntentHandleError as err:
+            # Home Assistant raises this only when no entity succeeded, so nothing
+            # changed. A media player with no turn_off does this, and the fallback
+            # agent may know another way to do what was asked.
+            _LOGGER.debug("intent %s failed: %s", decision.intent_type, err)
+            return await self._fall_back(
+                user_input, "the intent failed on every target", "intent_failed"
+            )
         except ha_intent.IntentError as err:
             _LOGGER.error("intent %s failed: %s", decision.intent_type, err)
-            return await self._speak(user_input, "intent_failed")
+            # An error, so a satellite does not hear it as a command that went through.
+            return await self._speak(
+                user_input,
+                "intent_failed",
+                error=ha_intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+            )
 
         # Loading our lines reads translations, so only a reply without a sentence of
         # its own loads them.

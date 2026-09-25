@@ -35,8 +35,8 @@ ACTIONS: dict[str, str] = {
 }
 
 # The words that turn a number into a percentage, in the languages the integration
-# is translated into. "%" carries most of the traffic; these are for a satellite
-# that transcribes the word instead of the sign.
+# is translated into, and in Hungarian. "%" carries most of the traffic; these are
+# for a satellite that transcribes the word instead of the sign.
 _PERCENT_WORDS = (
     "%",
     r"per ?cento?",  # en, and it "per cento"
@@ -46,6 +46,7 @@ _PERCENT_WORDS = (
     "por ?ciento",  # es
     "por ?cento",  # pt-BR
     r"процент\w*",  # ru
+    r"százalék\w*",  # hu
 )
 # The lookarounds keep a number whole: "1000 percent" and "12.5 percent" are not
 # brightnesses, and without them the regex found 0 and 5 inside them.
@@ -57,13 +58,116 @@ _PERCENT_PREFIX = re.compile(r"百分之\s*" + _NUMBER)
 # the number and \b never fires between two characters that are both word
 # characters. "\u628a\u706f\u8c03\u6697\u523030" has to give 30.
 _BARE_NUMBER = re.compile(_NUMBER)
-# "20% brighter" and "dim it by 20" change the level by an amount. HassLightSet only
-# sets a level, so these go to the fallback agent rather than being read as 20%.
-_RELATIVE = re.compile(
-    r"\b(?:brighter|dimmer|darker)\b"
-    r"|\b(?:by|met|um)\s+\d",
+# A number can be the level to set or the amount to change it by. HassLightSet only
+# sets a level, so an amount goes to the fallback agent rather than being read as
+# the level: "turn it up 20%" on a light at 60% set it to 20. When the words are
+# unclear the number is not read, because a fallback costs a sentence and a wrong
+# level turns the room dark.
+#
+# Words in front of the number that make it the level: "to 20%", "auf 20".
+_TO = re.compile(
+    r"(?:\b(?:to|at|auf|zu|op|naar|tot|à|a|au|al|allo|alla|para|na|do|på|till|til|до)"
+    r"|到|为|成|至)\s*$",
     re.IGNORECASE,
 )
+# Words in front of the number that make it an amount: "by 20%", "um 20". Russian
+# "на", Portuguese "em" and Spanish "en" mean both, so the change words below decide.
+_BY = re.compile(
+    r"\b(?:by|um|met|de|del|di|un|o|med)\s*$",
+    re.IGNORECASE,
+)
+# Hungarian puts "to" and "by" on the number as a suffix: "20%-ra", "20%-kal".
+_TO_SUFFIX = re.compile(r"^(?:\s*százalék)?-?(?:ra|re)\b", re.IGNORECASE)
+_BY_SUFFIX = re.compile(r"^(?:\s*százalék)?-?(?:kal|kel)\b", re.IGNORECASE)
+# Words anywhere in the sentence that ask for a change rather than a level. They
+# count only when no "to" stands in front of the number, so "turn it up to 50%" is
+# still 50. Stems, matched at a word start.
+_CHANGE_STEMS = {
+    "en": (
+        # "dim the lamp 20 percent" can mean either. "dim it to 20" is a level.
+        r"(?:increase|decrease|raise|lower|reduce|boost|add|brighten)",
+        r"dim\b",
+        r"(?:up|down|more|less|plus|minus|brighter|dimmer|darker)\b",
+    ),
+    "de": (
+        "erhöh",
+        "verringer",
+        "reduzier",
+        "senk",
+        "heller",
+        "dunkler",
+        "mehr\b",
+        "weniger",
+        "plus\b",
+        "minus\b",
+    ),
+    "nl": (
+        "verhoog",
+        "verlaag",
+        "feller",
+        "lichter",
+        "donkerder",
+        "meer\b",
+        "minder\b",
+        "min\b",
+    ),
+    "fr": ("augment", "baiss", "diminu", "rédui", "redui", "plus\b", "moins\b"),
+    "it": ("aument", "abbass", "diminu", "riduc", "più\b", "piu\b", "meno\b"),
+    "es": ("aument", "sube", "baja", "disminu", "reduc", "más\b", "menos\b"),
+    "pt-BR": ("aument", "diminu", "reduz", "mais\b", "menos\b"),
+    "pl": (
+        "zwiększ",
+        "zmniejsz",
+        "podnieś",
+        "obniż",
+        "jaśniej",
+        "ciemniej",
+        "więcej",
+        "mniej",
+    ),
+    "sv": ("öka", "sänk", "minska", "ljusare", "mörkare", "mer\b", "mindre\b"),
+    "da": ("øg\b", "sænk", "lysere", "mørkere", "mere\b", "mindre\b"),
+    "cs": ("zvyš", "zvýš", "sniž", "jasněji", "tmavěji", "víc", "méně"),
+    "ru": (
+        "увелич",
+        "уменьш",
+        "прибав",
+        "убав",
+        "повыс",
+        "пониз",
+        "ярче",
+        "темнее",
+        "больше",
+        "меньше",
+    ),
+    "hu": ("növel", "csökkent", "halványabb", "világosabb", "fényesebb", "sötétebb"),
+}
+_CHANGE = re.compile(
+    r"\b(?:" + "|".join(s for g in _CHANGE_STEMS.values() for s in g) + ")",
+    re.IGNORECASE,
+)
+# No spaces in Chinese, so a word boundary never fires in front of these.
+_CHANGE_CJK = (
+    "增加",
+    "减少",
+    "降低",
+    "提高",
+    "调亮",
+    "调暗",
+    "调高",
+    "调低",
+    "更亮",
+    "更暗",
+)
+# A comparative straight after the number is an amount even behind "to": the
+# sentence says "20% brighter", not "to 20%".
+_COMPARATIVE_AFTER = re.compile(
+    r"^\s*(?:%|" + "|".join(_PERCENT_WORDS[1:]) + r")?\s*(?:"
+    r"brighter|dimmer|darker|more|less|heller|dunkler|feller|lichter|donkerder"
+    r"|plus|ljusare|mörkare|lysere|mørkere|ярче|темнее|更亮|更暗)",
+    re.IGNORECASE,
+)
+
 
 # A bare number becomes a brightness only when the sentence also says something
 # about light level. The model already chose set_brightness by this point, so this
@@ -82,6 +186,7 @@ _LEVEL_STEMS = {
     "da": ("lys", "dæmp"),
     "cs": ("jas", "ztlum", "stmív"),
     "ru": ("ярк", "приглуш", "свет"),
+    "hu": ("fény", "halvány", "világos"),
 }
 _LEVEL = re.compile(
     r"\b(?:" + "|".join(s for g in _LEVEL_STEMS.values() for s in g) + ")",
@@ -97,22 +202,41 @@ def _in_range(raw: str) -> int | None:
 
 
 def find_brightness(text: str) -> int | None:
-    """A percentage in the text, if there is one.
+    """The level a sentence sets, if it says one.
 
     Prefers an explicit percent sign, because "turn on 2 lamps" holds a number that
     is not a brightness. Without one, the last number wins, because a device name
-    comes before its level: "lamp 2 brightness to 40" means 40.
+    comes before its level: "lamp 2 brightness to 40" means 40. A number that is an
+    amount to change the level by gives None.
     """
-    if _RELATIVE.search(text):
+    found = (
+        _PERCENT.search(text)
+        or _PERCENT_PREFIX.search(text)
+        or (_last_level_number(text))
+    )
+    if found is None or _is_an_amount(text, found):
         return None
-    if m := _PERCENT.search(text):
-        return _in_range(m.group(1))
-    if m := _PERCENT_PREFIX.search(text):
-        return _in_range(m.group(1))
-    if _LEVEL.search(text) or any(word in text for word in _LEVEL_CJK):
-        if numbers := _BARE_NUMBER.findall(text):
-            return _in_range(numbers[-1])
-    return None
+    return _in_range(found.group(1))
+
+
+def _last_level_number(text: str) -> re.Match[str] | None:
+    if not (_LEVEL.search(text) or any(word in text for word in _LEVEL_CJK)):
+        return None
+    *_, last = (None, *_BARE_NUMBER.finditer(text))
+    return last
+
+
+def _is_an_amount(text: str, number: re.Match[str]) -> bool:
+    before, after = text[: number.start()], text[number.end() :]
+    # "百分之" sits in front of the number, so the words before it come before that.
+    before = before.removesuffix("百分之").rstrip()
+    if _COMPARATIVE_AFTER.search(after) or _BY_SUFFIX.search(after):
+        return True
+    if _TO.search(before) or _TO_SUFFIX.search(after):
+        return False
+    if _BY.search(before):
+        return True
+    return bool(_CHANGE.search(text)) or any(word in text for word in _CHANGE_CJK)
 
 
 @dataclass(slots=True)
@@ -158,14 +282,16 @@ def build_questions(
                 # No lock wording here on purpose. The agent does not control
                 # locks, and Home Assistant's on/off convention for them runs the
                 # opposite way round from speech. See CONTROLLABLE in snapshot.py.
-                "turn_on": "Switch something on, open it, start it, "
-                "or run a script or scene",
-                "turn_off": "Switch something off, close it, or stop it",
+                # No playback wording either. "Stop the music" is not a power
+                # command, and a player without turn_off fails it.
+                "turn_on": "Switch something on, open it, or run a script or scene",
+                "turn_off": "Switch something off or close it",
                 "toggle": "Flip whatever state it is in now",
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
                 "changing nothing",
-                NONE: "None of these, or the request is not about the house",
+                NONE: "None of these, such as playing, pausing, stopping or "
+                "skipping media, or the request is not about the house",
             },
         ),
         "compound": Noul(
@@ -185,6 +311,25 @@ def build_questions(
             },
             true="It needs text written, quoted or looked up",
             false="It is a device command or a question about device state",
+        ),
+        # Home Assistant's own agent has no timer or condition for an on/off
+        # command, so "turn off the lamp in 10 minutes" would turn it off now.
+        # A brightness level is not a part-way position, so each gets its own
+        # question: one that asked about both scored "set the lamp to 40
+        # percent" at 0.64 and refused it.
+        "later": Noul(
+            "Does the command say to do it at another time, for a set time, or "
+            "only if something happens?",
+            true="It gives a time, a delay, a duration or a condition",
+            false="It is to be done now",
+        ),
+        # turn_on opens a cover all the way, so "open the blinds halfway" read as
+        # turn_on opens them fully.
+        "part": Noul(
+            "Does the command ask to open or close something only part of the way?",
+            true="It asks for a position between open and closed",
+            false="It asks for fully open or closed, or it is not about opening "
+            "or closing",
         ),
         "target_type": Choice(
             "How is the target named?",
@@ -267,6 +412,10 @@ def interpret(
         return out("several commands in one sentence")
     if noul("free_text") >= 0.5:
         return out("needs text written or looked up")
+    if noul("later") >= 0.5:
+        return out("for another time or on a condition")
+    if noul("part") >= 0.5:
+        return out("a position part of the way")
 
     action = choice("action")
     entity = choice("entity")

@@ -7,11 +7,12 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying five to seven questions. Five are always
-there: what should happen, is it compound, does it need text written, how is the
-target named, which entity. Which room is added when you have rooms holding exposed
+One sentence becomes one request carrying seven to nine questions. Seven are always
+there: what should happen, is it compound, does it need text written, is it for
+another time or on a condition, is it a position part of the way, how is the target
+named, which entity. Which room is added when you have rooms holding exposed
 entities, and which kind of device when the exposed entities span two domains or
-more. A one-domain house with no areas is asked five.
+more. A one-domain house with no areas is asked seven.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -25,6 +26,11 @@ It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
 `HassLightSet` and `HassGetState`. Lights, switches, fans, covers, media players,
 climate entities, vacuums, input booleans, scenes and scripts are turned on and off
 this way. Climate setpoints, and anything else, go to the fallback agent.
+
+Playing, pausing, stopping and skipping media also go to the fallback agent. A
+music player often has no `turn_off`, so "stop the music" read as turning it off
+fails. With playback named as none of the above, a test of six playback sentences
+all came back none of the above at 0.92 or more.
 
 Locks are not on that list and are never described to the model. Home Assistant reads
 turn_on on a lock as `lock.lock` and turn_off as `lock.unlock`, the opposite way
@@ -53,12 +59,15 @@ says "Done."
 | Below the confidence floor | The whole sentence goes to the fallback agent, nothing done first |
 | Two commands in one sentence | Fallback |
 | Needs words written or looked up | Fallback |
+| For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
+| A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
 | A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
 | Two devices whose names fit the command equally well | Asks which one, see below |
+| The device cannot do the action, such as a player with no `turn_off` | Fallback. Home Assistant reports this only when no device changed |
 | Too little budget left for the command, a rejected key or no answer | Fallback. With no fallback agent it says which of the three it was, as an error reply |
 
 !!! info "It only sees what Assist sees"
@@ -102,7 +111,9 @@ up a bill.
 
 Measured live: 257 to 455 ms warm, 512 to 753 ms on the first call after a restart,
 and 1,329 to 1,371 input tokens per command with five entities exposed. Thirty
-commands came to $0.0017.
+commands came to $0.0017. That was with seven questions. The two added in 1.16.1
+cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
+same time warm: 261 ms before, 263 ms after.
 
 ## Brightness comes from a regex
 
@@ -112,15 +123,21 @@ asking the model. Jev judges and does not calculate, and a regex is exact and fr
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
 
-The percent word is read in every language the integration is translated into, so
-`40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`, `40 procent`,
-`40 процентов` and `百分之40` all give 40. A bare number needs a word about light
-level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
+The percent word is read in every language the integration is translated into, and
+in Hungarian, so `40 Prozent`, `40 pour cent`, `40 per cento`, `40 por ciento`,
+`40 procent`, `40 процентов`, `40 százalékra` and `百分之40` all give 40. A bare
+number needs a word about light level next to it, `dimme ... auf 30` or `ztlum ... na 30`, or it stays a count.
 With several numbers, the last one is the level: `dim bedroom 2 to 30` gives 30.
 
-A relative change gives no brightness, so `20% brighter` and `dim it by 20` go to the
-fallback agent rather than setting 20. A number over 100 or with a decimal point is
-not a percentage.
+A relative change gives no brightness, so `20% brighter`, `dim it by 20` and
+`20%-kal halványabbra` go to the fallback agent rather than setting 20. A word for
+"to" in front of the number makes it a level, so `turn up the lamp to 80%`,
+`verhoog de helderheid naar 80%` and `növeld a fényerőt 80%-ra` give 80. A word for
+"by", or a word for changing with no "to", makes it an amount: `increase the
+brightness by 20%`, `turn the lamp down 20%`, `erhöhe die Helligkeit um 20%` and
+`把灯调亮20%` give none. In a test of 52 relative sentences in 14 languages, 45 set
+the amount as the level before this rule and none do now. A number over 100 or with
+a decimal point is not a percentage.
 
 ## A command that is already done
 
