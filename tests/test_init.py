@@ -142,6 +142,10 @@ async def test_a_call_that_does_not_fit_the_budget_is_never_sent(hass, mock_clie
     assert int(issue.translation_placeholders["estimate"]) > 100 - PROBE_TOKENS
 
 
+# Noon in the test time zone, US/Pacific. The test moves the clock 310 s, and within
+# 310 s of midnight that crossed into a new day and reset the budget. A CI run that
+# started at 23:56 Pacific failed on it.
+@pytest.mark.freeze_time("2026-09-25T19:00:00+00:00")
 async def test_the_budget_stops_the_next_call_and_keeps_what_it_has(hass, mock_client):
     """One call fits, the one after it does not, and the answers stay put."""
     mock_client.ask.return_value = build_response(

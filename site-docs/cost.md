@@ -35,7 +35,7 @@ grouping does for you automatically.
 
 For a small house, the **questions** dominate. A spoken command with 5 entities
 exposed was about 1,350 tokens with seven questions, which were most of it. The
-agent asks nine since 1.16.1, 127 tokens more.
+agent asks nine since 1.16.1, 127 tokens more, and ten since 1.17, 48 more.
 
 For a large target, the **entities** dominate. At 150 entities you are paying
 roughly 110 tokens per entity per call.

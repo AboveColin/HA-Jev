@@ -48,6 +48,7 @@ def answer_set(**overrides):
         "free_text": NoulAnswer(noul=0.01),
         "later": NoulAnswer(noul=0.03),
         "part": NoulAnswer(noul=0.04),
+        "except": NoulAnswer(noul=0.03),
         "target_type": ChoiceAnswer(choice="entity", probabilities={}, confidence=0.9),
         "entity": ChoiceAnswer(choice="light.kitchen", probabilities={}, confidence=1.0),
         "area": ChoiceAnswer(choice="none_of_these", probabilities={}, confidence=0.4),
@@ -157,6 +158,7 @@ async def test_every_question_goes_in_one_request(hass, house, mock_client):
         "free_text",
         "later",
         "part",
+        "except",
         "target_type",
         "entity",
         "area",
@@ -218,6 +220,37 @@ async def test_a_compound_command_acts_on_nothing(hass, house, mock_client):
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        # The first two acted, 2 runs of 2, before the report option. The third
+        # answered a question that was not asked.
+        "I turned off the lamp",
+        "zet de keukenlamp niet aan",
+        "the kitchen light is on",
+    ],
+)
+async def test_a_sentence_that_asks_for_nothing_acts_on_nothing(
+    hass, house, mock_client, text
+):
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            action=ChoiceAnswer(choice="report", probabilities={}, confidence=0.9)
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+    hass.services.async_register("light", "turn_off", lambda call: calls.append(call))
+
+    result = await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert calls == []
+    assert "did not understand" in result.response.speech["plain"]["speech"]
+    trace = house.runtime_data.conversation_traces[0]
+    assert trace["reason"] == "nothing is asked for"
+
+
+@pytest.mark.parametrize(
     ("question", "text"),
     [
         # Measured: turn_off 0.97 and turn_on 0.98 with nothing else to stop them.
@@ -225,6 +258,9 @@ async def test_a_compound_command_acts_on_nothing(hass, house, mock_client):
         ("later", "turn on the kitchen light when I get home"),
         # turn_on opens a cover all the way.
         ("part", "open the blinds halfway"),
+        # Home Assistant turned off the TV as well, 2 runs of 2.
+        ("except", "turn off everything but the TV"),
+        ("except", "turn off all the lights except the kitchen"),
     ],
 )
 async def test_a_command_for_later_or_part_of_the_way_acts_on_nothing(

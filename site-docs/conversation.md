@@ -7,12 +7,12 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying seven to nine questions. Seven are always
+One sentence becomes one request carrying eight to ten questions. Eight are always
 there: what should happen, is it compound, does it need text written, is it for
-another time or on a condition, is it a position part of the way, how is the target
-named, which entity. Which room is added when you have rooms holding exposed
+another time or on a condition, is it a position part of the way, does it leave
+something out, how is the target named, which entity. Which room is added when you have rooms holding exposed
 entities, and which kind of device when the exposed entities span two domains or
-more. A one-domain house with no areas is asked seven.
+more. A one-domain house with no areas is asked eight.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -77,6 +77,8 @@ says "Done."
 | Needs words written or looked up | Fallback |
 | For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
 | A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
+| Something left out, such as "turn off everything but the TV" | Fallback. Home Assistant's intents cannot leave a device out, so the TV went off too |
+| Nothing asked for, such as "I turned off the lamp" or "zet de lamp niet aan" | Fallback. Both acted before: the first turned the lamp off, the second turned it off instead of leaving it |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
 | A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
@@ -129,7 +131,14 @@ Measured live: 257 to 455 ms warm, 512 to 753 ms on the first call after a resta
 and 1,329 to 1,371 input tokens per command with five entities exposed. Thirty
 commands came to $0.0017. That was with seven questions. The two added in 1.16.1
 cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
-same time warm: 261 ms before, 263 ms after.
+same time warm: 261 ms before, 263 ms after. The question about something left out
+and the option for nothing asked for, added in 1.17, cost 48 more: 1,743 to 1,751
+before and 1,791 to 1,799 after, with twelve entities exposed.
+
+In a test of 22 sentences run twice, 11 of them things to refuse, 14 runs acted when
+they should not have before these two and 2 do now. Both are "turn off the lamps",
+which turns off every light. In a control run of 77 sentences run twice, no sentence
+that was right before is wrong now.
 
 ## Brightness
 
