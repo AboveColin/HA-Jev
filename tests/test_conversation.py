@@ -1892,6 +1892,110 @@ async def test_the_whole_name_said_is_the_device_meant(
     assert [e for c in calls for e in c.data["entity_id"]] == [chosen]
 
 
+def alias(hass, entity_id, *names, keep_own_name=True):
+    """Give an entity Assist aliases, as the entity settings dialog does."""
+    aliases = [er.COMPUTED_NAME, *names] if keep_own_name else list(names)
+    er.async_get(hass).async_update_entity(entity_id, aliases=aliases)
+
+
+async def test_the_model_is_shown_the_aliases(hass, house, mock_client):
+    alias(hass, "light.kitchen", "Worktop", "Kitchen light")
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    await converse(hass, "worktop on")
+
+    options = mock_client.ask.call_args.args[1]["entity"].criteria
+    # Its own name is not repeated as an alias.
+    assert options["light.kitchen"] == (
+        "Kitchen light, in the Kitchen, also called Worktop (light, currently off)"
+    )
+    assert options["light.office"] == "Office light, in the Office (light, currently off)"
+    # Every question reads the state. Without the aliases there, the action
+    # question could not tell that "worktop" names a device.
+    entities = {e["entity_id"]: e for e in mock_client.ask.call_args.args[0]["entities"]}
+    assert entities["light.kitchen"]["also_called"] == ["Worktop"]
+    assert "also_called" not in entities["light.office"]
+
+
+async def test_an_alias_said_in_full_settles_two_devices_with_one_name(
+    hass, house, mock_client
+):
+    """Two lamps, and only one is also called the worktop lamp. No question needed.
+
+    Without the alias, both names fit "lamp" equally and the agent asks which.
+    """
+    rename(hass, "light.kitchen", "Lamp")
+    rename(hass, "light.office", "Lamp")
+    alias(hass, "light.kitchen", "Worktop lamp")
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice="light.kitchen", probabilities={}, confidence=1.0),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the worktop lamp")
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.kitchen"]
+
+
+async def test_an_alias_shared_with_another_name_is_asked_about(hass, house, mock_client):
+    alias(hass, "light.kitchen", "Reading light")
+    rename(hass, "light.office", "Reading light")
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice="light.kitchen", probabilities={}, confidence=1.0),
+            area=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the reading light")
+
+    assert calls == []
+    assert (
+        result.response.speech["plain"]["speech"]
+        == "Do you mean Kitchen light or Reading light?"
+    )
+
+
+async def test_a_hidden_alias_said_in_full_is_not_swapped_for_an_exposed_name(
+    hass, house, mock_client
+):
+    rename(hass, "light.kitchen", "Lamp")
+    alias(hass, "light.private", "Desk lamp")
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the desk lamp")
+    await hass.async_block_till_done()
+
+    assert calls == []
+
+
+async def test_an_entity_found_only_by_its_alias_is_still_reached(
+    hass, house, mock_client
+):
+    """With its own name deleted from the aliases, Home Assistant matches none of it.
+
+    The name slot then carries the first alias, the name Home Assistant does match.
+    """
+    alias(hass, "light.kitchen", "Worktop", keep_own_name=False)
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "worktop on")
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.kitchen"]
+
+
 async def test_the_reply_runs_the_first_command_on_the_device_it_picks(
     hass, house, mock_client
 ):
@@ -2095,3 +2199,41 @@ async def test_a_reply_past_the_budget_is_refused_like_a_command(
 
     assert mock_client.ask.await_count == 0
     assert "budget is left" in result.response.speech["plain"]["speech"]
+
+
+async def test_the_model_is_shown_the_area_aliases(hass, house, mock_client):
+    areas = ar.async_get(hass)
+    office = areas.async_get_area_by_name("Office")
+    areas.async_update(office.id, aliases={"Study", "snug", "office"})
+    mock_client.ask.return_value = build_response(**answer_set())
+
+    await converse(hass, "snug lights on")
+
+    # With the names only, "snug lights on" turned on every light.
+    options = mock_client.ask.call_args.args[1]["area"].criteria
+    assert options["Office"] == "Office, also called snug, Study"
+    assert options["Kitchen"] is None
+    assert mock_client.ask.call_args.args[0]["areas"] == [
+        "Kitchen",
+        {"name": "Office", "also_called": ["snug", "Study"]},
+    ]
+
+
+async def test_a_room_named_by_its_alias_is_reached(hass, house, mock_client):
+    areas = ar.async_get(hass)
+    office = areas.async_get_area_by_name("Office")
+    areas.async_update(office.id, aliases={"Study"})
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.9),
+            area=ChoiceAnswer(choice="Office", probabilities={}, confidence=0.95),
+            target_type=ChoiceAnswer(choice="area", probabilities={}, confidence=0.95),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the lights in the study")
+    await hass.async_block_till_done()
+
+    assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
