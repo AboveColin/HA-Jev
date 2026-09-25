@@ -16,7 +16,7 @@ alternative, a chain of calls each waiting on the last, is slower and costs more
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -48,6 +48,7 @@ ACTIONS: dict[str, str] = {
     "toggle": ha_intent.INTENT_TOGGLE,
     "set_brightness": "HassLightSet",
     "get_state": ha_intent.INTENT_GET_STATE,
+    "get_temperature": ha_intent.INTENT_GET_TEMPERATURE,
 }
 
 # The words that turn a number into a percentage, in the languages the integration
@@ -482,6 +483,8 @@ def build_questions(
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
                 "changing nothing",
+                "get_temperature": "Say how warm or cold it is now, in a room or "
+                "at a heating or cooling device",
                 REPORT: "Nothing is asked for: it tells what someone already did, "
                 "or says not to do something",
                 NONE: "None of these, such as playing, pausing, stopping or "
@@ -493,18 +496,26 @@ def build_questions(
             true="Two or more separate things are being asked for",
             false="A single instruction, however it is phrased",
         ),
+        # "Does answering this need words to be written or repeated back?" scored
+        # every temperature question 0.63 to 0.76, since the answer is words, and
+        # "is the front door locked" 0.55. This one scored lists, messages and
+        # questions for the world 0.69 to 0.98, and commands and questions for the
+        # devices 0.01 to 0.11, garden and driveway lights too. "how warm is it
+        # outside" is at 0.48.
         "free_text": Noul(
             {
-                "question": "Does answering this need words to be written or "
-                "repeated back?",
+                "question": "Is this request about something other than the "
+                "devices and rooms of this house?",
                 "examples": [
                     "add milk to the shopping list",
                     "broadcast that dinner is ready",
                     "what is the capital of France",
                 ],
             },
-            true="It needs text written, quoted or looked up",
-            false="It is a device command or a question about device state",
+            true="It is about a list, a message, the time, the weather or anything "
+            "else that is not a device or a room here",
+            false="It controls a device, or asks about a device or a room, indoors "
+            "or out, such as whether a door is locked or how warm it is",
         ),
         # Home Assistant's own agent has no timer or condition for an on/off
         # command, so "turn off the lamp in 10 minutes" would turn it off now.
@@ -656,7 +667,7 @@ def interpret(
     if noul("compound") >= 0.5:
         return out("several commands in one sentence")
     if noul("free_text") >= 0.5:
-        return out("needs text written or looked up")
+        return out("not about the devices of this house")
     if noul("later") >= 0.5:
         return out("for another time or on a condition")
     if noul("part") >= 0.5:
@@ -727,6 +738,19 @@ def interpret(
         if area is not None and area.choice != NONE and area.confidence >= min_confidence
         else None
     )
+
+    if action.choice == "get_temperature":
+        return _temperature(
+            out,
+            text,
+            action,
+            entity,
+            floor,
+            snapshot,
+            named_area,
+            heard_in,
+            min_confidence,
+        )
 
     def ask(first: ExposedEntity, second: ExposedEntity) -> Interpretation:
         # The action is sure and the device is one of two. Asking costs one short
@@ -916,6 +940,67 @@ def interpret(
         fallback=False,
         targets_everything=targets_everything,
         needs_level=needs_level,
+    )
+
+
+def _temperature(
+    out: Callable[[str], Interpretation],
+    text: str,
+    action: ChoiceAnswer,
+    entity: ChoiceAnswer | None,
+    floor: ChoiceAnswer | None,
+    snapshot: HomeSnapshot,
+    named_area: str | None,
+    heard_in: str | None,
+    min_confidence: float,
+) -> Interpretation:
+    """A question about the temperature, for Home Assistant's own intent.
+
+    HassGetState answers with a state, and the state of a climate device is its
+    mode, so "what's the temperature in the living room" was answered "heat". A
+    temperature sensor is not a device the model is shown, so a room with only a
+    sensor answered "I could not find that". Reported on issue #50.
+
+    By room, Home Assistant reads the temperature sensor set for the room in its
+    area settings, and then a climate device in the room. By name, it reads a
+    climate device only. With neither, it reads the room the voice satellite is in.
+    """
+    described = (
+        snapshot.by_id(entity.choice)
+        if entity is not None
+        and entity.choice != NONE
+        and entity.confidence >= min_confidence
+        else None
+    )
+    # The room comes first unless the device is named. Measured: "what's the
+    # temperature in the living room" scored the room's air conditioner at 0.78 to
+    # 0.84, and by name Home Assistant would skip the room's own sensor.
+    if described is not None and (
+        named_area is None or any(_words_said(text, n) for n in described.names)
+    ):
+        if described.domain != "climate":
+            return out("a temperature asked of a device that has none")
+        slots: dict[str, Any] = {"name": {"value": described.slot_name}}
+        if described.area_id:
+            slots["preferred_area_id"] = {"value": described.area_id}
+    elif named_area is not None:
+        slots = {"area": {"value": named_area}}
+    elif (
+        floor is not None and floor.choice != NONE and floor.confidence >= min_confidence
+    ):
+        # Home Assistant reads one sensor or one device, and a floor has several.
+        return out("a temperature asked of a whole floor")
+    elif heard_in is not None:
+        slots = {"preferred_area_id": {"value": heard_in}}
+    else:
+        return out("a temperature asked with no room")
+    return Interpretation(
+        intent_type=ACTIONS["get_temperature"],
+        slots=slots,
+        action=action.choice,
+        confidence=action.confidence,
+        reason="ok",
+        fallback=False,
     )
 
 
