@@ -2,9 +2,11 @@
 
 Two rules shape this file, both measured rather than assumed.
 
-Numbers are pulled out in code, never asked for. Jev judges and does not calculate,
-and asking it to read "set the lamp to 40 percent" as a number separated cases by
-0.06 where doing the comparison first gave 0.69. A regex is exact and free.
+Digits are pulled out in code. Jev judges and does not calculate, and asking it to
+read "set the lamp to 40 percent" as a number separated cases by 0.06 where doing
+the comparison first gave 0.69. A regex is exact and free. A level said in words,
+"forty percent" or "half", has no digit to read, and only then does a second
+request ask for it.
 
 Every question the router could need goes in one request, including the five or so
 that will be discarded. Three questions took 712 ms and a hundred took 714, so the
@@ -14,15 +16,29 @@ alternative, a chain of calls each waiting on the last, is slower and costs more
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.helpers import intent as ha_intent
-from jevclient import Choice, ChoiceAnswer, JevResponse, Noul, NoulAnswer, Question
+from jevclient import (
+    Choice,
+    ChoiceAnswer,
+    JevResponse,
+    Noul,
+    NoulAnswer,
+    Question,
+    Score,
+    ScoreAnswer,
+)
 
 from .snapshot import ExposedEntity, HomeSnapshot
 
 NONE = "none_of_these"
+# Not an action: the sentence tells what someone already did, or says not to do
+# something. Without this option, "I turned off the lamp" turned the lamp off and
+# "zet de lamp niet aan" turned it off.
+REPORT = "report"
 
 # Every action the router can take, and the intent each one runs. Anything absent
 # goes to the fallback agent rather than being approximated here.
@@ -84,12 +100,15 @@ _BY_SUFFIX = re.compile(r"^(?:\s*százalék)?-?(?:kal|kel)\b", re.IGNORECASE)
 # still 50. Stems, matched at a word start.
 _CHANGE_STEMS = {
     "en": (
-        # "dim the lamp 20 percent" can mean either. "dim it to 20" is a level.
-        r"(?:increase|decrease|raise|lower|reduce|boost|add|brighten)",
+        # "dim the lamp 20 percent" can mean either, as can "fade". "dim it to 20"
+        # is a level.
+        r"(?:increase|decrease|raise|lower|reduce|boost|add|brighten|bump|drop|fade)",
         r"dim\b",
         r"(?:up|down|more|less|plus|minus|brighter|dimmer|darker)\b",
     ),
     "de": (
+        # "dimme die Lampe 20 Prozent" can mean either, as "dim" can.
+        "dimm",
         "erhöh",
         "verringer",
         "reduzier",
@@ -107,6 +126,10 @@ _CHANGE_STEMS = {
         "feller",
         "lichter",
         "donkerder",
+        "hoger",
+        "lager",
+        "omhoog",
+        "omlaag",
         "meer\b",
         "minder\b",
         "min\b",
@@ -125,7 +148,7 @@ _CHANGE_STEMS = {
         "więcej",
         "mniej",
     ),
-    "sv": ("öka", "sänk", "minska", "ljusare", "mörkare", "mer\b", "mindre\b"),
+    "sv": ("dämp", "öka", "sänk", "minska", "ljusare", "mörkare", "mer\b", "mindre\b"),
     "da": ("øg\b", "sænk", "lysere", "mørkere", "mere\b", "mindre\b"),
     "cs": ("zvyš", "zvýš", "sniž", "jasněji", "tmavěji", "víc", "méně"),
     "ru": (
@@ -158,13 +181,62 @@ _CHANGE_CJK = (
     "调低",
     "更亮",
     "更暗",
+    # Japanese and Korean, which the integration is not translated into, for a
+    # satellite that is: "ランプを20%明るく" set 20.
+    "明るく",
+    "暗く",
+    "밝게",
+    "어둡게",
 )
 # A comparative straight after the number is an amount even behind "to": the
 # sentence says "20% brighter", not "to 20%".
 _COMPARATIVE_AFTER = re.compile(
     r"^\s*(?:%|" + "|".join(_PERCENT_WORDS[1:]) + r")?\s*(?:"
     r"brighter|dimmer|darker|more|less|heller|dunkler|feller|lichter|donkerder"
-    r"|plus|ljusare|mörkare|lysere|mørkere|ярче|темнее|更亮|更暗)",
+    r"|plus|off\b|ljusare|mörkare|lysere|mørkere|ярче|темнее|更亮|更暗)",
+    re.IGNORECASE,
+)
+
+
+# The same "to" words anywhere in the sentence, for a level said in words, where
+# there is no number to stand in front of. A word taken for "to" only leaves the
+# decision to the model, so these are read in the pipeline's language: with every
+# language at once, Spanish "a" and the Hungarian suffix are in "turn up the lamp a
+# bit" and "dim it some more", and the change words never refused an English
+# sentence.
+_TO_WORDS = {
+    "en": r"\b(?:to|at)\b",
+    "de": r"\b(?:auf|zu)\b",
+    "nl": r"\b(?:op|naar|tot)\b",
+    "fr": r"\b(?:à|a|au)\b",
+    "it": r"\b(?:a|al|allo|alla)\b",
+    "es": r"\b(?:a|al|para)\b",
+    "pt": r"\b(?:a|para)\b",
+    "pl": r"\b(?:na|do)\b",
+    "sv": r"\b(?:på|till)\b",
+    "da": r"\b(?:på|til)\b",
+    "cs": r"\b(?:na|do)\b",
+    "ru": r"\bдо\b",  # noqa: RUF001
+    "hu": r"\w(?:ra|re)\b",
+    "zh": "到|为|成|至",
+}
+_TO_IN = {
+    language: re.compile(words, re.IGNORECASE) for language, words in _TO_WORDS.items()
+}
+_TO_ANYWHERE = re.compile("|".join(_TO_WORDS.values()), re.IGNORECASE)
+
+# Zero said in words. A score's lowest level is 10%, so "zero percent" read as 10
+# and turned the lamp on, three runs of three in English and in Dutch.
+_ZERO = re.compile(
+    r"\b(?:zero|zéro|nul|null|cero|nulla|noll|nula|ноль|нуль)\b|零", re.IGNORECASE
+)
+
+# A number on a scale of its own is not a percentage: "3 out of 10" set 10 and
+# "level 5" set 5.
+_SCALE_AFTER = re.compile(r"^\s*(?:/|out of\b)", re.IGNORECASE)
+_SCALE_BEFORE = re.compile(
+    r"(?:\b(?:level|stufe|niveau|stand|nivel|livello|poziom|nivå|úroveň|уровень|szint)"
+    r"|/|\bout of)\s*$",
     re.IGNORECASE,
 )
 
@@ -201,22 +273,122 @@ def _in_range(raw: str) -> int | None:
     return value if 0 <= value <= 100 else None
 
 
-def find_brightness(text: str) -> int | None:
+def find_brightness(text: str, *, bare: bool = True) -> int | None:
     """The level a sentence sets, if it says one.
 
     Prefers an explicit percent sign, because "turn on 2 lamps" holds a number that
     is not a brightness. Without one, the last number wins, because a device name
     comes before its level: "lamp 2 brightness to 40" means 40. A number that is an
-    amount to change the level by gives None.
+    amount to change the level by gives None. bare=False reads only a number with a
+    percent sign or word.
     """
     found = (
         _PERCENT.search(text)
         or _PERCENT_PREFIX.search(text)
-        or (_last_level_number(text))
+        or (_last_level_number(text) if bare else None)
     )
-    if found is None or _is_an_amount(text, found):
+    if found is None or _is_an_amount(text, found) or _is_a_scale(text, found):
         return None
     return _in_range(found.group(1))
+
+
+def without_names(text: str, names: Iterable[str]) -> str:
+    """The text with every name that holds a digit taken out.
+
+    "set lamp 2 brightness to fifty percent" set 2, because the 2 was the only
+    digit. Taken out, the sentence has no digit, and the level is asked for.
+    """
+    held = {n for n in names if any(c.isdigit() for c in n)}
+    for name in sorted(held, key=len, reverse=True):
+        phrase = r"\s+".join(re.escape(w) for w in name.split())
+        text = re.sub(rf"(?<!\w){phrase}(?!\w)", " ", text, flags=re.IGNORECASE)
+    return text
+
+
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def _only_a_name(text: str, snapshot: HomeSnapshot) -> bool:
+    """Whether the sentence is nothing but one name, as "Good night!" for Goodnight."""
+    said = _letters(text)
+    names = [
+        *(n for e in snapshot.entities for n in e.names),
+        *snapshot.areas,
+        *(a for aliases in snapshot.area_aliases.values() for a in aliases),
+        *snapshot.floors,
+    ]
+    return bool(said) and any(_letters(n) == said for n in names)
+
+
+def said_a_digit(text: str) -> bool:
+    """Whether the regex had a number to read, so its answer is the last word."""
+    return _BARE_NUMBER.search(text) is not None
+
+
+# The score confidence a level said in words needs, above the agent's own floor. In
+# four runs of 20 levels in words, every level set scored 0.92 or more. An earlier
+# run read "тридцать процентов" as 40 at 0.67.
+_LEVEL_FLOOR = 0.8
+
+# The levels a level said in words is read against. A score takes ten at most, so
+# a word gives a whole ten: "a quarter" scored 21.0 and sets 20.
+_WORD_LEVELS = tuple(range(10, 101, 10))
+
+
+def level_questions() -> dict[str, Question]:
+    """The second request, for a brightness command with no digit in it."""
+    return {
+        "level": Score(
+            "Which brightness level does the command set the light to?",
+            [f"{n}%" for n in _WORD_LEVELS],
+        ),
+        # A score has no "none", so "dim the lamp by twenty percent" came back as
+        # 78. This question is what refuses it.
+        "relative": Noul(
+            "Does the command change the brightness by an amount or in a "
+            "direction, rather than name the level?",
+            true="It says brighter, dimmer, up, down or by how much",
+            false="It names the level",
+        ),
+    }
+
+
+def read_level(
+    response: JevResponse,
+    text: str,
+    min_confidence: float,
+    language: str | None = None,
+) -> int | None:
+    """The level a sentence says in words, or None to leave it to the fallback.
+
+    Three things refuse. On 22 amounts in words in 10 languages, run twice, only the
+    change words refused "把灯调亮百分之二十": it scored 0.84 and 0.90 as a level and
+    0.15 and 0.12 as an amount. The four amounts with no change word, such as "make
+    the lamp a bit dimmer", were refused by both the amount question and the floor,
+    at 0.69 or less. On 20 levels in words, four runs set 17 right each time and
+    refused 3.
+
+    A zero word gives 0, when the model put the sentence on the lowest level.
+    """
+    level = response.answers.get("level")
+    relative = response.answers.get("relative")
+    if not isinstance(level, ScoreAnswer) or not isinstance(relative, NoulAnswer):
+        return None
+    if relative.noul >= 0.5 or level.confidence < max(min_confidence, _LEVEL_FLOOR):
+        return None
+    if _names_a_change(text, language):
+        return None
+    index = min(round(level.score), len(_WORD_LEVELS) - 1)
+    if _ZERO.search(text):
+        return 0 if index == 0 else None
+    return _WORD_LEVELS[index]
+
+
+def _names_a_change(text: str, language: str | None) -> bool:
+    change = _CHANGE.search(text) or any(word in text for word in _CHANGE_CJK)
+    to = _TO_IN.get((language or "").split("-")[0].lower(), _TO_ANYWHERE)
+    return bool(change) and not to.search(text)
 
 
 def _last_level_number(text: str) -> re.Match[str] | None:
@@ -226,10 +398,18 @@ def _last_level_number(text: str) -> re.Match[str] | None:
     return last
 
 
+def _is_a_scale(text: str, number: re.Match[str]) -> bool:
+    before, after = text[: number.start()], text[number.end() :]
+    return bool(_SCALE_AFTER.search(after) or _SCALE_BEFORE.search(before))
+
+
 def _is_an_amount(text: str, number: re.Match[str]) -> bool:
     before, after = text[: number.start()], text[number.end() :]
     # "百分之" sits in front of the number, so the words before it come before that.
     before = before.removesuffix("百分之").rstrip()
+    # A sign is an amount: "lamp +20%" set 20.
+    if before.endswith(("+", "-", "−", "±")):  # noqa: RUF001
+        return True
     if _COMPARATIVE_AFTER.search(after) or _BY_SUFFIX.search(after):
         return True
     if _TO.search(before) or _TO_SUFFIX.search(after):
@@ -255,10 +435,21 @@ class Interpretation:
     already_satisfied: tuple[str, str] | None = None
     # Two entity ids the command could mean, when the agent should ask which.
     candidates: tuple[str, str] | None = None
+    # A brightness command whose level was said in words. The agent asks for it
+    # before it acts.
+    needs_level: bool = False
 
     @property
     def should_fall_back(self) -> bool:
         return self.fallback or self.intent_type is None
+
+
+# Measured, four runs per sentence over two wordings of the house: "turn off the
+# lamps", "turn on the lamps" and "switch off both lamps" scored 0.64 to 0.77. Every
+# light said generically scored at most 0.56 ("doe de lampen uit", "éteins les
+# lampes"), and "turn off the lamps" in a house with no lamp in any name 0.45 to
+# 0.54. The margin is 0.08, so this is a tripwire on the clear plurals only.
+PLURAL_FLOOR = 0.6
 
 
 def build_questions(
@@ -290,6 +481,8 @@ def build_questions(
                 "set_brightness": "Change how bright a light is",
                 "get_state": "Answer a question about the current state, "
                 "changing nothing",
+                REPORT: "Nothing is asked for: it tells what someone already did, "
+                "or says not to do something",
                 NONE: "None of these, such as playing, pausing, stopping or "
                 "skipping media, or the request is not about the house",
             },
@@ -331,13 +524,39 @@ def build_questions(
             false="It asks for fully open or closed, or it is not about opening "
             "or closing",
         ),
+        # Home Assistant's intents have no way to leave a device out, so "turn off
+        # everything but the TV" turned off the TV too.
+        "except": Noul(
+            "Does the command name a device or room to leave out?",
+            true="It says except, but, apart from or other than, and what to leave out",
+            false="Nothing is left out",
+        ),
+        # "turn on the lamp dimmed" scored turn_on, and HassTurnOn has no level,
+        # so the lamp came on at its last one. set_brightness alone put 0.04 to
+        # 0.39 on such a sentence, too little to act on. This question put 0.60 to
+        # 0.96 on six such sentences and 0.01 to 0.02 on seven with no level, in
+        # two runs each.
+        "bright": Noul(
+            "Does the command also say how bright a light should be?",
+            true="It names a brightness, such as half, full, dimmed or a percentage",
+            false="It says nothing about brightness",
+        ),
+        # "turn off the lamps" with a Lamp, a Desk lamp and a Ceiling light came
+        # back as every light, and turned off the ceiling light too.
+        "plural": Noul(
+            "Does the command name several devices by a word from their names, "
+            "such as the lamps, rather than every device of one kind?",
+            true="It names several devices by part of their name",
+            false="It names one device, a room, or every device of one kind, "
+            "such as all the lights",
+        ),
         "target_type": Choice(
             "How is the target named?",
             {
                 "entity": "One particular device is named",
-                "area": "A room or area is named, covering what is in it",
+                "area": "A room, an area or a floor is named, covering what is in it",
                 "everything": "Every device, or every device of one kind such as "
-                "all the lights, with no room or device named",
+                "all the lights, with no room, floor or device named",
                 NONE: "No target is named at all",
             },
         ),
@@ -346,8 +565,9 @@ def build_questions(
                 # Answered in the same request as action, so it must fit a
                 # status check too.
                 "question": "Which device is this about?",
-                "background": "Match on the name and on the room. Pick "
-                "none_of_these when no single device is meant.",
+                "background": "Match on the name, any other name it is also "
+                "called, and the room. Pick none_of_these when no single device "
+                "is meant.",
             },
             entity_options,
         ),
@@ -357,9 +577,25 @@ def build_questions(
     # choice, so the whole command used to raise ValueError. Ask only when there is
     # a room to name; interpret() already treats a missing area answer as no area.
     if snapshot.areas:
-        area_options: dict[str, Any] = dict.fromkeys(snapshot.areas)
+        # With the names only, 9 of 16 commands naming a room by its alias found it,
+        # and "snug lights on" turned on every light. With the aliases, 16 of 16.
+        area_options: dict[str, Any] = {
+            a: f"{a}, also called {', '.join(also)}"
+            if (also := snapshot.area_aliases.get(a))
+            else None
+            for a in snapshot.areas
+        }
         area_options[NONE] = "No room is named"
         questions["area"] = Choice("Which room is meant?", area_options)
+    # With no floor question, "turn off the lights upstairs" went to the fallback
+    # agent, 2 runs of 2. With it, five floor commands in three languages acted on
+    # the right floor in two runs each, at 0.97 to 1.00, and six controls acted as
+    # before.
+    if snapshot.floors:
+        questions["floor"] = Choice(
+            "Which floor is meant?",
+            dict.fromkeys(snapshot.floors) | {NONE: "No floor is named"},
+        )
     if len(snapshot.domains) >= 2:
         questions["domain"] = Choice(
             "Which kind of device is meant?",
@@ -416,11 +652,30 @@ def interpret(
         return out("for another time or on a condition")
     if noul("part") >= 0.5:
         return out("a position part of the way")
+    if noul("except") >= 0.5:
+        return out("something is left out")
+    # "goodnight" ran a script called Goodnight, 2 runs of 2. A name on its own
+    # asks for nothing, and Home Assistant's own agent needs a verb for it too.
+    if _only_a_name(text, snapshot):
+        return out("only a name, no action said")
 
+    # A digit in a name is not a level: "lamp 2", "Bedroom 2".
+    spoken = without_names(
+        text,
+        [
+            *(n for e in snapshot.entities for n in e.names),
+            *snapshot.areas,
+            *(a for aliases in snapshot.area_aliases.values() for a in aliases),
+            *snapshot.floors,
+            *snapshot.hidden_names,
+        ],
+    )
     action = choice("action")
     entity = choice("entity")
     if action is None or action.choice == NONE:
         return out("not a house command")
+    if action.choice == REPORT:
+        return out("nothing is asked for")
     if action.confidence < min_confidence:
         # A command that is already done reads as a low-confidence one.
         #
@@ -430,7 +685,13 @@ def interpret(
         # the rest went to get_state, because with the lamp already on the sentence
         # really could be either. Refusing that as not understood is the wrong
         # answer to a sentence the model read correctly.
-        if settled := _already_done(action, entity, snapshot, min_confidence):
+        # "turn on the lamp at 50%" with the lamp on is a new level, not done.
+        # It came back as already on in 1 of 2 runs.
+        if (
+            find_brightness(spoken, bare=False) is None
+            and noul("bright") < 0.5
+            and (settled := _already_done(action, entity, snapshot, min_confidence))
+        ):
             return Interpretation(
                 None,
                 {},
@@ -448,6 +709,7 @@ def interpret(
     intent_type = ACTIONS[action.choice]
     target = choice("target_type")
     area = choice("area")
+    floor = choice("floor")
     slots: dict[str, Any] = {}
     targets_everything = False
     named_area = (
@@ -516,10 +778,19 @@ def interpret(
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
     elif (
+        floor is not None and floor.choice != NONE and floor.confidence >= min_confidence
+    ):
+        slots["floor"] = {"value": floor.choice}
+    elif (
         target is not None
         and target.choice == "everything"
         and target.confidence >= min_confidence
     ):
+        # "de lampen" and "les lampes" are every light as often as some, and
+        # scored 0.44 to 0.56 in two houses. "the lamps" and "both lamps" scored
+        # 0.64 to 0.77. See PLURAL_FLOOR.
+        if noul("plural") >= PLURAL_FLOOR:
+            return out("several devices named by part of their name")
         # Home Assistant requires one of name, area or floor, and reads the literal
         # name "all" as every entity, clearing it after the check. Sending no target
         # at all failed that check on a real instance: "turn everything off"
@@ -547,14 +818,14 @@ def interpret(
         return out("no target named with enough confidence")
 
     if described is not None:
-        slots["name"] = {"value": described.name}
+        slots["name"] = {"value": described.slot_name}
         # The domain keeps a same-named entity the model was never shown, a lock
         # called "Front door" beside a cover called "Front door", out of the match.
         slots["domain"] = {"value": [described.domain]}
         if described.area_id:
             slots["preferred_area_id"] = {"value": described.area_id}
 
-    # An area always carries a domain. With none, Home Assistant acts on every
+    # An area or a floor always carries a domain. With none, Home Assistant acts on every
     # exposed entity in the room whatever its domain, so turn_off on a hallway with a
     # light and a lock unlocked the lock. Without a confident answer, the domains the
     # model was shown are the bound. The whole house takes that default only when the
@@ -570,11 +841,37 @@ def interpret(
         elif not targets_everything or len(snapshot.domains) == 1:
             slots["domain"] = {"value": snapshot.domains}
 
+    needs_level = False
+    # "turn on the lamp at 50%" scored turn_on, and HassTurnOn has no level, so the
+    # lamp came on at whatever it was before. Only a percent counts here: a bare
+    # number next to "ljus" or "свет", which are also the words for a light, would
+    # read "tänd 2 ljus" as 2%.
+    if (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and (level := find_brightness(spoken, bare=False)) is not None
+    ):
+        intent_type = ACTIONS["set_brightness"]
+        slots["brightness"] = {"value": level}
+        slots["domain"] = {"value": ["light"]}
+    elif (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and noul("bright") >= 0.5
+    ):
+        # A level in words, "at half brightness", goes to the second request, as
+        # for set_brightness.
+        intent_type = ACTIONS["set_brightness"]
+        needs_level = True
+        slots["domain"] = {"value": ["light"]}
     if action.choice == "set_brightness":
-        brightness = find_brightness(text)
-        if brightness is None:
-            return out("a brightness was asked for but no number was said")
-        slots["brightness"] = {"value": brightness}
+        brightness = find_brightness(spoken)
+        if brightness is not None:
+            slots["brightness"] = {"value": brightness}
+        elif said_a_digit(spoken):
+            return out("a brightness was asked for but no level was said")
+        else:
+            needs_level = True
         slots["domain"] = {"value": ["light"]}
 
     return Interpretation(
@@ -582,9 +879,11 @@ def interpret(
         slots=slots,
         action=action.choice,
         confidence=action.confidence,
-        reason="ok",
+        # The trace keeps this before the level is read, so "ok" would be early.
+        reason="the level is said in words and asked for next" if needs_level else "ok",
         fallback=False,
         targets_everything=targets_everything,
+        needs_level=needs_level,
     )
 
 
@@ -621,7 +920,7 @@ def _fit_as_well(
     ]
     if chosen not in kind:
         return [chosen]
-    fit = {e.entity_id: _name_fit(text, e.name) for e in kind}
+    fit = {e.entity_id: max(_name_fit(text, n) for n in e.names) for e in kind}
     best = max(fit.values())
     if best == 0 or fit[chosen.entity_id] < best:
         return [chosen]
@@ -652,7 +951,7 @@ def _a_hidden_name_fits_better(
     text: str, chosen: ExposedEntity, snapshot: HomeSnapshot
 ) -> bool:
     """A hidden name that the command says in more words than the chosen one."""
-    said = _words_said(text, chosen.name)
+    said = max(_words_said(text, name) for name in chosen.names)
     return any(_words_said(text, name) > said for name in snapshot.hidden_names)
 
 

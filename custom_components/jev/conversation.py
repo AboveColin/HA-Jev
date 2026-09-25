@@ -70,6 +70,8 @@ from .interpret import (
     Interpretation,
     build_questions,
     interpret,
+    level_questions,
+    read_level,
     spoken_name,
 )
 from .payload import payload_bytes
@@ -234,7 +236,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
                 chat_log,
                 _Pending(user_input.text, response, snapshot, decision.candidates),
             )
-        return await self._act(user_input, decision, user_input.text)
+        return await self._act(user_input, chat_log, decision, user_input.text)
 
     async def _ask(
         self,
@@ -414,13 +416,43 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         decision = interpret(
             first, pending.text, snapshot, self._min_confidence, ask_back=False
         )
-        return await self._act(user_input, decision, pending.text)
+        return await self._act(user_input, chat_log, decision, pending.text)
+
+    # --- a level said in words ---
+
+    async def _ask_level(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+        decision: Interpretation,
+        text: str,
+    ) -> Interpretation | conversation.ConversationResult:
+        """Ask for the level of "set the lamp to forty percent", one more request.
+
+        Only a brightness command with no digit in it sends this, so no other
+        command pays for it. It sends the sentence alone: 403 to 568 input tokens.
+        """
+        response = await self._ask(user_input, {"command": text}, level_questions())
+        if isinstance(response, conversation.ConversationResult):
+            return response
+        level = read_level(response, text, self._min_confidence, user_input.language)
+        self._trace(chat_log, response, {"text": text, "level_for": level})
+        if level is None:
+            return replace(
+                decision,
+                fallback=True,
+                reason="a brightness was asked for but no level was said",
+                needs_level=False,
+            )
+        slots = decision.slots | {"brightness": {"value": level}}
+        return replace(decision, slots=slots, needs_level=False)
 
     # --- acting ---
 
     async def _act(
         self,
         user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
         decision: Interpretation,
         text: str,
     ) -> conversation.ConversationResult:
@@ -428,6 +460,12 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
         if decision.already_satisfied is not None:
             name, settled = decision.already_satisfied
             return await self._speak(user_input, f"already_{settled}", name=name)
+
+        if decision.needs_level:
+            read = await self._ask_level(user_input, chat_log, decision, text)
+            if isinstance(read, conversation.ConversationResult):
+                return read
+            decision = read
 
         if decision.should_fall_back:
             return await self._fall_back(user_input, decision.reason)
@@ -592,7 +630,9 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
 
 def _reasoning(trace: Mapping[str, Any], response: JevResponse) -> str:
     """The trace as lines a person reads in the Assist dialog."""
-    if "answers_command" in trace:
+    if "level_for" in trace:
+        lines = [f"Jev: the level said in words, {trace['level_for'] or 'not read'}"]
+    elif "answers_command" in trace:
         lines = [
             f'Jev: a reply to "{trace["answers_command"]}", '
             f"picked {trace['picked'] or 'neither'}"
@@ -827,6 +867,7 @@ async def _render_state_answer(
 # One kind of device across a room or the whole house. The names differ between
 # languages: English writes light_all and Polish lights_all.
 _AREA_RESPONSES = {"light": ("lights_area",), "fan": ("fans_area",)}
+_FLOOR_RESPONSES = {"light": ("lights_floor",)}
 _ALL_RESPONSES = {"light": ("light_all", "lights_all"), "fan": ("fan_all",)}
 
 _SLOT_REFERENCE = re.compile(r"slots\.(\w+)")
@@ -847,6 +888,8 @@ def _response_keys(
     closest: tuple[str, ...]
     if "area" in slots:
         closest = _AREA_RESPONSES.get(kind or "", ())
+    elif "floor" in slots:
+        closest = _FLOOR_RESPONSES.get(kind or "", ())
     elif slots.get("name", {}).get("value") == "all":
         closest = _ALL_RESPONSES.get(kind or "", ())
     elif domain is not None:
@@ -883,7 +926,7 @@ async def _render_action_answer(
     speech_slots = {
         key: value["value"]
         for key, value in slots.items()
-        if key in ("name", "area")
+        if key in ("name", "area", "floor")
         and isinstance(value.get("value"), str)
         and value["value"] != "all"
     } | response.speech_slots

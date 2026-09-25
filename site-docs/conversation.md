@@ -7,12 +7,14 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying seven to nine questions. Seven are always
+One sentence becomes one request carrying ten to thirteen questions. Ten are always
 there: what should happen, is it compound, does it need text written, is it for
-another time or on a condition, is it a position part of the way, how is the target
-named, which entity. Which room is added when you have rooms holding exposed
-entities, and which kind of device when the exposed entities span two domains or
-more. A one-domain house with no areas is asked seven.
+another time or on a condition, is it a position part of the way, does it leave
+something out, does it say how bright, does it name several devices by part of
+their names, how is the target named, which entity. Which room is added when you
+have rooms holding exposed entities, which floor when those rooms are on floors, and
+which kind of device when the exposed entities span two domains or more. A
+one-domain house with no areas is asked ten.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -21,6 +23,22 @@ each other.
 
 The options for "which device" come from your entity registry, so what comes back is
 an `entity_id` that exists. The model picks from a list rather than writing one.
+
+The aliases you give an entity in its voice settings go with it: "Lamp, in the
+Office, also called Worktop". So "turn on the worktop" reaches the Lamp. On a test
+house of twelve entities, seven with an alias, 3 of 8 alias sentences picked their
+device below 0.6 without the aliases, and all 8 picked it at 0.91 or more with them.
+The action question reads the aliases too: without them, "turn on the worktop" scored
+its action 0.49 and went to the fallback. With them it scored 1.00. The aliases cost
+about 15 input tokens each. An alias counts as a name when two devices fit what you
+said, so a "Lamp" also called "Worktop lamp" wins "turn on the worktop lamp" over a
+second "Lamp".
+
+The aliases of an area go with it the same way: "Office, also called Snug, Study". On
+a test house with four aliases on three areas, eight sentences run twice each, 9 of
+16 found the room by its alias without the aliases, and "snug lights on" turned on
+every light. With the aliases, 16 of 16 found it. They cost 75 input tokens in that
+house, and nothing in a house whose areas have no aliases.
 
 It runs Home Assistant's own intents: `HassTurnOn`, `HassTurnOff`, `HassToggle`,
 `HassLightSet` and `HassGetState`. Lights, switches, fans, covers, media players,
@@ -43,7 +61,13 @@ does.
 Covers with the `garage`, `gate` or `door` device class are left out for the same
 reason. Blinds, shades and curtains stay in.
 
-A room command always carries the kinds of device the model was shown. Home
+A floor you name is a target of its own, as it is for Home Assistant's agent, so
+`turn off the lights upstairs` turns off the lights in the rooms on that floor. Before
+1.17 it went to the fallback agent. In two runs each, five floor commands in English,
+Dutch and German acted on the right floor, and six commands naming a device, a room
+or every light acted as before.
+
+A room or floor command always carries the kinds of device the model was shown. Home
 Assistant otherwise acts on every exposed entity in the room, so "turn off the
 hallway" would reach a lock exposed there and unlock it.
 
@@ -61,10 +85,14 @@ says "Done."
 | Needs words written or looked up | Fallback |
 | For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
 | A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
+| Something left out, such as "turn off everything but the TV" | Fallback. Home Assistant's intents cannot leave a device out, so the TV went off too |
+| Only a name, such as "goodnight" for a script called Goodnight | Fallback. The script ran, 2 runs of 2. A name can be a greeting, and Home Assistant's own agent also needs a verb |
+| Nothing asked for, such as "I turned off the lamp" or "zet de lamp niet aan" | Fallback. Both acted before: the first turned the lamp off, the second turned it off instead of leaving it |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
 | A hidden device named in full, next to an exposed one with a shorter name | Fallback. "Turn on the desk lamp" does not turn on "Lamp" |
 | No room and no device named | Refused, unless you allow it. `turn_off` is exempt. Below the confidence floor, fallback |
+| Several devices named by part of their names, such as "turn off the lamps" | Fallback. Home Assistant's intents have no target for some of the lights, and every light is the wrong answer |
 | Two kinds of device, no kind named, whole house | Asks which kind. With one kind exposed, it acts on that kind |
 | Two devices whose names fit the command equally well | Asks which one, see below |
 | The device cannot do the action, such as a player with no `turn_off` | Fallback. Home Assistant reports this only when no device changed |
@@ -75,6 +103,19 @@ says "Done."
     which entities a voice assistant may touch, and a question is not a reason to
     widen that. This is the voice path only. The [four actions](actions.md) send
     whatever an automation targets, exposed or not.
+
+## When a word from the names means some devices
+
+With a Lamp, a Desk lamp and a Ceiling light, "turn off the lamps" came back as every
+light, and the ceiling light went off too. A question now asks if the command names
+several devices by a word from their names. At 0.6 or more, a whole-house command
+goes to the fallback agent. In four runs each, "turn off the lamps", "turn on the
+lamps" and "switch off both lamps" scored 0.64 to 0.77.
+
+The line is at 0.6 because a plural is not always a name. "doe de lampen uit" and
+"éteins les lampes" mean every light as often as some, and scored 0.44 to 0.56. In
+a house with no lamp in any name, "turn off the lamps" scored 0.45 to 0.54 and turns
+off every light, as it should. The margin is 0.08.
 
 ## When two devices fit the name
 
@@ -113,12 +154,26 @@ Measured live: 257 to 455 ms warm, 512 to 753 ms on the first call after a resta
 and 1,329 to 1,371 input tokens per command with five entities exposed. Thirty
 commands came to $0.0017. That was with seven questions. The two added in 1.16.1
 cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
-same time warm: 261 ms before, 263 ms after.
+same time warm: 261 ms before, 263 ms after. The question about something left out
+and the option for nothing asked for, added in 1.17, cost 48 more: 1,743 to 1,751
+before and 1,791 to 1,799 after, with twelve entities exposed. The question about
+how bright cost 19 more: 1,733 before and 1,752 after, with eleven entities exposed.
+The floor question cost 63 more on a house with two floors: 1,733 before and 1,796
+after, with eleven entities exposed. A house with no floors is not asked it. The
+question about devices named by part of their names cost 33 more: 1,733 before and
+1,766 after, with eleven entities exposed.
 
-## Brightness comes from a regex
+In a test of 22 sentences run twice, 11 of them things to refuse, 14 runs acted when
+they should not have before these two and 2 do now. Both are "turn off the lamps",
+which turned off every light. It goes to the fallback agent now, see
+[below](#when-a-word-from-the-names-means-some-devices). In a control run of 77 sentences run twice, no sentence
+that was right before is wrong now.
+
+## Brightness
 
 `set the lamp to 40 percent` has its number pulled out by pattern matching, not by
 asking the model. Jev judges and does not calculate, and a regex is exact and free.
+A level said in words has no digit to read, so the agent asks for it, see below.
 
 `40 percent`, `40%` and `40 procent` all work. `turn on 2 lamps` correctly yields no
 brightness.
@@ -138,6 +193,60 @@ brightness by 20%`, `turn the lamp down 20%`, `erhöhe die Helligkeit um 20%` an
 `把灯调亮20%` give none. In a test of 52 relative sentences in 14 languages, 45 set
 the amount as the level before this rule and none do now. A number over 100 or with
 a decimal point is not a percentage.
+
+A sign in front of the number makes it an amount too, so `lamp +20%` and `lamp -20%`
+give none. So do `bump`, `drop`, `fade`, `take 20% off`, `dimme`, `lager`, `omhoog`,
+`dämpa`, `明るく` and `밝게` with no word for "to". A number on a scale of its own is
+not a percentage: `3 out of 10`, `50/100`, `level 5` and `op stand 3` go to the
+fallback agent rather than setting 10, 100, 5 and 3.
+
+The agent reads the words for "to" in the pipeline's language. With the words of
+every language at once, the Spanish `a` in `turn up the lamp a bit` counted as "to".
+
+A digit in the name of a device, room or floor is not a level. `set lamp 2 brightness
+to fifty percent` set 2% before, because the 2 was the only digit. Now the agent
+removes the names and their aliases first, so it reads no digit and asks for the level in words.
+
+`turn on the lamp at 50%` sets 50. Home Assistant's `HassTurnOn` has no level, so
+before this the lamp came on at its last level. Only a number with a percent counts
+here, because `tänd 2 ljus` and `включи 2 свет` hold a word for light that is also a
+word for brightness.
+
+`switch on the lamp at half brightness` and `turn on the lamp at full brightness` set
+50 and 100. A question in the first request asks if the command says how bright the
+light should be, and a turn_on with a yes goes on as a level said in words, see
+below. Before this the lamp came on at its last level. `turn on the desk lamp dimmed`
+names no level the second request can read, so it goes to the fallback agent. In two
+runs each, the question put 0.60 to 0.96 on six commands with a level and 0.01 to
+0.02 on seven with none. The action alone put 0.04 to 0.39 on set_brightness for the
+six, too little to act on.
+
+In a test of 70 sentences with a digit, 24 read differently from the intended level
+before these rules and 3 do now. Two are speech-to-text forms, `forty 5 percent` and
+`4 0 percent`. The third, `set the lamp to 40% at 7`, goes to the fallback agent.
+
+### A level said in words
+
+`set the lamp to forty percent`, `zet de lamp op zestig procent`, `half brightness`
+and `full brightness` have no digit in them. For such a sentence, and only for it,
+the agent sends one more request with two questions: which level, from 10% to 100%
+in steps of ten, and does the sentence change the brightness by an amount rather
+than name a level. A word gives a whole ten, so `a quarter` sets 20.
+
+It acts only when all three of these agree. The level question is sure, at 0.8 or
+the agent's own floor if that is higher. The amount question says it is a level. The
+sentence has no word for changing with no word for "to", the same words the regex
+uses. Only those words refused `把灯调亮百分之二十`, which the model read as a level at
+0.84 and 0.90. Only the floor refused a run that read `тридцать процентов` as 40.
+
+In four runs of 20 levels and 22 amounts in words, in 10 languages, 17 levels were
+set right each time and 3 went to the fallback, and no amount was set as a level.
+
+The level options start at 10%, so `zero percent` and `nul procent` set 10 in 6 runs
+of 6. A word for zero now sets 0, but only when the model also picked the lowest
+level. When it picked another level, the sentence goes to the fallback agent.
+Before this, all 20 levels went to the fallback. The second request costs 400 to 565
+input tokens and 220 to 646 ms. A sentence with a digit in it never sends it.
 
 ## A command that is already done
 
