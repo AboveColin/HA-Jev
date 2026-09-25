@@ -7,12 +7,12 @@ Conversation agent to **Jev**.
 
 ## What it does
 
-One sentence becomes one request carrying eight to ten questions. Eight are always
+One sentence becomes one request carrying nine to twelve questions. Nine are always
 there: what should happen, is it compound, does it need text written, is it for
 another time or on a condition, is it a position part of the way, does it leave
-something out, how is the target named, which entity. Which room is added when you have rooms holding exposed
+something out, does it say how bright, how is the target named, which entity. Which room is added when you have rooms holding exposed
 entities, which floor when those rooms are on floors, and which kind of device when
-the exposed entities span two domains or more. A one-domain house with no areas is asked eight.
+the exposed entities span two domains or more. A one-domain house with no areas is asked nine.
 
 All but one or two of those answers are discarded on any given sentence. That is the cheap
 shape, not waste: three questions measured 712 ms and a hundred measured 714, so
@@ -84,6 +84,7 @@ says "Done."
 | For another time, for a set time or on a condition, such as "turn off the lamp in 10 minutes" | Fallback. Home Assistant's intents have no timer, so the command would run now |
 | A cover part of the way, such as "open the blinds halfway" | Fallback. `turn_on` opens a cover all the way |
 | Something left out, such as "turn off everything but the TV" | Fallback. Home Assistant's intents cannot leave a device out, so the TV went off too |
+| Only a name, such as "goodnight" for a script called Goodnight | Fallback. The script ran, 2 runs of 2. A name can be a greeting, and Home Assistant's own agent also needs a verb |
 | Nothing asked for, such as "I turned off the lamp" or "zet de lamp niet aan" | Fallback. Both acted before: the first turned the lamp off, the second turned it off instead of leaving it |
 | A lock or a garage, gate or door cover | Fallback. The agent never describes one |
 | An entity you did not expose to Assist | Never described to the model at all |
@@ -139,9 +140,10 @@ commands came to $0.0017. That was with seven questions. The two added in 1.16.1
 cost 127 more input tokens, 1,696 to 1,823 with twelve entities exposed, and the
 same time warm: 261 ms before, 263 ms after. The question about something left out
 and the option for nothing asked for, added in 1.17, cost 48 more: 1,743 to 1,751
-before and 1,791 to 1,799 after, with twelve entities exposed. The floor question
-cost 63 more on a house with two floors: 1,733 before and 1,796 after, with eleven
-entities exposed. A house with no floors is not asked it.
+before and 1,791 to 1,799 after, with twelve entities exposed. The question about
+how bright cost 19 more: 1,733 before and 1,752 after, with eleven entities exposed.
+The floor question cost 63 more on a house with two floors: 1,733 before and 1,796
+after, with eleven entities exposed. A house with no floors is not asked it.
 
 In a test of 22 sentences run twice, 11 of them things to refuse, 14 runs acted when
 they should not have before these two and 2 do now. Both are "turn off the lamps",
@@ -184,12 +186,21 @@ every language at once, the Spanish `a` in `turn up the lamp a bit` counted as "
 
 A digit in the name of a device, room or floor is not a level. `set lamp 2 brightness
 to fifty percent` set 2% before, because the 2 was the only digit. Now the agent
-removes the names first, so it reads no digit and asks for the level in words.
+removes the names and their aliases first, so it reads no digit and asks for the level in words.
 
 `turn on the lamp at 50%` sets 50. Home Assistant's `HassTurnOn` has no level, so
 before this the lamp came on at its last level. Only a number with a percent counts
 here, because `tänd 2 ljus` and `включи 2 свет` hold a word for light that is also a
 word for brightness.
+
+`switch on the lamp at half brightness` and `turn on the lamp at full brightness` set
+50 and 100. A question in the first request asks if the command says how bright the
+light should be, and a turn_on with a yes goes on as a level said in words, see
+below. Before this the lamp came on at its last level. `turn on the desk lamp dimmed`
+names no level the second request can read, so it goes to the fallback agent. In two
+runs each, the question put 0.60 to 0.96 on six commands with a level and 0.01 to
+0.02 on seven with none. The action alone put 0.04 to 0.39 on set_brightness for the
+six, too little to act on.
 
 In a test of 70 sentences with a digit, 24 read differently from the intended level
 before these rules and 3 do now. Two are speech-to-text forms, `forty 5 percent` and

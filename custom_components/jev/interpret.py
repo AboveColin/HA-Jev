@@ -305,6 +305,22 @@ def without_names(text: str, names: Iterable[str]) -> str:
     return text
 
 
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def _only_a_name(text: str, snapshot: HomeSnapshot) -> bool:
+    """Whether the sentence is nothing but one name, as "Good night!" for Goodnight."""
+    said = _letters(text)
+    names = [
+        *(n for e in snapshot.entities for n in e.names),
+        *snapshot.areas,
+        *(a for aliases in snapshot.area_aliases.values() for a in aliases),
+        *snapshot.floors,
+    ]
+    return bool(said) and any(_letters(n) == said for n in names)
+
+
 def said_a_digit(text: str) -> bool:
     """Whether the regex had a number to read, so its answer is the last word."""
     return _BARE_NUMBER.search(text) is not None
@@ -507,6 +523,16 @@ def build_questions(
             true="It says except, but, apart from or other than, and what to leave out",
             false="Nothing is left out",
         ),
+        # "turn on the lamp dimmed" scored turn_on, and HassTurnOn has no level,
+        # so the lamp came on at its last one. set_brightness alone put 0.04 to
+        # 0.39 on such a sentence, too little to act on. This question put 0.60 to
+        # 0.96 on six such sentences and 0.01 to 0.02 on seven with no level, in
+        # two runs each.
+        "bright": Noul(
+            "Does the command also say how bright a light should be?",
+            true="It names a brightness, such as half, full, dimmed or a percentage",
+            false="It says nothing about brightness",
+        ),
         "target_type": Choice(
             "How is the target named?",
             {
@@ -611,13 +637,18 @@ def interpret(
         return out("a position part of the way")
     if noul("except") >= 0.5:
         return out("something is left out")
+    # "goodnight" ran a script called Goodnight, 2 runs of 2. A name on its own
+    # asks for nothing, and Home Assistant's own agent needs a verb for it too.
+    if _only_a_name(text, snapshot):
+        return out("only a name, no action said")
 
     # A digit in a name is not a level: "lamp 2", "Bedroom 2".
     spoken = without_names(
         text,
         [
-            *(e.name for e in snapshot.entities),
+            *(n for e in snapshot.entities for n in e.names),
             *snapshot.areas,
+            *(a for aliases in snapshot.area_aliases.values() for a in aliases),
             *snapshot.floors,
             *snapshot.hidden_names,
         ],
@@ -639,8 +670,10 @@ def interpret(
         # answer to a sentence the model read correctly.
         # "turn on the lamp at 50%" with the lamp on is a new level, not done.
         # It came back as already on in 1 of 2 runs.
-        if find_brightness(spoken, bare=False) is None and (
-            settled := _already_done(action, entity, snapshot, min_confidence)
+        if (
+            find_brightness(spoken, bare=False) is None
+            and noul("bright") < 0.5
+            and (settled := _already_done(action, entity, snapshot, min_confidence))
         ):
             return Interpretation(
                 None,
@@ -798,6 +831,16 @@ def interpret(
     ):
         intent_type = ACTIONS["set_brightness"]
         slots["brightness"] = {"value": level}
+        slots["domain"] = {"value": ["light"]}
+    elif (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and noul("bright") >= 0.5
+    ):
+        # A level in words, "at half brightness", goes to the second request, as
+        # for set_brightness.
+        intent_type = ACTIONS["set_brightness"]
+        needs_level = True
         slots["domain"] = {"value": ["light"]}
     if action.choice == "set_brightness":
         brightness = find_brightness(spoken)
