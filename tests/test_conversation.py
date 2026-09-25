@@ -19,6 +19,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import chat_session
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers import intent as ha_intent
 from homeassistant.helpers.chat_session import CONVERSATION_TIMEOUT
 from homeassistant.setup import async_setup_component
@@ -766,6 +767,24 @@ async def test_a_digit_in_a_name_is_not_a_level(
     assert mock_client.ask.call_count == before + (2 if level else 1)
 
 
+@pytest.mark.parametrize("where", ["entity", "area"])
+async def test_a_digit_in_an_alias_is_not_a_level(hass, house, mock_client, where):
+    if where == "entity":
+        alias(hass, "light.kitchen", "Lamp 3")
+    else:
+        areas = ar.async_get(hass)
+        areas.async_update(areas.async_get_area_by_name("Kitchen").id, aliases={"Lamp 3"})
+    mock_client.ask.return_value = said_in_words(level=4.0)
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "set lamp 3 brightness to fifty percent")
+    await hass.async_block_till_done()
+
+    # With the names only, the 3 was read as the level.
+    assert [c.data["brightness_pct"] for c in calls] == [50]
+
+
 @pytest.mark.parametrize(
     ("text", "level", "expected"),
     [
@@ -832,6 +851,71 @@ async def test_turn_on_with_a_percent_sets_the_level(
 
     assert len(calls) == 1
     assert {k: v for k, v in calls[0].data.items() if k == "brightness_pct"} == expected
+
+
+async def test_a_floor_acts_on_that_floor_only(hass, house, mock_client):
+    """A floor is a target of its own, as it is for Home Assistant's agent."""
+    upstairs = fr.async_get(hass).async_create("Upstairs")
+    areas = ar.async_get(hass)
+    kitchen = areas.async_get_area_by_name("Kitchen")
+    assert kitchen is not None
+    areas.async_update(kitchen.id, floor_id=upstairs.floor_id)
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            target_type=ChoiceAnswer(choice="area", probabilities={}, confidence=0.95),
+            entity=ChoiceAnswer(choice=NONE, probabilities={}, confidence=0.96),
+            floor=ChoiceAnswer(choice="Upstairs", probabilities={}, confidence=0.99),
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    result = await converse(hass, "turn on the lights upstairs")
+    await hass.async_block_till_done()
+
+    assert [c.data["entity_id"] for c in calls] == [["light.kitchen"]]
+    assert "floor" in mock_client.ask.call_args.args[1]
+    assert result.response.speech["plain"]["speech"] == "Turned on the lights"
+
+
+async def test_turn_on_with_a_level_in_words_asks_for_it(hass, house, mock_client):
+    """HassTurnOn has no level, so "at half brightness" came on at the last one."""
+    mock_client.ask.side_effect = [
+        build_response(**answer_set(bright=NoulAnswer(noul=0.8))),
+        build_response(
+            level=ScoreAnswer(score=4.0, legend={}, probabilities={}, confidence=1.0),
+            relative=NoulAnswer(noul=0.1),
+        ),
+    ]
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the kitchen light at half brightness")
+    await hass.async_block_till_done()
+
+    assert [c.data.get("brightness_pct") for c in calls] == [50]
+    assert set(mock_client.ask.call_args.args[1]) == {"level", "relative"}
+
+
+async def test_a_level_in_words_on_a_light_that_is_on_is_not_already_done(
+    hass, house, mock_client
+):
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen light"})
+    mock_client.ask.side_effect = [
+        build_response(
+            **answer_set(
+                action=ChoiceAnswer(
+                    choice="turn_on",
+                    probabilities={"turn_on": 0.45, "get_state": 0.4},
+                    confidence=0.45,
+                ),
+                bright=NoulAnswer(noul=0.8),
+            )
+        ),
+    ]
+    await converse(hass, "turn on the kitchen light at half brightness")
+    trace = next(iter(house.runtime_data.conversation_traces))
+    assert trace["reason"] == "action confidence 0.45 below 0.60"
 
 
 async def test_a_trace_records_what_was_decided(hass, house, mock_client):
@@ -2512,3 +2596,24 @@ async def test_a_room_named_by_its_alias_is_reached(hass, house, mock_client):
     await hass.async_block_till_done()
 
     assert [e for c in calls for e in c.data["entity_id"]] == ["light.office"]
+
+
+@pytest.mark.parametrize(
+    ("text", "acts"),
+    [
+        ("Kitchen light", False),
+        ("kitchen light!", False),
+        ("Kitchen", False),
+        ("kitchen light on", True),
+    ],
+)
+async def test_a_name_on_its_own_acts_on_nothing(hass, house, mock_client, text, acts):
+    # "goodnight" ran a script called Goodnight, 2 runs of 2.
+    mock_client.ask.return_value = build_response(**answer_set())
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, text)
+    await hass.async_block_till_done()
+
+    assert bool(calls) is acts

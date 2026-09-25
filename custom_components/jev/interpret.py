@@ -305,6 +305,22 @@ def without_names(text: str, names: Iterable[str]) -> str:
     return text
 
 
+def _letters(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def _only_a_name(text: str, snapshot: HomeSnapshot) -> bool:
+    """Whether the sentence is nothing but one name, as "Good night!" for Goodnight."""
+    said = _letters(text)
+    names = [
+        *(n for e in snapshot.entities for n in e.names),
+        *snapshot.areas,
+        *(a for aliases in snapshot.area_aliases.values() for a in aliases),
+        *snapshot.floors,
+    ]
+    return bool(said) and any(_letters(n) == said for n in names)
+
+
 def said_a_digit(text: str) -> bool:
     """Whether the regex had a number to read, so its answer is the last word."""
     return _BARE_NUMBER.search(text) is not None
@@ -515,6 +531,16 @@ def build_questions(
             true="It says except, but, apart from or other than, and what to leave out",
             false="Nothing is left out",
         ),
+        # "turn on the lamp dimmed" scored turn_on, and HassTurnOn has no level,
+        # so the lamp came on at its last one. set_brightness alone put 0.04 to
+        # 0.39 on such a sentence, too little to act on. This question put 0.60 to
+        # 0.96 on six such sentences and 0.01 to 0.02 on seven with no level, in
+        # two runs each.
+        "bright": Noul(
+            "Does the command also say how bright a light should be?",
+            true="It names a brightness, such as half, full, dimmed or a percentage",
+            false="It says nothing about brightness",
+        ),
         # "turn off the lamps" with a Lamp, a Desk lamp and a Ceiling light came
         # back as every light, and turned off the ceiling light too.
         "plural": Noul(
@@ -528,9 +554,9 @@ def build_questions(
             "How is the target named?",
             {
                 "entity": "One particular device is named",
-                "area": "A room or area is named, covering what is in it",
+                "area": "A room, an area or a floor is named, covering what is in it",
                 "everything": "Every device, or every device of one kind such as "
-                "all the lights, with no room or device named",
+                "all the lights, with no room, floor or device named",
                 NONE: "No target is named at all",
             },
         ),
@@ -561,6 +587,15 @@ def build_questions(
         }
         area_options[NONE] = "No room is named"
         questions["area"] = Choice("Which room is meant?", area_options)
+    # With no floor question, "turn off the lights upstairs" went to the fallback
+    # agent, 2 runs of 2. With it, five floor commands in three languages acted on
+    # the right floor in two runs each, at 0.97 to 1.00, and six controls acted as
+    # before.
+    if snapshot.floors:
+        questions["floor"] = Choice(
+            "Which floor is meant?",
+            dict.fromkeys(snapshot.floors) | {NONE: "No floor is named"},
+        )
     if len(snapshot.domains) >= 2:
         questions["domain"] = Choice(
             "Which kind of device is meant?",
@@ -619,13 +654,18 @@ def interpret(
         return out("a position part of the way")
     if noul("except") >= 0.5:
         return out("something is left out")
+    # "goodnight" ran a script called Goodnight, 2 runs of 2. A name on its own
+    # asks for nothing, and Home Assistant's own agent needs a verb for it too.
+    if _only_a_name(text, snapshot):
+        return out("only a name, no action said")
 
     # A digit in a name is not a level: "lamp 2", "Bedroom 2".
     spoken = without_names(
         text,
         [
-            *(e.name for e in snapshot.entities),
+            *(n for e in snapshot.entities for n in e.names),
             *snapshot.areas,
+            *(a for aliases in snapshot.area_aliases.values() for a in aliases),
             *snapshot.floors,
             *snapshot.hidden_names,
         ],
@@ -647,8 +687,10 @@ def interpret(
         # answer to a sentence the model read correctly.
         # "turn on the lamp at 50%" with the lamp on is a new level, not done.
         # It came back as already on in 1 of 2 runs.
-        if find_brightness(spoken, bare=False) is None and (
-            settled := _already_done(action, entity, snapshot, min_confidence)
+        if (
+            find_brightness(spoken, bare=False) is None
+            and noul("bright") < 0.5
+            and (settled := _already_done(action, entity, snapshot, min_confidence))
         ):
             return Interpretation(
                 None,
@@ -667,6 +709,7 @@ def interpret(
     intent_type = ACTIONS[action.choice]
     target = choice("target_type")
     area = choice("area")
+    floor = choice("floor")
     slots: dict[str, Any] = {}
     targets_everything = False
     named_area = (
@@ -735,6 +778,10 @@ def interpret(
     elif area is not None and area.choice != NONE and area.confidence >= min_confidence:
         slots["area"] = {"value": area.choice}
     elif (
+        floor is not None and floor.choice != NONE and floor.confidence >= min_confidence
+    ):
+        slots["floor"] = {"value": floor.choice}
+    elif (
         target is not None
         and target.choice == "everything"
         and target.confidence >= min_confidence
@@ -778,7 +825,7 @@ def interpret(
         if described.area_id:
             slots["preferred_area_id"] = {"value": described.area_id}
 
-    # An area always carries a domain. With none, Home Assistant acts on every
+    # An area or a floor always carries a domain. With none, Home Assistant acts on every
     # exposed entity in the room whatever its domain, so turn_off on a hallway with a
     # light and a lock unlocked the lock. Without a confident answer, the domains the
     # model was shown are the bound. The whole house takes that default only when the
@@ -806,6 +853,16 @@ def interpret(
     ):
         intent_type = ACTIONS["set_brightness"]
         slots["brightness"] = {"value": level}
+        slots["domain"] = {"value": ["light"]}
+    elif (
+        action.choice == "turn_on"
+        and "light" in slots.get("domain", {}).get("value", [])
+        and noul("bright") >= 0.5
+    ):
+        # A level in words, "at half brightness", goes to the second request, as
+        # for set_brightness.
+        intent_type = ACTIONS["set_brightness"]
+        needs_level = True
         slots["domain"] = {"value": ["light"]}
     if action.choice == "set_brightness":
         brightness = find_brightness(spoken)
