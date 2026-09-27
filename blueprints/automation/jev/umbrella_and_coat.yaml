@@ -128,10 +128,12 @@ actions:
         {% set at = as_datetime(f.datetime) %}
         {% if at is not none and at > now() - timedelta(hours=1) %}
         {% set chance = f.get('precipitation_probability') | float(none) %}
+        {% set mm = f.get('precipitation') | float(none) %}
         {% set temp = f.get('temperature') | float(none) %}
         {% set ns.lines = ns.lines + ['At ' ~ (at | as_local).strftime('%H:%M') ~ ': '
           ~ (f.get('condition') or 'unknown') ~ ', '
-          ~ (('%d%% chance of rain' % chance) if chance is not none else 'chance of rain unknown') ~ ', '
+          ~ (('%d%% chance of rain' % chance) if chance is not none
+             else ('%g mm of rain' % mm) if mm is not none else 'chance of rain unknown') ~ ', '
           ~ (('%g degrees' % temp) if temp is not none else 'temperature unknown') ~ '.'] %}
         {% endif %}
         {% endfor %}

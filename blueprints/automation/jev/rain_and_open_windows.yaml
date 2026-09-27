@@ -68,8 +68,8 @@ blueprint:
           name: Rain floor
           description: >-
             Jev is asked only when some hour ahead has a chance of rain above
-            this. When the forecast gives no chance for an hour, a rainy
-            condition counts instead.
+            this. When the forecast gives no chance for an hour, more than
+            0 mm of rain or a rainy condition counts instead.
           default: 30
           selector:
             number:
@@ -175,6 +175,7 @@ actions:
           'hour': (at | as_local).strftime('%H:%M'),
           'condition': f.get('condition') or 'unknown',
           'chance': f.get('precipitation_probability') | float(none),
+          'mm': f.get('precipitation') | float(none),
         }] %}
         {% endif %}
         {% endfor %}
@@ -183,12 +184,13 @@ actions:
         {% set ns = namespace(found=false) %}
         {% for h in hours %}
         {% if h.chance is not none and h.chance > rain_floor %}{% set ns.found = true %}
+        {% elif h.chance is none and h.mm is not none and h.mm > 0 %}{% set ns.found = true %}
         {% elif h.chance is none and h.condition in ['rainy', 'pouring', 'lightning-rainy', 'snowy-rainy', 'hail'] %}{% set ns.found = true %}
         {% endif %}
         {% endfor %}
         {{ ns.found }}
       forecast_text: >-
-        {% for h in hours %}At {{ h.hour }}: {{ h.condition }}, {{ ('%d%% chance of rain' % h.chance) if h.chance is not none else 'chance of rain unknown' }}.{% if not loop.last %} {% endif %}{% endfor %}
+        {% for h in hours %}At {{ h.hour }}: {{ h.condition }}, {{ ('%d%% chance of rain' % h.chance) if h.chance is not none else ('%g mm of rain' % h.mm) if h.mm is not none else 'chance of rain unknown' }}.{% if not loop.last %} {% endif %}{% endfor %}
   # A dry forecast is a comparison, and a template answers it for free.
   - condition: template
     value_template: "{{ rain_possible }}"

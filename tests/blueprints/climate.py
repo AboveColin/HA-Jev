@@ -204,6 +204,15 @@ DRY = [
 # A provider that leaves the rain chance out.
 RAIN_NO_CHANCE = [{"condition": "rainy"}, {"condition": "pouring"}]
 CLOUDS_NO_CHANCE = [{"condition": "cloudy"}, {"condition": "partlycloudy"}]
+# Met.no gives the rain amount in mm and no chance.
+MM_ONLY_WET = [
+    {"condition": "cloudy", "precipitation": 0.0},
+    {"condition": "cloudy", "precipitation": 0.6},
+]
+MM_ONLY_DRY = [
+    {"condition": "partlycloudy", "precipitation": 0.0},
+    {"condition": "cloudy", "precipitation": 0.0},
+]
 # Two hours already gone, then rain. Only the current hour and later count.
 PAST_THEN_RAIN = [
     {"condition": "fog", "precipitation_probability": 95},
@@ -529,6 +538,10 @@ def _rain_request(state: Any, _questions: dict[str, Any]) -> None:
     )
 
 
+def _rain_amount(state: Any, _questions: dict[str, Any]) -> None:
+    assert f"At {_local_hour(1)}: cloudy, 0.6 mm of rain." in _note(state)
+
+
 def _rain_unknown_chance(state: Any, _questions: dict[str, Any]) -> None:
     note = _note(state)
     assert "0%" not in note
@@ -562,6 +575,11 @@ RAIN_CASES: dict[str, Case] = {
     "rain_and_open_windows:chance_missing_and_cloudy": _rain_case(
         CLOUDS_NO_CHANCE, TURNS_RAINY, asks=0
     ),
+    # A provider with only the amount: more than 0 mm is a reason to ask.
+    "rain_and_open_windows:amount_only": _rain_case(
+        MM_ONLY_WET, TURNS_RAINY, check=_rain_amount
+    ),
+    "rain_and_open_windows:amount_only_dry": _rain_case(MM_ONLY_DRY, TURNS_RAINY, asks=0),
     # B9: hours that have already gone are not the next 3 hours.
     "rain_and_open_windows:past_hours_dropped": _rain_case(
         PAST_THEN_RAIN, TURNS_RAINY, first=-2, check=_rain_request
@@ -681,6 +699,7 @@ def _umbrella_request(state: Any, questions: dict[str, Any]) -> None:
         "14 degrees. "
     )
     assert f"At {_local_hour(2)}: rainy, 90% chance of rain, temperature unknown." in note
+    assert f"At {_local_hour(3)}: cloudy, 0.4 mm of rain, 13 degrees." in note
     assert "fog" not in note
     assert set(questions) == {"umbrella", "clothing"}
 
@@ -691,6 +710,7 @@ UMBRELLA_MORNING_ROWS = [
     {"condition": "rainy", "temperature": 14},
     {"condition": "rainy", "precipitation_probability": 85, "temperature": 15},
     {"condition": "rainy", "precipitation_probability": 90},
+    {"condition": "cloudy", "precipitation": 0.4, "temperature": 13},
 ]
 ALICE = "person.alice"
 

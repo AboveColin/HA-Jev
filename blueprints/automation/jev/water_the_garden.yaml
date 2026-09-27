@@ -108,13 +108,14 @@ actions:
           'day': (at | as_local).strftime('%A'),
           'condition': f.get('condition') or 'unknown',
           'chance': f.get('precipitation_probability') | float(none),
+          'mm': f.get('precipitation') | float(none),
           'high': f.get('temperature') | float(none),
         }] %}
         {% endif %}
         {% endfor %}
         {{ ns.rows[:2] }}
       forecast_text: >-
-        {% for d in days %}{{ d.day }}: {{ d.condition }}, {{ ('%d%% chance of rain' % d.chance) if d.chance is not none else 'chance of rain unknown' }}, {{ ('high %g degrees' % d.high) if d.high is not none else 'high unknown' }}.{% if not loop.last %} {% endif %}{% else %}unknown.{% endfor %}
+        {% for d in days %}{{ d.day }}: {{ d.condition }}, {{ ('%d%% chance of rain' % d.chance) if d.chance is not none else ('%g mm of rain' % d.mm) if d.mm is not none else 'chance of rain unknown' }}, {{ ('high %g degrees' % d.high) if d.high is not none else 'high unknown' }}.{% if not loop.last %} {% endif %}{% else %}unknown.{% endfor %}
       rain_sensor_text: >-
         {% if not rain_sensor %}{% elif states(rain_sensor) in ['unavailable', 'unknown'] %}The rain sensor's state is unknown.{% elif is_state(rain_sensor, 'on') %}The rain sensor is wet right now.{% endif %}
       soil_text: >-

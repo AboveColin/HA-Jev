@@ -516,19 +516,25 @@ def _slow_jev(hass: HomeAssistant) -> None:
     client.ask.side_effect = answer
 
 
-def _calendar_fire(*summaries: str, slow: bool = False) -> Callable:
+def _calendar_fire(*summaries: str, slow: bool = False, details: bool = True) -> Callable:
     """A fire() for calendar_prep with one event per summary, all at the same start."""
 
     async def fire(hass: HomeAssistant, freezer) -> None:
         if slow:
             _slow_jev(hass)
-        await _calendar_prep_fire(hass, freezer, summaries or ("Dentist appointment",))
+        await _calendar_prep_fire(
+            hass, freezer, summaries or ("Dentist appointment",), details=details
+        )
 
     return fire
 
 
 async def _calendar_prep_fire(
-    hass: HomeAssistant, freezer, summaries: tuple[str, ...] = ("Dentist appointment",)
+    hass: HomeAssistant,
+    freezer,
+    summaries: tuple[str, ...] = ("Dentist appointment",),
+    *,
+    details: bool = True,
 ) -> None:
     """Register a real calendar entity, then let the native trigger catch its event.
 
@@ -548,8 +554,8 @@ async def _calendar_prep_fire(
             start=event_start,
             end=event_start + dt.timedelta(hours=1),
             summary=summary,
-            description="Yearly checkup, bring the insurance card",
-            location="Main street dental",
+            description="Yearly checkup, bring the insurance card" if details else None,
+            location="Main street dental" if details else None,
         )
         for summary in summaries
     ]
@@ -1152,6 +1158,21 @@ CASES["calendar_prep:time_left"] = Case(
     answers=_calendar_answers(0.8, "bring"),
     expect={"yes": [{"s": "Dentist appointment", "w": "bring"}]},
     check_request=_calendar_says_time_left,
+)
+
+
+def _calendar_says_none_given(state: Any, _questions: dict[str, Any]) -> None:
+    assert state["description"] == "none given", state
+    assert state["location"] == "none given", state
+
+
+# An event with no description or location says so, and is not blank.
+CASES["calendar_prep:no_details"] = Case(
+    inputs=_calendar_inputs(),
+    fire=_calendar_fire(details=False),
+    answers=_calendar_answers(0.8, "bring"),
+    expect={"yes": [{"s": "Dentist appointment", "w": "bring"}]},
+    check_request=_calendar_says_none_given,
 )
 # The threshold is an input. 0.8 is under a 0.9 threshold.
 CASES["calendar_prep:threshold_input"] = Case(

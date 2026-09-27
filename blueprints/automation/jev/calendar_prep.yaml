@@ -124,8 +124,9 @@ actions:
     data:
       state:
         summary: "{{ trigger.calendar_event.summary }}"
-        description: "{{ trigger.calendar_event.description }}"
-        location: "{{ trigger.calendar_event.location }}"
+        # A calendar leaves out a field the event does not have.
+        description: "{{ trigger.calendar_event.get('description') or 'none given' }}"
+        location: "{{ trigger.calendar_event.get('location') or 'none given' }}"
         start: "{{ trigger.calendar_event.start }}"
         starts_in: "{{ starts_in }}"
       questions:
