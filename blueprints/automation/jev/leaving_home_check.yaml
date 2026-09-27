@@ -1,0 +1,195 @@
+blueprint:
+  name: Jev - Something left on when everyone leaves
+  description: >-
+    Watches the lights, windows, appliances, covers and media players you pick.
+    When the zone empties and stays empty for the hold time, a template checks
+    which of them are on, open or playing. If none are, the check stops there
+    and Jev is never asked. If some are, Jev is asked whether anything needs
+    dealing with now that nobody is home, and how urgently. A clean exit costs
+    nothing. A house left mid-chore costs one call.
+
+
+    It asks at most once per departure, and the zone has to fill again before
+    the next one. With the default 30 minute cooldown that is never more than
+    48 calls a day. A household that leaves the house empty two or three times
+    a day costs 0 to 3 calls a day.
+
+
+    Your actions can read `probability` (0 to 1), `left_on` (the noteworthy
+    entities, as readable text), `urgency` (0 to 3) and `level` (the urgency
+    score's nearest level, as text).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/leaving_home_check.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:home-export-outline
+      input:
+        zone:
+          name: Zone
+          description: The check runs when this zone's person count drops to zero.
+          default: zone.home
+          selector:
+            entity:
+              domain: zone
+        lights:
+          name: Lights
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: light
+        windows:
+          name: Windows and doors
+          description: Binary sensors where "on" means open.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        appliances:
+          name: Appliances
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: switch
+        covers:
+          name: Covers
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: cover
+        media:
+          name: Media players
+          description: >-
+            A player counts unless it is off, in standby, idle, unavailable or
+            unknown.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: media_player
+        hold:
+          name: Hold time
+          description: The zone must stay empty this long before the check runs.
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, the check will not run again for this long.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            Anything Jev cannot see in the states, such as which of these are
+            normal to leave running while the house is empty.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          description: At or above this probability, the "needs handling" actions run.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        handle_actions:
+          name: When something needs handling now
+          selector:
+            action: {}
+        clear_actions:
+          name: When it can wait until someone is back
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input zone
+    below: 1
+    for: !input hold
+
+variables:
+  threshold: !input threshold
+  lights: !input lights
+  windows: !input windows
+  appliances: !input appliances
+  covers: !input covers
+  media: !input media
+  noteworthy: >-
+    {{ ((expand(lights) | selectattr('state', 'eq', 'on') | list)
+        + (expand(windows) | selectattr('state', 'eq', 'on') | list)
+        + (expand(appliances) | selectattr('state', 'eq', 'on') | list)
+        + (expand(covers) | selectattr('state', 'eq', 'open') | list)
+        + (expand(media) | rejectattr('state', 'in', ['off', 'standby', 'idle', 'unavailable', 'unknown']) | list)
+       ) | map(attribute='entity_id') | list }}
+  left_on: >-
+    {{ ((expand(lights) | selectattr('state', 'eq', 'on') | list)
+        + (expand(windows) | selectattr('state', 'eq', 'on') | list)
+        + (expand(appliances) | selectattr('state', 'eq', 'on') | list)
+        + (expand(covers) | selectattr('state', 'eq', 'open') | list)
+        + (expand(media) | rejectattr('state', 'in', ['off', 'standby', 'idle', 'unavailable', 'unknown']) | list)
+       ) | map(attribute='name') | list | join(', ') }}
+
+conditions:
+  - condition: template
+    value_template: "{{ noteworthy | count > 0 }}"
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: "{{ noteworthy }}"
+    data:
+      state:
+        everyone_left: true
+      questions:
+        needs_handling:
+          type: noul
+          instructions: Does something left on need dealing with now that nobody is home?
+          background: !input background
+          "true": Worth going back for, or worth asking someone nearby to check
+          "false": Fine to leave until whoever is out gets back
+        urgency:
+          type: score
+          instructions: How urgently does this need a person?
+          criteria:
+            - Nothing to worry about
+            - Worth a look when someone is back
+            - Should be handled today
+            - Needs handling right now
+  - variables:
+      probability: "{{ jev.answers.needs_handling.noul }}"
+      urgency: "{{ jev.answers.urgency.score }}"
+      level: "{{ jev.answers.urgency.nearest_level }}"
+  - if:
+      - condition: template
+        value_template: "{{ probability >= threshold }}"
+    then: !input handle_actions
+    else: !input clear_actions
+  - delay: !input cooldown

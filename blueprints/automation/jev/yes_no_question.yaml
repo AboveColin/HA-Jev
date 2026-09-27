@@ -1,0 +1,135 @@
+blueprint:
+  name: Jev - Ask a yes or no question
+  description: >-
+    Asks Jev a yes or no question about the entities you pick, each time one of
+    them changes and stays changed for the hold time. When the probability is at
+    or above the threshold, the "yes" actions run. Below it, the "no" actions run.
+
+
+    Your actions can read `probability` (0 to 1), `answered_yes` (true or false)
+    and `question`.
+
+
+    It asks once for each change that lasts the hold time, and at most once
+    per cooldown. With the default 15 minute cooldown that is never more than
+    96 calls a day. Entities that change a few times a day cost a few calls.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/yes_no_question.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: One thing, asked so that yes and no are both possible.
+          selector:
+            text:
+              multiline: true
+        yes_means:
+          name: What yes means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        no_means:
+          name: What no means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states, such as "this machine draws under
+            5 W when idle". This moves the answer more than any other field.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          default: 0.7
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        yes_actions:
+          name: When the answer is yes
+          selector:
+            action: {}
+        no_actions:
+          name: When the answer is no
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+
+variables:
+  question: !input question
+  threshold: !input threshold
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      true_means: !input yes_means
+      false_means: !input no_means
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+      answered_yes: "{{ jev.is_true }}"
+  - if: "{{ answered_yes }}"
+    then: !input yes_actions
+    else: !input no_actions
+  - delay: !input cooldown

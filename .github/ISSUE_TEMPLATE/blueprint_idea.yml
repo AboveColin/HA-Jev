@@ -1,0 +1,42 @@
+name: Blueprint idea
+description: Something you would like Jev to decide at home, as a blueprint.
+labels: ["blueprint"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        A blueprint is an automation other people import with one click. Describe
+        the situation, and someone may write it. If you want to write it yourself,
+        CONTRIBUTING.md has the rules and the test to add.
+  - type: textarea
+    id: situation
+    attributes:
+      label: The situation
+      description: What happens at home, and what you want to happen then.
+      placeholder: The dryer finishes at night and the clothes stay in it until morning.
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: The question for Jev
+      description: >-
+        What a template cannot decide on its own. A yes or no question, a choice
+        between a few options, or a place on a scale.
+      placeholder: Did someone forget the clothes in the dryer?
+    validations:
+      required: true
+  - type: textarea
+    id: entities
+    attributes:
+      label: What it can see
+      description: The kinds of sensors and devices it would read. Use generic names.
+      placeholder: Dryer power, dryer door, bedroom motion.
+  - type: dropdown
+    id: write
+    attributes:
+      label: Do you want to write it?
+      options:
+        - Yes, I will open a pull request
+        - I can test it at home
+        - No, it is only an idea

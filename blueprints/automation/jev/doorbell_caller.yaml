@@ -1,0 +1,211 @@
+blueprint:
+  name: Jev - Who is at the door
+  description: >-
+    Watches an intercom transcript or a camera's description, either the
+    entity's state or one named attribute. Each time the text changes and
+    holds for the hold time, Jev is asked what kind of caller this is: a
+    delivery, a neighbour, a sales call, an expected service visit, someone
+    who lives here, nobody at all, or something else. Text that is empty,
+    unknown, unavailable or the same as before is skipped without asking.
+    Other attribute changes, such as a camera's rotating access token, never
+    ask.
+
+
+    It asks once per new text. A run holds for the 1 minute hold time and then
+    waits out the 5 minute cooldown, so asks are at least 6 minutes apart with
+    the defaults. That is never more than 240 calls a day. A door with 10
+    callers a day costs about 10 calls a day.
+
+
+    Your actions can read `caller` (delivery, neighbour, sales, service,
+    resident, nobody or other), `confidence` (0 to 1) and `text` (what was
+    read).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/doorbell_caller.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:doorbell-video
+      input:
+        transcript_entity:
+          name: Transcript or description entity
+          description: An intercom transcript, or a camera with a description attribute.
+          selector:
+            entity: {}
+        transcript_attribute:
+          name: Attribute
+          description: >-
+            The attribute that holds the text, such as a camera's
+            "description". Leave blank to read the entity's state.
+          default: ""
+          selector:
+            text: {}
+        hold:
+          name: Hold time
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        household:
+          name: Household background
+          description: >-
+            Who lives here, whether you expect deliveries, anything Jev
+            cannot tell from the transcript alone.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        min_confidence:
+          name: Minimum confidence
+          description: Below this, the "unsure" actions run instead of a caller type.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        delivery_actions:
+          name: A delivery
+          default: []
+          selector:
+            action: {}
+        neighbour_actions:
+          name: A neighbour
+          default: []
+          selector:
+            action: {}
+        sales_actions:
+          name: A sales call
+          default: []
+          selector:
+            action: {}
+        service_actions:
+          name: An expected engineer, meter reader or contractor
+          default: []
+          selector:
+            action: {}
+        resident_actions:
+          name: Someone who lives here
+          default: []
+          selector:
+            action: {}
+        nobody_actions:
+          name: Nobody there
+          default: []
+          selector:
+            action: {}
+        other_actions:
+          name: Anything else
+          default: []
+          selector:
+            action: {}
+        unsure_actions:
+          name: Below the minimum confidence
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+# Two triggers, because a state trigger with no "to:" also fires on every
+# attribute change. The first fires on a change of state only. The second fires
+# on a change of the chosen attribute only, and never when the attribute is
+# blank, since a blank attribute name reads as nothing both before and after.
+# When the text is an attribute, a change of state alone leaves the text as it
+# was, and the condition below skips it.
+triggers:
+  - trigger: state
+    entity_id: !input transcript_entity
+    to: ~
+    for: !input hold
+  - trigger: state
+    entity_id: !input transcript_entity
+    attribute: !input transcript_attribute
+    for: !input hold
+
+variables:
+  min_confidence: !input min_confidence
+  transcript_entity: !input transcript_entity
+  transcript_attribute: !input transcript_attribute
+  text: >-
+    {{ state_attr(transcript_entity, transcript_attribute) if transcript_attribute
+       else states(transcript_entity) }}
+
+conditions:
+  # Unknown, unavailable or missing text is not something anyone said, and text
+  # the same as before is the same caller. Neither is worth a call.
+  - condition: template
+    value_template: >-
+      {% set now_text = '' if text is none else text | string | trim %}
+      {% set f = trigger.from_state %}
+      {% set raw = none if f is none
+         else (f.attributes.get(transcript_attribute) if transcript_attribute
+         else f.state) %}
+      {% set before = '' if raw is none else raw | string | trim %}
+      {{ now_text | lower not in ['', 'unknown', 'unavailable', 'none']
+         and now_text != before }}
+
+actions:
+  - action: jev.choice
+    response_variable: jev
+    data:
+      state:
+        said: "{{ text }}"
+        time: "{{ now().strftime('%H:%M on %A') }}"
+      instructions: What kind of caller is at the door?
+      background: !input household
+      options:
+        - delivery
+        - neighbour
+        - sales
+        - service
+        - resident
+        - nobody
+        - other
+      option_descriptions:
+        delivery: A parcel, a meal, or anything being dropped off
+        neighbour: Somebody who lives nearby, on a social or practical errand
+        sales: Somebody selling something or asking for money or a signature
+        service: An expected engineer, meter reader or contractor
+        resident: Somebody who lives here, such as someone home without a key
+        nobody: Nobody is there, such as a passer-by, an animal or a false alarm
+        other: A caller that fits none of the other options
+  - variables:
+      caller: "{{ jev.choice }}"
+      confidence: "{{ jev.confidence }}"
+  - choose:
+      - conditions: "{{ confidence < min_confidence }}"
+        sequence: !input unsure_actions
+      - conditions: "{{ caller == 'delivery' }}"
+        sequence: !input delivery_actions
+      - conditions: "{{ caller == 'neighbour' }}"
+        sequence: !input neighbour_actions
+      - conditions: "{{ caller == 'sales' }}"
+        sequence: !input sales_actions
+      - conditions: "{{ caller == 'service' }}"
+        sequence: !input service_actions
+      - conditions: "{{ caller == 'resident' }}"
+        sequence: !input resident_actions
+      - conditions: "{{ caller == 'nobody' }}"
+        sequence: !input nobody_actions
+    default: !input other_actions
+  - delay: !input cooldown

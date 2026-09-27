@@ -96,6 +96,38 @@ async def test_the_threshold_is_the_callers_and_nothing_else(
     assert high["is_true"] is False
 
 
+async def test_a_blank_meaning_is_not_sent(hass, loaded_entry, mock_client):
+    """A blueprint passes "" for a field its user left empty."""
+    await call(
+        hass,
+        "noul",
+        {"state": "x", "instructions": "y", "true_means": "", "false_means": ""},
+    )
+    question = mock_client.ask.call_args.args[1]["answer"]
+    assert question.true is None
+    assert question.false is None
+
+
+async def test_a_blank_option_description_is_not_sent(hass, loaded_entry, mock_client):
+    mock_client.ask.return_value = build_response(
+        answer=ChoiceAnswer(
+            choice="a", probabilities={"a": 0.9, "b": 0.1}, confidence=0.9
+        )
+    )
+    await call(
+        hass,
+        "choice",
+        {
+            "state": "x",
+            "instructions": "y",
+            "options": ["a", "b"],
+            "option_descriptions": {"a": "", "b": "The second"},
+        },
+    )
+    question = mock_client.ask.call_args.args[1]["answer"]
+    assert question.criteria == {"a": None, "b": "The second"}
+
+
 async def test_choice_sends_the_options_and_returns_the_distribution(
     hass, loaded_entry, mock_client
 ):

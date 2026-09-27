@@ -1,0 +1,141 @@
+blueprint:
+  name: Jev - Water the garden tonight
+  description: >-
+    Asks Jev, once an evening, whether the garden needs water tonight, using the
+    soil moisture readings and the forecast for the next two days after today.
+    The only trigger is the evening time, so it costs 1 call a day.
+
+
+    Your actions can read `probability` (0 to 1).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/water_the_garden.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:sprout
+      input:
+        soil_sensors:
+          name: Soil moisture sensors
+          selector:
+            entity:
+              multiple: true
+              domain: sensor
+        weather_entity:
+          name: Weather
+          selector:
+            entity:
+              domain: weather
+        rain_sensor:
+          name: Rain sensor
+          description: Optional. Leave empty if there is none.
+          default: ""
+          selector:
+            entity: {}
+        evening_time:
+          name: Evening time
+          default: "20:00:00"
+          selector:
+            time: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: The rules Jev cannot see, such as what this garden is planted with.
+          default: >-
+            Rain expected tomorrow usually means the garden can skip a night. A
+            run of hot, dry days means it needs water even if it rained a few
+            days ago.
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        water_actions:
+          name: When the garden needs water
+          description: A valve, or a notification.
+          selector:
+            action: {}
+        skip_actions:
+          name: When it can wait
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time
+    at: !input evening_time
+
+variables:
+  soil_sensors: !input soil_sensors
+  weather_entity: !input weather_entity
+  rain_sensor: !input rain_sensor
+
+actions:
+  - action: weather.get_forecasts
+    response_variable: forecast_response
+    target:
+      entity_id: "{{ [weather_entity] }}"
+    data:
+      type: daily
+  - variables:
+      # Some providers start the daily forecast at today, so today is dropped.
+      # Forecast times are UTC, and the day is the local one.
+      days: >-
+        {% set ns = namespace(rows=[]) %}
+        {% for f in forecast_response[weather_entity]['forecast'] %}
+        {% set at = as_datetime(f.datetime) %}
+        {% if at is not none and (at | as_local).date() > now().date() %}
+        {% set ns.rows = ns.rows + [{
+          'day': (at | as_local).strftime('%A'),
+          'condition': f.get('condition') or 'unknown',
+          'chance': f.get('precipitation_probability') | float(none),
+          'mm': f.get('precipitation') | float(none),
+          'high': f.get('temperature') | float(none),
+        }] %}
+        {% endif %}
+        {% endfor %}
+        {{ ns.rows[:2] }}
+      forecast_text: >-
+        {% for d in days %}{{ d.day }}: {{ d.condition }}, {{ ('%d%% chance of rain' % d.chance) if d.chance is not none else ('%g mm of rain' % d.mm) if d.mm is not none else 'chance of rain unknown' }}, {{ ('high %g degrees' % d.high) if d.high is not none else 'high unknown' }}.{% if not loop.last %} {% endif %}{% else %}unknown.{% endfor %}
+      rain_sensor_text: >-
+        {% if not rain_sensor %}{% elif states(rain_sensor) in ['unavailable', 'unknown'] %}The rain sensor's state is unknown.{% elif is_state(rain_sensor, 'on') %}The rain sensor is wet right now.{% endif %}
+      soil_text: >-
+        {% for e in soil_sensors %}{{ state_attr(e, 'friendly_name') or e }}: {{ (states(e) ~ '%') if states(e) | float(none) is not none else 'unknown' }}{% if not loop.last %}, {% endif %}{% endfor %}
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: "{{ soil_sensors + [weather_entity] + ([rain_sensor] if rain_sensor else []) }}"
+    data:
+      state: >-
+        Soil moisture: {{ soil_text }}. Forecast for the next two days:
+        {{ forecast_text }} {{ rain_sensor_text }}
+      instructions: Does the garden need water tonight?
+      background: !input background
+      true_means: The garden needs water tonight
+      false_means: It can wait, the soil or the forecast already covers it
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+      needs_water: "{{ jev.is_true }}"
+  - if: "{{ needs_water }}"
+    then: !input water_actions
+    else: !input skip_actions

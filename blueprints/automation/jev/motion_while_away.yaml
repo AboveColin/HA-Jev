@@ -1,0 +1,174 @@
+blueprint:
+  name: Jev - Motion while nobody is home
+  description: >-
+    Watches motion sensors and door sensors. When one turns on and holds for
+    the hold time, and every person you pick is away, Jev is asked to explain
+    it: a resident arriving, a pet, an expected visitor or cleaner, or
+    unexplained, plus how urgent it is. Jev sees the sensors that are on and
+    where each person is. A person whose state is unknown or unavailable is
+    not counted as away, so nothing is asked. This never arms, disarms or
+    unlocks anything. It only reads sensors and hands you a judgment.
+
+
+    It asks at most once per cooldown. With the default 30 minute cooldown
+    that is never more than 48 calls a day, which a pet that sets off a
+    sensor all day can reach. An empty house with no pet costs 0 to a few
+    calls a day.
+
+
+    Your actions can read `explanation` (resident_arriving, pet,
+    expected_visitor, or unexplained), `urgency` (0 to 3), `level` (the
+    urgency score's nearest level, as text) and `confidence` (0 to 1).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/motion_while_away.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:motion-sensor
+      input:
+        motion_sensors:
+          name: Motion sensors
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        door_sensors:
+          name: Door sensors
+          description: Binary sensors where "on" means open.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        persons:
+          name: People who must all be away
+          selector:
+            entity:
+              multiple: true
+              domain: person
+        hold:
+          name: Hold time
+          description: >-
+            A sensor must stay on this long. Most motion sensors report "on"
+            for 30 seconds or less, so a hold longer than that misses them.
+          default:
+            seconds: 0
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, motion is ignored for this long.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            A standing explanation Jev cannot see in the states, such as "the
+            cat sets off the hallway sensor" or "a cleaner comes on Tuesday
+            mornings".
+          default: ""
+          selector:
+            text:
+              multiline: true
+        urgent_threshold:
+          name: Urgent from
+          description: An urgency score at or above this counts as urgent.
+          default: 2
+          selector:
+            number:
+              min: 0
+              max: 3
+              step: 1
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        urgent_actions:
+          name: Unexplained and urgent
+          default: []
+          selector:
+            action: {}
+        explained_actions:
+          name: Explained
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input motion_sensors
+    to: "on"
+    for: !input hold
+  - trigger: state
+    entity_id: !input door_sensors
+    to: "on"
+    for: !input hold
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ expand(persons) | selectattr('state', 'in', ['home', 'unknown', 'unavailable'])
+         | list | count == 0 }}
+
+variables:
+  urgent_threshold: !input urgent_threshold
+  motion_sensors: !input motion_sensors
+  door_sensors: !input door_sensors
+  persons: !input persons
+  active_sensors: >-
+    {{ ((expand(motion_sensors) | selectattr('state', 'eq', 'on') | list)
+        + (expand(door_sensors) | selectattr('state', 'eq', 'on') | list)
+       ) | map(attribute='entity_id') | list }}
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: "{{ active_sensors + persons }}"
+    data:
+      state:
+        triggered_by: "{{ trigger.entity_id | default('unknown') }}"
+      questions:
+        explanation:
+          type: choice
+          instructions: What is the most likely explanation for this, with nobody home?
+          background: !input background
+          criteria:
+            resident_arriving: Someone who lives here is on the way in
+            pet: A pet set this off
+            expected_visitor: An expected visitor or cleaner let themselves in
+            unexplained: Nothing here explains it
+        urgency:
+          type: score
+          instructions: How urgently does this need a person, given nobody is home?
+          criteria:
+            - Nothing to worry about
+            - Worth keeping an eye on
+            - Worth checking on soon
+            - Needs checking on right now
+  - variables:
+      explanation: "{{ jev.answers.explanation.choice }}"
+      confidence: "{{ jev.answers.explanation.confidence }}"
+      urgency: "{{ jev.answers.urgency.score }}"
+      level: "{{ jev.answers.urgency.nearest_level }}"
+  - choose:
+      - conditions: "{{ explanation == 'unexplained' and urgency >= urgent_threshold }}"
+        sequence: !input urgent_actions
+      - conditions: "{{ explanation != 'unexplained' }}"
+        sequence: !input explained_actions
+    default: []
+  - delay: !input cooldown

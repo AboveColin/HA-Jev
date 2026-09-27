@@ -1,0 +1,185 @@
+blueprint:
+  name: Jev - Triage a message
+  description: >-
+    Watches one entity that holds a piece of text, such as a phone
+    notification sensor or an MQTT sensor, and asks Jev two things about it in
+    one call: whether a person needs to do anything, and how urgent it is on
+    a four-level scale. Runs each time the text changes and stays changed for
+    the hold time. With an attribute chosen, only a change to that attribute
+    counts. Blank text, and a sensor that is unavailable or unknown, are
+    skipped without a call.
+
+
+    Your actions can read `text` (what was read), `needs_a_person` (0 to 1),
+    `urgency` (a number from 0 to 3) and `level` (the text of the closest
+    urgency level).
+
+
+    Every message that lasts the hold time is one call, and it asks at most
+    once per cooldown. With the default 5 minute cooldown that is never more
+    than 288 calls a day. A phone with 20 notifications a day costs about 20.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/message_triage.yaml
+  input:
+    what_to_watch:
+      name: What to watch
+      icon: mdi:message-text-outline
+      input:
+        message_entity:
+          name: Entity
+          description: The entity whose state, or attribute below, holds the message text.
+          selector:
+            entity: {}
+        attribute:
+          name: Attribute
+          description: The attribute that holds the text. Leave blank to read the state instead.
+          default: ""
+          selector:
+            text: {}
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            seconds: 30
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        needs_a_person_question:
+          name: Does it need a person
+          default: Does a person need to do something about this?
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the text, such as what this source
+            normally sends and what is worth waking someone up for.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    the_scale:
+      name: The urgency scale
+      icon: mdi:format-list-numbered
+      input:
+        level_1_text:
+          name: Level 1 (lowest)
+          default: Nothing to do, it resolved itself
+          selector:
+            text: {}
+        level_2_text:
+          name: Level 2
+          default: Worth a look when you have a minute
+          selector:
+            text: {}
+        level_3_text:
+          name: Level 3
+          default: Needs attention today
+          selector:
+            text: {}
+        level_4_text:
+          name: Level 4 (highest)
+          default: Wake someone up now
+          selector:
+            text: {}
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        urgent_actions:
+          name: When it is urgent (level 4)
+          selector:
+            action: {}
+        worth_a_look_actions:
+          name: When it is worth a look (level 2 or 3)
+          default: []
+          selector:
+            action: {}
+        ignored_actions:
+          name: When it can be ignored (level 1)
+          default:
+            - action: logbook.log
+              data:
+                name: Jev triage
+                message: "Read and ignored: {{ text }}"
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  # The text is in the state. Without a to: or not_to:, a change to an attribute
+  # alone would ask too.
+  - trigger: state
+    entity_id: !input message_entity
+    not_to: [unavailable, unknown]
+    for: !input hold
+    id: state
+  # The text is in an attribute. This fires only when that attribute changes. With
+  # the attribute left blank it never fires, because a missing attribute always
+  # equals itself.
+  - trigger: state
+    entity_id: !input message_entity
+    attribute: !input attribute
+    for: !input hold
+    id: attribute
+
+variables:
+  attribute: !input attribute
+  level_1_text: !input level_1_text
+  level_2_text: !input level_2_text
+  level_3_text: !input level_3_text
+  level_4_text: !input level_4_text
+  # Read from the trigger, so the text is the one that lasted the hold time.
+  text: >-
+    {% set s = trigger.to_state %}
+    {{ none if s is none else (s.attributes.get(attribute) if attribute else s.state) }}
+
+conditions:
+  # With an attribute chosen, a change to the state is not a new message.
+  - "{{ trigger.id == ('attribute' if attribute else 'state') }}"
+  # Nothing to read, or a sensor that dropped out. Unchanged text never gets here:
+  # both triggers fire only when the value differs from the one before it.
+  - "{{ text is not none and text | string | trim not in ['', 'unknown', 'unavailable'] }}"
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    data:
+      state: "{{ text }}"
+      questions:
+        needs_a_person:
+          type: noul
+          instructions: !input needs_a_person_question
+          background: !input background
+        urgency:
+          type: score
+          instructions: How urgently must someone act on this?
+          background: !input background
+          criteria: "{{ [level_1_text, level_2_text, level_3_text, level_4_text] }}"
+  - variables:
+      needs_a_person: "{{ jev.answers.needs_a_person.noul }}"
+      urgency: "{{ jev.answers.urgency.score }}"
+      level: "{{ jev.answers.urgency.nearest_level }}"
+  - choose:
+      - conditions: "{{ level == level_4_text }}"
+        sequence: !input urgent_actions
+      - conditions: "{{ level == level_1_text }}"
+        sequence: !input ignored_actions
+    default: !input worth_a_look_actions
+  - delay: !input cooldown

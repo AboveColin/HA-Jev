@@ -35,6 +35,9 @@ Not affiliated with TypeSafe. The API client is
   spoken commands through the same model.
 - It [reports what it spends](https://jev.cdevries.dev/cost/): calls, input tokens and
   estimated cost per day, against a daily token budget.
+- 25 [blueprints](https://jev.cdevries.dev/blueprints/) to import with one click.
+  Seven start from your own question, and 18 handle one situation each, such as a
+  forgotten washing machine or a window open while the heating runs.
 - Fifteen worked [examples](examples/), four of them pairing Jev with an LLM.
 
 ```yaml
@@ -92,6 +95,7 @@ Then [ask your first question](https://jev.cdevries.dev/first-question/).
 | Page | What it covers |
 |---|---|
 | [The three answers](https://jev.cdevries.dev/primitives/) | noul, choice and score, and what confidence means |
+| [Blueprints](https://jev.cdevries.dev/blueprints/) | automations to import, and how to share yours |
 | [Writing a question that works](https://jev.cdevries.dev/writing-questions/) | how to tell it to read the numbers, and asking one thing at a time |
 | [What it costs](https://jev.cdevries.dev/cost/) | what questions and calls cost, and the daily budget |
 | [Measurements](https://jev.cdevries.dev/measurements/) | what was measured against the live API |
@@ -100,8 +104,14 @@ Then [ask your first question](https://jev.cdevries.dev/first-question/).
 
 ## Contributing
 
-Issues and pull requests are welcome. [AGENTS.md](AGENTS.md) has the rules and the full
-check a change must pass.
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the full
+check a change must pass, and [AGENTS.md](AGENTS.md) the rules for coding agents.
+
+The easiest contribution is a blueprint. If an automation at your home asks Jev
+something, put it in `blueprints/automation/jev/` with a test case, and the
+[blueprint page](https://jev.cdevries.dev/blueprints/) credits you. Not writing it
+yourself? Open a
+[blueprint idea](https://github.com/AboveColin/HA-Jev/issues/new?template=blueprint_idea.yml).
 
 Use Python 3.14. The pinned `pytest-homeassistant-custom-component` requires it, and
 3.13 fails at install with "No matching distribution found".

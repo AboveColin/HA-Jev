@@ -1,0 +1,215 @@
+blueprint:
+  name: Jev - Pick one of several and act on it
+  description: >-
+    Asks Jev to pick one of two to four options, each time one of the entities
+    you pick changes and stays changed for the hold time. The option's own
+    actions run. When the answer's confidence is below the minimum, the
+    "unsure" actions run instead.
+
+
+    Your actions can read `choice` (the winning option's name), `confidence`
+    (0 to 1) and `probabilities` (a map of every option to its share).
+
+
+    It asks once for each change that lasts the hold time, and at most once
+    per cooldown. With the default 15 minute cooldown that is never more than
+    96 calls a day. Entities that change a few times a day cost a few calls.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/pick_one_of_several.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: What Jev is choosing between, asked so every option is a real possibility.
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states. This moves the answer more
+            than any other field.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    the_options:
+      name: The options
+      icon: mdi:format-list-bulleted
+      input:
+        option_1_name:
+          name: Option 1 name
+          selector:
+            text: {}
+        option_1_description:
+          name: Option 1 description
+          description: What makes something this option, if it is not obvious from the name.
+          default: ""
+          selector:
+            text: {}
+        option_2_name:
+          name: Option 2 name
+          selector:
+            text: {}
+        option_2_description:
+          name: Option 2 description
+          default: ""
+          selector:
+            text: {}
+        option_3_name:
+          name: Option 3 name
+          description: Leave blank to offer only two options.
+          default: ""
+          selector:
+            text: {}
+        option_3_description:
+          name: Option 3 description
+          default: ""
+          selector:
+            text: {}
+        option_4_name:
+          name: Option 4 name
+          description: Leave blank to offer only two or three options.
+          default: ""
+          selector:
+            text: {}
+        option_4_description:
+          name: Option 4 description
+          default: ""
+          selector:
+            text: {}
+    confidence:
+      name: Confidence
+      icon: mdi:gauge
+      input:
+        minimum_confidence:
+          name: Minimum confidence
+          description: Below this, the "unsure" actions run instead of the chosen option's.
+          default: 0.5
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        option_1_actions:
+          name: When option 1 is chosen
+          selector:
+            action: {}
+        option_2_actions:
+          name: When option 2 is chosen
+          selector:
+            action: {}
+        option_3_actions:
+          name: When option 3 is chosen
+          default: []
+          selector:
+            action: {}
+        option_4_actions:
+          name: When option 4 is chosen
+          default: []
+          selector:
+            action: {}
+        unsure_actions:
+          name: When Jev is not confident enough
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+
+variables:
+  minimum_confidence: !input minimum_confidence
+  option_1_name: !input option_1_name
+  option_1_description: !input option_1_description
+  option_2_name: !input option_2_name
+  option_2_description: !input option_2_description
+  option_3_name: !input option_3_name
+  option_3_description: !input option_3_description
+  option_4_name: !input option_4_name
+  option_4_description: !input option_4_description
+  # A blank name, or one that is only spaces, is an option left out. It is never
+  # offered, and no answer can pick it, so its actions never run.
+  names: >-
+    {{ [option_1_name, option_2_name, option_3_name, option_4_name]
+       | map('string') | map('trim') | list }}
+  option_names: "{{ names | reject('eq', '') | list }}"
+  # jev.choice reads a description only for an offered option, so the key a
+  # blank option leaves here is never sent.
+  option_descriptions: >-
+    {{ {names[0]: option_1_description, names[1]: option_2_description,
+        names[2]: option_3_description, names[3]: option_4_description} }}
+
+actions:
+  - action: jev.choice
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      options: "{{ option_names }}"
+      option_descriptions: "{{ option_descriptions }}"
+  - variables:
+      choice: "{{ jev.choice }}"
+      confidence: "{{ jev.confidence }}"
+      probabilities: "{{ jev.probabilities }}"
+  - if: "{{ confidence < minimum_confidence }}"
+    then: !input unsure_actions
+    else:
+      - choose:
+          - conditions: "{{ choice == names[0] }}"
+            sequence: !input option_1_actions
+          - conditions: "{{ choice == names[1] }}"
+            sequence: !input option_2_actions
+          - conditions: "{{ choice == names[2] }}"
+            sequence: !input option_3_actions
+          - conditions: "{{ choice == names[3] }}"
+            sequence: !input option_4_actions
+  - delay: !input cooldown

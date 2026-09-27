@@ -1,0 +1,238 @@
+blueprint:
+  name: Jev - Charge the car now or later
+  description: >-
+    Asks Jev whether to charge the car now, as soon as it is plugged in and
+    again on a recheck interval while it stays plugged in and below the target
+    battery level. Turns the charger on when the probability is at or above the
+    turn-on value, and off when it is at or below the turn-off value. Between
+    the two it leaves the charger as it is, so one borderline answer does not
+    flip it. It does not ask while the battery or the price reads unavailable.
+
+
+    With the default hourly recheck, a car plugged in all day below the target
+    costs 24 checks plus 1 for plugging in, 25 calls a day. A car plugged in
+    overnight for 10 hours costs about 11 calls a day. At the target it stops
+    asking and leaves the charger as it is.
+
+
+    Your actions can read `probability` (0 to 1).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/ev_charge_now.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:car-electric
+      input:
+        plugged_in_sensor:
+          name: Plugged in
+          description: A binary sensor that is on while the car is plugged in.
+          selector:
+            entity:
+              domain: binary_sensor
+        battery_sensor:
+          name: Car battery percent
+          selector:
+            entity:
+              domain: sensor
+        price_sensor:
+          name: Current electricity price
+          selector:
+            entity:
+              domain: sensor
+        average_price_sensor:
+          name: Average electricity price
+          selector:
+            entity:
+              domain: sensor
+        solar_sensor:
+          name: Solar power
+          description: Optional. Leave empty if there is none.
+          default: ""
+          selector:
+            entity: {}
+        departure_time:
+          name: Departure time
+          selector:
+            time: {}
+        plugged_in_hold:
+          name: Plug-in hold time
+          default:
+            seconds: 30
+          selector:
+            duration: {}
+        recheck_interval:
+          name: Recheck interval
+          description: How often to check while the car stays plugged in.
+          default: "0"
+          selector:
+            select:
+              options:
+                - label: Every 10 minutes
+                  value: "/10"
+                - label: Every 15 minutes
+                  value: "/15"
+                - label: Every 20 minutes
+                  value: "/20"
+                - label: Every 30 minutes
+                  value: "/30"
+                - label: Every hour
+                  value: "0"
+              mode: dropdown
+        target_battery:
+          name: Target battery level
+          description: At or above this, Jev is not asked and the charger is left as it is.
+          default: 80
+          selector:
+            number:
+              min: 10
+              max: 100
+              step: 5
+              unit_of_measurement: "%"
+              mode: slider
+        cooldown:
+          name: Cooldown
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+    the_charger:
+      name: The charger
+      icon: mdi:ev-station
+      input:
+        charger_switch:
+          name: Charger switch
+          selector:
+            entity:
+              domain: switch
+        charge_on_threshold:
+          name: Turn on above
+          description: The charger turns on when the probability clears this.
+          default: 0.65
+          selector:
+            number:
+              min: 0.5
+              max: 0.95
+              step: 0.05
+              mode: slider
+        charge_off_threshold:
+          name: Turn off below
+          description: >-
+            The charger turns off when the probability drops below this. Keep
+            it well under the turn-on value so a borderline answer does not
+            flip the charger back and forth.
+          default: 0.35
+          selector:
+            number:
+              min: 0.05
+              max: 0.5
+              step: 0.05
+              mode: slider
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see, such as the car's charging speed or how
+            much of a buffer to keep.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    what_to_do:
+      name: Extra actions
+      icon: mdi:play-outline
+      input:
+        extra_actions:
+          name: Extra actions
+          description: Runs every time, in addition to the charger switch. Optional.
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input plugged_in_sensor
+    to: "on"
+    for: !input plugged_in_hold
+  - trigger: time_pattern
+    minutes: !input recheck_interval
+
+variables:
+  charger_switch: !input charger_switch
+  battery_sensor: !input battery_sensor
+  price_sensor: !input price_sensor
+  average_price_sensor: !input average_price_sensor
+  solar_sensor: !input solar_sensor
+  departure_time: !input departure_time
+  charge_on_threshold: !input charge_on_threshold
+  charge_off_threshold: !input charge_off_threshold
+  target_battery: !input target_battery
+  price_now: "{{ states(price_sensor) | float(none) }}"
+  price_average: "{{ states(average_price_sensor) | float(none) }}"
+  price_verdict: >-
+    {% if price_average is none %}{{ price_now }}, and the average is unknown
+    {% elif price_now < price_average * 0.9 %}well below average ({{ price_now }} versus an average of {{ price_average }})
+    {% elif price_now > price_average * 1.1 %}well above average ({{ price_now }} versus an average of {{ price_average }})
+    {% else %}about average ({{ price_now }} versus an average of {{ price_average }}){% endif %}
+  solar_power: "{{ states(solar_sensor) | float(none) if solar_sensor else none }}"
+  solar_verdict: >-
+    {% if not solar_sensor %}There is no solar reading
+    {% elif solar_power is none %}The solar reading is unknown
+    {% else %}{{ solar_power }} watts of solar are available right now{% endif %}
+  hours_until_departure: >-
+    {% set dep = today_at(departure_time) %}
+    {% set dep = dep + timedelta(days=1) if dep <= now() else dep %}
+    {{ ((dep - now()).total_seconds() / 3600) | round(1) }}
+  battery_percent: "{{ states(battery_sensor) | float(none) }}"
+  currently_charging: "{{ is_state(charger_switch, 'on') }}"
+
+conditions:
+  - condition: state
+    entity_id: !input plugged_in_sensor
+    state: "on"
+  # An unavailable reading is not 0 percent or a free price, so there is no call.
+  - condition: template
+    value_template: "{{ battery_percent is not none and price_now is not none }}"
+  - condition: template
+    value_template: "{{ battery_percent < target_battery }}"
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: >-
+        {{ [charger_switch, battery_sensor, price_sensor, average_price_sensor] + ([solar_sensor] if solar_sensor else []) }}
+    data:
+      state: >-
+        Battery at {{ battery_percent }} percent, and the target is
+        {{ target_battery }} percent. Price right now is {{ price_verdict }}.
+        {{ solar_verdict }}. Departure in about
+        {{ hours_until_departure }} hours. Charger is currently
+        {{ 'on' if currently_charging else 'off' }}.
+      instructions: Should the car charge right now, rather than waiting for later?
+      background: !input background
+      true_means: Charge now
+      false_means: Wait, there is time or no reason to charge yet
+      threshold: 0.5
+  - variables:
+      probability: "{{ jev.noul }}"
+  - if: "{{ not currently_charging and probability >= charge_on_threshold }}"
+    then:
+      - action: switch.turn_on
+        target:
+          entity_id: !input charger_switch
+  - if: "{{ currently_charging and probability <= charge_off_threshold }}"
+    then:
+      - action: switch.turn_off
+        target:
+          entity_id: !input charger_switch
+  - sequence: !input extra_actions
+  - delay: !input cooldown

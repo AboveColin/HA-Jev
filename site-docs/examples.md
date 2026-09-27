@@ -2,7 +2,8 @@
 
 Fifteen worked examples live in
 [examples/](https://github.com/AboveColin/HA-Jev/tree/main/examples). Every one is
-validated by the test suite, so they cannot rot silently.
+validated by the test suite, so they cannot rot silently. For automations you
+import with one click, see [Blueprints](blueprints.md).
 
 | | |
 |---|---|

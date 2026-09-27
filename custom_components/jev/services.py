@@ -304,10 +304,12 @@ def async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def _noul(call: ServiceCall) -> ServiceResponse:
+        # A blueprint passes "" for a meaning its user left blank, and the client
+        # would send that as an empty criterion. Blank is the same as absent.
         question = Noul(
             _instructions(call),
-            true=call.data.get(CONF_TRUE_MEANS),
-            false=call.data.get(CONF_FALSE_MEANS),
+            true=call.data.get(CONF_TRUE_MEANS) or None,
+            false=call.data.get(CONF_FALSE_MEANS) or None,
         )
         response = await _ask(hass, call, {"answer": question})
         answer = _typed(response.answers["answer"], NoulAnswer, TYPE_NOUL)
@@ -325,7 +327,7 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def _choice(call: ServiceCall) -> ServiceResponse:
         descriptions = call.data[CONF_OPTION_DESCRIPTIONS]
         criteria = {
-            option: descriptions.get(option) for option in call.data[CONF_OPTIONS]
+            option: descriptions.get(option) or None for option in call.data[CONF_OPTIONS]
         }
         try:
             question = Choice(_instructions(call), criteria)

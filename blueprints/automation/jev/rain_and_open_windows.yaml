@@ -1,0 +1,217 @@
+blueprint:
+  name: Jev - Rain coming and something is open
+  description: >-
+    Checks the hourly forecast on an interval while a window, skylight, awning
+    or cover is open, and again when the weather's condition changes. When some
+    hour in the look-ahead has a chance of rain above the rain floor, Jev decides
+    whether rain will reach something left open before anyone is likely to
+    close it. A dry forecast, or nothing open, costs no call.
+
+
+    With the default 30 minute interval and 20 minute cooldown, a wet day with
+    something open all day asks at every check, 48 calls a day, plus one for
+    each change of the weather's condition. Such a day costs about 50 calls a
+    day. A dry day costs none.
+
+
+    Your actions can read `probability` (0 to 1) and `open_things` (the names of
+    what is open right now, joined by commas).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/rain_and_open_windows.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:weather-pouring
+      input:
+        weather_entity:
+          name: Weather
+          selector:
+            entity:
+              domain: weather
+        open_things:
+          name: Windows, skylights, awnings and covers
+          description: Contact sensors or covers. Jev reads which ones are open right now.
+          selector:
+            entity:
+              multiple: true
+        hours_ahead:
+          name: Hours to look ahead
+          default: 3
+          selector:
+            number:
+              min: 1
+              max: 12
+              step: 1
+              unit_of_measurement: hours
+        interval:
+          name: Recheck interval
+          description: How often to check while something is open.
+          default: "/30"
+          selector:
+            select:
+              options:
+                - label: Every 10 minutes
+                  value: "/10"
+                - label: Every 15 minutes
+                  value: "/15"
+                - label: Every 20 minutes
+                  value: "/20"
+                - label: Every 30 minutes
+                  value: "/30"
+                - label: Every hour
+                  value: "0"
+              mode: dropdown
+        rain_floor:
+          name: Rain floor
+          description: >-
+            Jev is asked only when some hour ahead has a chance of rain above
+            this. When the forecast gives no chance for an hour, more than
+            0 mm of rain or a rainy condition counts instead.
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+              step: 5
+              unit_of_measurement: "%"
+              mode: slider
+        weather_hold:
+          name: Weather change hold
+          description: A change of the weather's condition must stand for this long before Jev is asked.
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          default:
+            minutes: 20
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see, such as how exposed these windows are, or
+            how quickly someone at home can close them.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        rain_coming_actions:
+          name: When rain is likely to reach them
+          selector:
+            action: {}
+        clear_actions:
+          name: When it looks dry enough
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time_pattern
+    minutes: !input interval
+  # The condition changing, such as cloudy to rainy. The attributes of a weather
+  # entity update all the time, and not_to keeps those updates from asking.
+  - trigger: state
+    entity_id: !input weather_entity
+    not_from:
+      - unavailable
+      - unknown
+    not_to:
+      - unavailable
+      - unknown
+    for: !input weather_hold
+
+variables:
+  weather_entity: !input weather_entity
+  open_things_list: !input open_things
+  hours_ahead: !input hours_ahead
+  rain_floor: !input rain_floor
+  open_things: >-
+    {{ expand(open_things_list) | selectattr('state', 'in', ['on', 'open']) | map(attribute='name') | list | join(', ') }}
+
+conditions:
+  - condition: template
+    value_template: "{{ open_things != '' }}"
+
+actions:
+  - action: weather.get_forecasts
+    response_variable: forecast_response
+    target:
+      entity_id: "{{ [weather_entity] }}"
+    data:
+      type: hourly
+  - variables:
+      # Forecast times are UTC. The hour that has already started still counts.
+      hours: >-
+        {% set ns = namespace(rows=[]) %}
+        {% for f in forecast_response[weather_entity]['forecast'] %}
+        {% set at = as_datetime(f.datetime) %}
+        {% if at is not none and at > now() - timedelta(hours=1) %}
+        {% set ns.rows = ns.rows + [{
+          'hour': (at | as_local).strftime('%H:%M'),
+          'condition': f.get('condition') or 'unknown',
+          'chance': f.get('precipitation_probability') | float(none),
+          'mm': f.get('precipitation') | float(none),
+        }] %}
+        {% endif %}
+        {% endfor %}
+        {{ ns.rows[:hours_ahead | int] }}
+      rain_possible: >-
+        {% set ns = namespace(found=false) %}
+        {% for h in hours %}
+        {% if h.chance is not none and h.chance > rain_floor %}{% set ns.found = true %}
+        {% elif h.chance is none and h.mm is not none and h.mm > 0 %}{% set ns.found = true %}
+        {% elif h.chance is none and h.condition in ['rainy', 'pouring', 'lightning-rainy', 'snowy-rainy', 'hail'] %}{% set ns.found = true %}
+        {% endif %}
+        {% endfor %}
+        {{ ns.found }}
+      forecast_text: >-
+        {% for h in hours %}At {{ h.hour }}: {{ h.condition }}, {{ ('%d%% chance of rain' % h.chance) if h.chance is not none else ('%g mm of rain' % h.mm) if h.mm is not none else 'chance of rain unknown' }}.{% if not loop.last %} {% endif %}{% endfor %}
+  # A dry forecast is a comparison, and a template answers it for free.
+  - condition: template
+    value_template: "{{ rain_possible }}"
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: "{{ [weather_entity] + open_things_list }}"
+    data:
+      state: >-
+        Open right now: {{ open_things }}. Forecast for the next {{ hours_ahead | int }}
+        hours: {{ forecast_text }}
+      instructions: >-
+        Will rain reach something left open before someone is likely to close it?
+      background: !input background
+      true_means: Rain is likely to reach what is open
+      false_means: It should stay dry long enough, or nothing is really exposed
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+      rain_coming: "{{ jev.is_true }}"
+  - if: "{{ rain_coming }}"
+    then: !input rain_coming_actions
+    else: !input clear_actions
+  - delay: !input cooldown

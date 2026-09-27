@@ -78,6 +78,7 @@ plugins:
         In automations:
           - actions.md: The four actions, their fields and their response variables
           - ai-task.md: The ai_task.generate_data entity and the structures it accepts
+          - blueprints.md: Automation blueprints to import, and how to share one
           - examples.md: Worked automations
           - calibrate.md: jev.calibrate, a threshold measured from recorder history
         Voice:
@@ -121,6 +122,7 @@ nav:
   - In automations:
       - Actions: actions.md
       - AI Task: ai-task.md
+      - Blueprints: blueprints.md
       - Examples: examples.md
       - Tuning a threshold: calibrate.md
   - Voice:

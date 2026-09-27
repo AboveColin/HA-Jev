@@ -1,0 +1,261 @@
+blueprint:
+  name: Jev - Pick a ventilation speed
+  description: >-
+    Asks Jev which ventilation speed fits the air right now, each time the CO2
+    or humidity reading crosses one of its thresholds and stays past it for the
+    hold time. A reading that moves without crossing a threshold costs nothing.
+    Sets the fan to that speed only when Jev is confident enough and the speed
+    actually changes.
+
+
+    Each of the four thresholds asks once per crossing, and after an answer
+    nothing is asked for the cooldown. A room that goes stale overnight and has
+    two showers crosses about 8 thresholds, so about 8 calls a day. A busy room
+    that crosses each threshold three times costs 12 calls a day. The ceiling
+    is one call per 10 minute cooldown, 144 calls a day, which only a reading
+    that keeps swinging across a threshold reaches.
+
+
+    Your actions can read `speed` (off, low, medium or high) and `confidence`
+    (0 to 1).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/ventilation_speed.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:molecule-co2
+      input:
+        co2_sensor:
+          name: CO2 sensor
+          selector:
+            entity:
+              domain: sensor
+        humidity_sensor:
+          name: Humidity sensor
+          selector:
+            entity:
+              domain: sensor
+        occupancy_sensor:
+          name: Occupancy sensor
+          description: Optional. Leave empty if this room has none.
+          default: ""
+          selector:
+            entity:
+              domain: binary_sensor
+        co2_high:
+          name: Stale air above
+          description: CO2 above this is stale air. Crossing it asks Jev.
+          default: 1000
+          selector:
+            number:
+              min: 400
+              max: 5000
+              step: 50
+              unit_of_measurement: ppm
+              mode: box
+        co2_low:
+          name: Fresh air below
+          description: CO2 below this is fine. Crossing it asks Jev.
+          default: 800
+          selector:
+            number:
+              min: 400
+              max: 5000
+              step: 50
+              unit_of_measurement: ppm
+              mode: box
+        humidity_high:
+          name: Humid above
+          description: Humidity above this needs clearing. Crossing it asks Jev.
+          default: 60
+          selector:
+            number:
+              min: 20
+              max: 100
+              unit_of_measurement: "%"
+        humidity_low:
+          name: Dry enough below
+          description: Humidity below this is fine. Crossing it asks Jev.
+          default: 50
+          selector:
+            number:
+              min: 20
+              max: 100
+              unit_of_measurement: "%"
+        hold:
+          name: Hold time
+          description: A reading must stay past a threshold this long before Jev is asked.
+          default:
+            minutes: 3
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, further changes are ignored for this long.
+          default:
+            minutes: 10
+          selector:
+            duration: {}
+    the_fan:
+      name: The fan
+      icon: mdi:fan
+      input:
+        fan_entity:
+          name: Fan
+          selector:
+            entity:
+              domain: fan
+        low_percentage:
+          name: Low speed percentage
+          default: 30
+          selector:
+            number:
+              min: 1
+              max: 100
+              unit_of_measurement: "%"
+        medium_percentage:
+          name: Medium speed percentage
+          default: 60
+          selector:
+            number:
+              min: 1
+              max: 100
+              unit_of_measurement: "%"
+        high_percentage:
+          name: High speed percentage
+          default: 100
+          selector:
+            number:
+              min: 1
+              max: 100
+              unit_of_measurement: "%"
+        min_confidence:
+          name: Minimum confidence to act
+          description: Below this, the fan is left alone rather than changed on a guess.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            Rules Jev cannot see in the readings. The thresholds above are sent
+            with this, so there is no need to repeat them.
+          default: A room with fine air needs no ventilation at all, even if it is occupied.
+          selector:
+            text:
+              multiline: true
+    what_to_do:
+      name: What else to do
+      icon: mdi:play-outline
+      input:
+        extra_actions:
+          name: Extra actions
+          description: Runs every time, in addition to setting the fan. Optional.
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  # Only a crossing asks. A numeric_state trigger fires when the reading passes
+  # the line and stays past it, and not again until it has come back.
+  - trigger: numeric_state
+    entity_id: !input co2_sensor
+    above: !input co2_high
+    for: !input hold
+  - trigger: numeric_state
+    entity_id: !input co2_sensor
+    below: !input co2_low
+    for: !input hold
+  - trigger: numeric_state
+    entity_id: !input humidity_sensor
+    above: !input humidity_high
+    for: !input hold
+  - trigger: numeric_state
+    entity_id: !input humidity_sensor
+    below: !input humidity_low
+    for: !input hold
+
+variables:
+  co2_sensor: !input co2_sensor
+  humidity_sensor: !input humidity_sensor
+  occupancy_sensor: !input occupancy_sensor
+  fan_entity: !input fan_entity
+  low_percentage: !input low_percentage
+  medium_percentage: !input medium_percentage
+  high_percentage: !input high_percentage
+  min_confidence: !input min_confidence
+  co2_high: !input co2_high
+  co2_low: !input co2_low
+  humidity_high: !input humidity_high
+  humidity_low: !input humidity_low
+  co2: "{{ states(co2_sensor) | float(none) }}"
+  humidity: "{{ states(humidity_sensor) | float(none) }}"
+  co2_band: >-
+    {% if co2 is none %}unknown
+    {% elif co2 > co2_high %}stale, above {{ co2_high }} ppm
+    {% elif co2 < co2_low %}fine, below {{ co2_low }} ppm
+    {% else %}between {{ co2_low }} and {{ co2_high }} ppm{% endif %}
+  humidity_band: >-
+    {% if humidity is none %}unknown
+    {% elif humidity > humidity_high %}humid, above {{ humidity_high }}%
+    {% elif humidity < humidity_low %}fine, below {{ humidity_low }}%
+    {% else %}between {{ humidity_low }}% and {{ humidity_high }}%{% endif %}
+  extra_background: !input background
+
+actions:
+  - action: jev.choice
+    response_variable: jev
+    target:
+      entity_id: >-
+        {{ [co2_sensor, humidity_sensor] + ([occupancy_sensor] if occupancy_sensor else []) }}
+    data:
+      state: "CO2 is {{ co2_band }}. Humidity is {{ humidity_band }}."
+      instructions: Which ventilation speed fits the air in this room right now?
+      background: >-
+        CO2 over {{ co2_high }} ppm is stale air, under {{ co2_low }} ppm is
+        fine. Humidity over {{ humidity_high }}% needs clearing, under
+        {{ humidity_low }}% is fine. {{ extra_background }}
+      options:
+        - "off"
+        - low
+        - medium
+        - high
+      option_descriptions:
+        "off": Air is fresh, the fan does not need to run
+        low: A gentle background speed for normal air
+        medium: Noticeably stale or humid air that needs clearing
+        high: Very stale air, very high humidity, or a room full of people
+  - variables:
+      speed: "{{ jev.choice }}"
+      confidence: "{{ jev.confidence }}"
+      target_percentage: >-
+        {{ {"off": 0, "low": low_percentage, "medium": medium_percentage, "high": high_percentage}[speed] }}
+      # A fan that is off may report no percentage, and that is 0. An unknown
+      # percentage on a fan that is on matches no target, so the fan is set.
+      current_percentage: >-
+        {{ 0 if is_state(fan_entity, 'off') else state_attr(fan_entity, 'percentage') | int(none) }}
+  - if: >-
+      {{ confidence >= min_confidence and target_percentage != current_percentage
+         and states(fan_entity) not in ['unavailable', 'unknown'] }}
+    then:
+      - action: fan.set_percentage
+        target:
+          entity_id: !input fan_entity
+        data:
+          percentage: "{{ target_percentage }}"
+  - sequence: !input extra_actions
+  - delay: !input cooldown

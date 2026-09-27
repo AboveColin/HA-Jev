@@ -1,0 +1,181 @@
+blueprint:
+  name: Jev - Appliance left on by mistake
+  description: >-
+    Watches the power draw of an oven, iron, hair straightener or heater. Once
+    it stays above the idle watts you set for the hold time, asks Jev whether
+    it was left on by mistake, using how long it has been on and any presence
+    or motion sensors nearby. While it stays on, it asks again every recheck
+    interval.
+
+
+    With the defaults (15 minute hold, 30 minute recheck, 15 minute cooldown)
+    an appliance used for an hour costs 2 calls. One left on all day costs 48
+    calls a day: 1 after the hold, then one every 30 minutes, 1 + 1425 / 30
+    rounded down.
+    A heater that cycles 20 minutes on and 20 off asks once per cycle: it
+    asks after the 15 minute hold, goes off at 20 minutes and comes back on at
+    40. That is one call every 40 minutes, 36 calls a day. For a heater, set
+    the hold longer than one heating cycle.
+
+
+    Your actions can read `probability` (0 to 1) and `minutes_on` (how long it
+    has been drawing power above idle watts).
+
+
+    Every question is a paid API call. The hold time and the cooldown keep a
+    flapping reading from spending your budget.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/appliance_left_on.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:stove
+      input:
+        power_sensor:
+          name: Appliance power sensor
+          selector:
+            entity:
+              domain: sensor
+              device_class: power
+        presence_sensors:
+          name: Presence or motion sensors nearby
+          description: Optional.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        idle_watts:
+          name: Idle watts
+          description: The power reading counts as "on" above this.
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 3000
+              mode: box
+              unit_of_measurement: W
+        hold:
+          name: Hold time
+          description: The power reading must stay above idle watts this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        recheck:
+          name: Recheck interval
+          description: >-
+            While it stays above idle watts, Jev is asked again this often. It
+            stops once the reading drops.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+        appliance_name:
+          name: What it is
+          description: How to refer to it in the question, for example "the oven".
+          default: the appliance
+          selector:
+            text: {}
+        appliance_notes:
+          name: Background
+          description: Anything Jev cannot see in the states, such as how it is used.
+          default: >-
+            This is an appliance that can be dangerous if it keeps running with
+            nobody paying attention to it.
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          description: The probability that counts as left on by mistake.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        mistake_actions:
+          name: Actions
+          description: >-
+            Runs when Jev thinks it was left on by mistake. A notification, or
+            switching it off, are both reasonable.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input power_sensor
+    above: !input idle_watts
+    for: !input hold
+
+variables:
+  power_sensor: !input power_sensor
+  presence_sensors: !input presence_sensors
+  idle_watts: !input idle_watts
+  appliance_name: !input appliance_name
+  appliance_notes: !input appliance_notes
+  threshold: !input threshold
+
+actions:
+  # The numeric_state trigger fires once the reading has stayed above idle
+  # watts for the hold, so it went above idle trigger.for ago. A change in the
+  # reading inside the hold does not move this, unlike last_changed.
+  - variables:
+      on_since: "{{ (now() - trigger.for).isoformat() if trigger.for else now().isoformat() }}"
+  - repeat:
+      sequence:
+        - variables:
+            minutes_on: >-
+              {{ ((as_timestamp(now()) - as_timestamp(on_since)) / 60) | round(1) }}
+        - action: jev.noul
+          response_variable: jev
+          target:
+            entity_id: "{{ [power_sensor] + presence_sensors }}"
+          data:
+            instructions: "Was {{ appliance_name }} left on by mistake?"
+            background: >-
+              {{ appliance_notes }} It has been drawing power above
+              {{ idle_watts }} W for about {{ minutes_on }} minutes.
+            true_means: Left running with nobody paying attention to it
+            false_means: Somebody is using it or keeping an eye on it
+            threshold: !input threshold
+        - variables:
+            probability: "{{ jev.noul }}"
+        - if: "{{ jev.is_true }}"
+          then: !input mistake_actions
+        - wait_for_trigger:
+            - trigger: numeric_state
+              entity_id: !input power_sensor
+              below: !input idle_watts
+          timeout: !input recheck
+          continue_on_timeout: true
+      # Stops once the reading drops, and also when it stops reporting: an
+      # unavailable reading is not proof that it is still on.
+      until:
+        - >-
+          {% set w = states(power_sensor) | float(none) %}
+          {{ wait.trigger is not none or w is not number or w <= idle_watts }}
+  - delay: !input cooldown
