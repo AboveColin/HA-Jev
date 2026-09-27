@@ -1,0 +1,272 @@
+blueprint:
+  name: Jev - Anything to deal with before bed
+  description: >-
+    Runs at the bedtime you set, or when a bedtime helper or a phone charging
+    sensor turns on between the start and end of the bedtime window. A
+    template checks the doors, windows, oven and the lights you chose. If none
+    of them are open or on, the check stops there and Jev is never asked. If
+    some are, Jev is asked whether anything is worth dealing with before bed,
+    and how urgently. Locks and garage doors may be included so Jev can
+    mention them. This blueprint only reads their state. Nothing here locks,
+    unlocks or opens one.
+
+
+    It asks at most once per 30 minute cooldown, and the entity trigger only
+    counts inside the default 21:00 to 02:00 window. Five hours at one call
+    per 30 minutes is never more than 10 calls a day, and the 22:30 bedtime
+    falls inside that window. A normal night costs 0 or 1 calls a day.
+
+
+    Your actions can read `probability` (0 to 1), `left_on` (the noteworthy
+    entities, as readable text), `urgency` (0 to 3) and `level` (the urgency
+    score's nearest level, as text).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/bedtime_check.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:weather-night
+      input:
+        doors:
+          name: Doors
+          description: Binary sensors where "on" means open.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        windows:
+          name: Windows
+          description: Binary sensors where "on" means open.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        oven:
+          name: Oven and hob
+          description: >-
+            Switches and binary sensors count when "on". A power sensor counts
+            when it reads at or above the power below.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain:
+                - switch
+                - sensor
+                - binary_sensor
+        oven_on_from:
+          name: Oven power that counts as on
+          description: >-
+            A power sensor at or above this many watts counts as on. Set it
+            above what the oven's clock and standby draw.
+          default: 20
+          selector:
+            number:
+              min: 1
+              max: 1000
+              step: 1
+              unit_of_measurement: W
+              mode: box
+        lights:
+          name: Lights
+          description: The lights that should be off at bedtime.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: light
+        locks:
+          name: Locks (read only, never actuated)
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: lock
+        garage_doors:
+          name: Garage doors (read only, never actuated)
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: cover
+        bedtime:
+          name: Bedtime
+          description: The check runs at this time every night. Leave the entities below empty to use only this.
+          default: "22:30:00"
+          selector:
+            time: {}
+        trigger_entities:
+          name: Or, run when one of these turns on
+          description: >-
+            A bedtime helper or a phone charging sensor. Optional. These only
+            count between the start and end of the bedtime window.
+          default: []
+          selector:
+            entity:
+              multiple: true
+        bedtime_from:
+          name: Bedtime window starts
+          description: An entity turning on before this time is ignored.
+          default: "21:00:00"
+          selector:
+            time: {}
+        bedtime_until:
+          name: Bedtime window ends
+          description: >-
+            An entity turning on after this time is ignored. It may be after
+            midnight.
+          default: "02:00:00"
+          selector:
+            time: {}
+        trigger_hold:
+          name: Hold time for the entity trigger
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, the check will not run again for this long.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            Anything Jev cannot see in the states, such as which of these are
+            normal to leave overnight.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          description: At or above this probability, the "needs handling" actions run.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        handle_actions:
+          name: When something needs handling before bed
+          selector:
+            action: {}
+        clear_actions:
+          name: When it can wait until morning
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time
+    id: bedtime
+    at: !input bedtime
+  - trigger: state
+    id: entity
+    entity_id: !input trigger_entities
+    to: "on"
+    for: !input trigger_hold
+
+variables:
+  threshold: !input threshold
+  doors: !input doors
+  windows: !input windows
+  oven: !input oven
+  oven_on_from: !input oven_on_from
+  lights: !input lights
+  locks: !input locks
+  garage_doors: !input garage_doors
+  # A power sensor that is unavailable or unknown is not a reading, so it never
+  # counts as on.
+  oven_on: >-
+    {%- set ns = namespace(ids=[]) -%}
+    {%- for o in expand(oven) -%}
+      {%- if o.domain == 'sensor' -%}
+        {%- if o.state is is_number and o.state | float >= oven_on_from | float -%}
+          {%- set ns.ids = ns.ids + [o.entity_id] -%}
+        {%- endif -%}
+      {%- elif o.state == 'on' -%}
+        {%- set ns.ids = ns.ids + [o.entity_id] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.ids }}
+  noteworthy: >-
+    {{ ((expand(doors) | selectattr('state', 'eq', 'on') | list)
+        + (expand(windows) | selectattr('state', 'eq', 'on') | list)
+        + expand(oven_on)
+        + (expand(lights) | selectattr('state', 'eq', 'on') | list)
+        + (expand(locks) | selectattr('state', 'eq', 'unlocked') | list)
+        + (expand(garage_doors) | selectattr('state', 'eq', 'open') | list)
+       ) | map(attribute='entity_id') | list }}
+  left_on: >-
+    {{ ((expand(doors) | selectattr('state', 'eq', 'on') | list)
+        + (expand(windows) | selectattr('state', 'eq', 'on') | list)
+        + expand(oven_on)
+        + (expand(lights) | selectattr('state', 'eq', 'on') | list)
+        + (expand(locks) | selectattr('state', 'eq', 'unlocked') | list)
+        + (expand(garage_doors) | selectattr('state', 'eq', 'open') | list)
+       ) | map(attribute='name') | list | join(', ') }}
+
+conditions:
+  - condition: or
+    conditions:
+      - condition: trigger
+        id: bedtime
+      - condition: time
+        after: !input bedtime_from
+        before: !input bedtime_until
+  - condition: template
+    value_template: "{{ noteworthy | count > 0 }}"
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: "{{ noteworthy }}"
+    data:
+      state:
+        time_of_night: "{{ now().strftime('%H:%M') }}"
+      questions:
+        needs_handling:
+          type: noul
+          instructions: Is there anything here worth dealing with before bed?
+          background: !input background
+          "true": Worth getting up for, or worth telling someone before turning in
+          "false": Fine to leave until morning
+        urgency:
+          type: score
+          instructions: How urgently does this need a person tonight?
+          criteria:
+            - Fine until morning
+            - Worth a look before bed
+            - Should be handled tonight
+            - Needs handling right now
+  - variables:
+      probability: "{{ jev.answers.needs_handling.noul }}"
+      urgency: "{{ jev.answers.urgency.score }}"
+      level: "{{ jev.answers.urgency.nearest_level }}"
+  - if:
+      - condition: template
+        value_template: "{{ probability >= threshold }}"
+    then: !input handle_actions
+    else: !input clear_actions
+  - delay: !input cooldown

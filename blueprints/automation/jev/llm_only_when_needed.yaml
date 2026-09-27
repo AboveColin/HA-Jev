@@ -1,0 +1,179 @@
+blueprint:
+  name: Jev - Call an LLM only when it is worth it
+  description: >-
+    Asks Jev a cheap yes or no question first, each time one of the entities
+    you pick changes and stays changed for the hold time. Only when the
+    answer is yes does it call your AI task to write something, and only
+    then do your actions run. The AI task is given the question and the
+    states Jev judged.
+
+
+    A Jev call is about 300 input tokens and 300 ms. The AI task writes text
+    with a larger model, so the gate pays off when most events do not deserve
+    a message.
+
+
+    Your actions can read `message` (the text the AI task wrote) and
+    `probability` (the gate's answer, 0 to 1). If the AI task fails, the
+    actions still run, and `message` lists the states instead.
+
+
+    It asks Jev once for each change that lasts the hold time, and at most
+    once per cooldown. With the default 15 minute cooldown that is never more
+    than 96 calls a day to Jev, and the AI task runs only on a yes.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/llm_only_when_needed.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the gate question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After a run, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_gate:
+      name: The gate question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: Is there anything here worth spending an AI task call on?
+          default: Is there anything here a person would actually want to be told about?
+          selector:
+            text:
+              multiline: true
+        true_means:
+          name: What yes means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        false_means:
+          name: What no means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states, such as what is normal here
+            and what is worth a person's attention.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          default: 0.7
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    the_llm:
+      name: The AI task
+      icon: mdi:robot-outline
+      input:
+        ai_task_entity:
+          name: AI task
+          description: Set up Google Generative AI, OpenAI, Anthropic or a local Ollama, and pick the entity it creates.
+          selector:
+            entity:
+              domain: ai_task
+        llm_instructions:
+          name: Instructions
+          description: What to write, and how. Kept short costs less and reads better on a phone.
+          selector:
+            text:
+              multiline: true
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        actions:
+          name: When the gate says yes
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+
+variables:
+  question: !input question
+  threshold: !input threshold
+  watched: !input entities
+  llm_instructions: !input llm_instructions
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      true_means: !input true_means
+      false_means: !input false_means
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+  - if: "{{ jev.is_true }}"
+    then:
+      # The AI task sees nothing but its instructions, so it gets the question
+      # and the states Jev judged. The same lines are the message if it fails.
+      - variables:
+          summary: >-
+            {% set ns = namespace(parts=[]) %}
+            {% for e in watched %}
+            {% set unit = state_attr(e, 'unit_of_measurement') %}
+            {% set ns.parts = ns.parts + [(state_attr(e, 'friendly_name') or e)
+               ~ ': ' ~ states(e) ~ (' ' ~ unit if unit else '')] %}
+            {% endfor %}
+            {{ ns.parts | join(', ') }}
+      - action: ai_task.generate_data
+        response_variable: llm
+        # A provider that is down must not end the run before the cooldown, and
+        # the gate already said a person wants to know.
+        continue_on_error: true
+        data:
+          task_name: jev llm gate
+          entity_id: !input ai_task_entity
+          instructions: "{{ llm_instructions }}\n\nThe question: {{ question }}\n\nThe states now:\n{{ summary }}"
+      - variables:
+          message: "{{ llm.data if llm is defined and llm.data else summary }}"
+      - if: "{{ true }}"
+        then: !input actions
+  - delay: !input cooldown

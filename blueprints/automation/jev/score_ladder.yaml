@@ -1,0 +1,181 @@
+blueprint:
+  name: Jev - Rate something on a scale
+  description: >-
+    Asks Jev to rate the entities you pick against four levels you write, each
+    time one of them changes and stays changed for the hold time. The level
+    closest to the score gets its own actions. When the answer's confidence is
+    below the minimum, the "unsure" actions run instead.
+
+
+    Your actions can read `score` (a number from 0 to 3), `level` (the text of
+    the closest level) and `confidence` (0 to 1).
+
+
+    It asks once for each change that lasts the hold time, and at most once
+    per cooldown. With the default 15 minute cooldown that is never more than
+    96 calls a day. Entities that change a few times a day cost a few calls.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/score_ladder.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: What Jev is rating.
+          default: How urgently must someone act on this?
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states. This moves the answer more
+            than any other field.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    the_scale:
+      name: The scale
+      icon: mdi:format-list-numbered
+      input:
+        level_1_text:
+          name: Level 1 (lowest)
+          default: Nothing to do, it resolved itself
+          selector:
+            text: {}
+        level_2_text:
+          name: Level 2
+          default: Worth looking at this week
+          selector:
+            text: {}
+        level_3_text:
+          name: Level 3
+          default: Needs attention today
+          selector:
+            text: {}
+        level_4_text:
+          name: Level 4 (highest)
+          default: Wake someone up now
+          selector:
+            text: {}
+    confidence:
+      name: Confidence
+      icon: mdi:gauge
+      input:
+        minimum_confidence:
+          name: Minimum confidence
+          description: Below this, the "unsure" actions run instead of the matched level's.
+          default: 0.5
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        level_1_actions:
+          name: At level 1
+          default: []
+          selector:
+            action: {}
+        level_2_actions:
+          name: At level 2
+          default: []
+          selector:
+            action: {}
+        level_3_actions:
+          name: At level 3
+          default: []
+          selector:
+            action: {}
+        level_4_actions:
+          name: At level 4
+          default: []
+          selector:
+            action: {}
+        unsure_actions:
+          name: When Jev is not confident enough
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+
+variables:
+  minimum_confidence: !input minimum_confidence
+  level_1_text: !input level_1_text
+  level_2_text: !input level_2_text
+  level_3_text: !input level_3_text
+  level_4_text: !input level_4_text
+
+actions:
+  - action: jev.score
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      levels: "{{ [level_1_text, level_2_text, level_3_text, level_4_text] }}"
+  - variables:
+      score: "{{ jev.score }}"
+      level: "{{ jev.nearest_level }}"
+      confidence: "{{ jev.confidence }}"
+  - if: "{{ confidence < minimum_confidence }}"
+    then: !input unsure_actions
+    else:
+      - choose:
+          - conditions: "{{ level == level_1_text }}"
+            sequence: !input level_1_actions
+          - conditions: "{{ level == level_2_text }}"
+            sequence: !input level_2_actions
+          - conditions: "{{ level == level_3_text }}"
+            sequence: !input level_3_actions
+          - conditions: "{{ level == level_4_text }}"
+            sequence: !input level_4_actions
+  - delay: !input cooldown

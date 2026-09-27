@@ -1,0 +1,206 @@
+blueprint:
+  name: Jev - Fridge or freezer getting warm
+
+  description: >-
+    Once the temperature reads above the warm limit for its type (fridge or
+    freezer) for the hold time, asks Jev what is most likely causing it and how
+    urgently someone needs to check. A sensor that stops reporting does not
+    count as warm.
+
+
+    One call per time it runs warm. A reading that flaps around the limit can
+    ask once per cooldown, because the hold can run out while the cooldown is
+    still going. With the default 1 hour cooldown that is at most 24 calls a
+    day (1440 / 60).
+
+
+    Your actions can read `cause` (door, restocked, defrost, power_cut,
+    failing, sensor_fault or other), `urgency` (0 to 3) and `level` (the
+    matching level text).
+
+
+    Every question is a paid API call. The hold time and the cooldown keep a
+    flapping reading from spending your budget.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/fridge_freezer_watch.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:fridge-outline
+      input:
+        temp_sensor:
+          name: Temperature sensor
+          selector:
+            entity:
+              domain: sensor
+              device_class: temperature
+        door_sensor:
+          name: Door sensor
+          description: Optional.
+          default: ""
+          selector:
+            entity:
+              domain: binary_sensor
+        appliance_type:
+          name: Fridge or freezer
+          description: Picks which warm limit applies and what Jev is told is normal.
+          default: fridge
+          selector:
+            select:
+              options:
+                - label: Fridge
+                  value: fridge
+                - label: Freezer
+                  value: freezer
+        fridge_warm_limit:
+          name: Warm limit for a fridge
+          description: >-
+            Used when this is a fridge. The reading counts as warm above this,
+            in the sensor's unit. The default is in degrees Celsius.
+          default: 8
+          selector:
+            number:
+              min: -10
+              max: 30
+              step: 0.5
+              mode: box
+        freezer_warm_limit:
+          name: Warm limit for a freezer
+          description: >-
+            Used when this is a freezer. The reading counts as warm above this,
+            in the sensor's unit. The default is in degrees Celsius.
+          default: -12
+          selector:
+            number:
+              min: -40
+              max: 10
+              step: 0.5
+              mode: box
+        normal_range:
+          name: Normal range
+          description: >-
+            Optional. The range this runs in normally, in your own words. Left
+            empty, Jev is told 2 to 5 degrees for a fridge and -20 to -16 for a
+            freezer.
+          default: ""
+          selector:
+            text: {}
+        hold:
+          name: Hold time
+          description: The reading must stay above the warm limit this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            hours: 1
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        urgent_threshold:
+          name: Urgent threshold
+          description: The urgency score at or above which it counts as urgent.
+          default: 2.5
+          selector:
+            number:
+              min: 0
+              max: 3
+              step: 0.5
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        urgent_actions:
+          name: Urgent actions
+          description: Runs when the urgency score is at or above the urgent threshold.
+          selector:
+            action: {}
+        worth_a_look_actions:
+          name: Worth a look actions
+          description: Runs otherwise.
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  temp_sensor: !input temp_sensor
+  appliance_type: !input appliance_type
+  fridge_warm_limit: !input fridge_warm_limit
+  freezer_warm_limit: !input freezer_warm_limit
+
+triggers:
+  # A template trigger, because the limit depends on the type. It fires when the
+  # reading goes from at or below the limit to above it and stays there for the
+  # hold. Unavailable or unknown is not a number, so it is never warm.
+  - trigger: template
+    value_template: >-
+      {% set t = states(temp_sensor) | float(none) %}
+      {% set limit = freezer_warm_limit if appliance_type == 'freezer'
+         else fridge_warm_limit %}
+      {{ t is number and t > limit }}
+    for: !input hold
+
+variables:
+  door_sensor: !input door_sensor
+  urgent_threshold: !input urgent_threshold
+  warm_limit: >-
+    {{ freezer_warm_limit if appliance_type == 'freezer' else fridge_warm_limit }}
+  normal_range_input: !input normal_range
+  normal_range: >-
+    {% set given = (normal_range_input or '') | trim %}
+    {% if given %}{{ given }}
+    {% elif appliance_type == 'freezer' %}-20 to -16 degrees
+    {% else %}2 to 5 degrees{% endif %}
+  context_text: >-
+    This is a {{ appliance_type }}. Its normal range: {{ normal_range }}.
+    This alerts once the reading passes {{ warm_limit }} degrees.
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: "{{ [temp_sensor] + ([door_sensor] if door_sensor else []) }}"
+    data:
+      questions:
+        cause:
+          type: choice
+          instructions: What is the most likely reason the temperature is high?
+          background: "{{ context_text }}"
+          criteria:
+            door: The door is open or not sealing now, and warm air keeps getting in
+            restocked: Warm food went in recently and the door is closed again
+            defrost: A scheduled defrost cycle is running
+            power_cut: The power was off and it is cooling back down
+            failing: The cooling itself is failing, such as the compressor or a fan
+            sensor_fault: The reading is wrong and the temperature is fine
+            other: Something else, or no clear cause
+        urgency:
+          type: score
+          instructions: How urgently must someone check this?
+          background: "{{ context_text }}"
+          criteria:
+            - Nothing to worry about, it will settle on its own
+            - Worth a look this week
+            - Check it today
+            - Act now, food is at risk
+  - variables:
+      cause: "{{ jev.answers.cause.choice }}"
+      urgency: "{{ jev.answers.urgency.score }}"
+      level: "{{ jev.answers.urgency.nearest_level }}"
+  - if: "{{ urgency >= urgent_threshold }}"
+    then: !input urgent_actions
+    else: !input worth_a_look_actions
+  - delay: !input cooldown

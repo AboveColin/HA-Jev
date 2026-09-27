@@ -1,0 +1,198 @@
+blueprint:
+  name: Jev - Keep a situation helper up to date
+  description: >-
+    Keeps an input_boolean matching a yes or no question about the entities
+    you pick. The helper turns on at or above the "on" threshold and off
+    below the "off" threshold. In between it is left alone, so it does not
+    flip on every small change. Runs each time a watched entity changes and stays changed
+    for the hold time, and optionally again every N hours whether anything
+    changed or not. The helper may be one of the watched entities, so Jev sees
+    the current mode. Its own changes do not ask again.
+
+
+    This keeps no variables for your own actions: point other automations at
+    the input_boolean's state instead of watching the raw entities yourself.
+
+
+    It asks once for each change that lasts the hold time, and at most once
+    per cooldown. With the default 15 minute cooldown that is never more than
+    96 calls a day. A recheck every N hours runs at the hours that divide by
+    N, counted from midnight, which adds 24 / N calls a day, rounded up. It is
+    off by default.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/situation_helper.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+        recheck_hours:
+          name: Recheck every N hours
+          description: >-
+            Asks again on this cadence even with no change, so the helper does
+            not go stale. 0 turns this off. Each recheck is a paid call, so
+            keep this as large as the situation allows.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 24
+              step: 1
+              mode: box
+              unit_of_measurement: hours
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: One thing, asked so that yes and no are both possible.
+          selector:
+            text:
+              multiline: true
+        true_means:
+          name: What yes means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        false_means:
+          name: What no means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states. This moves the answer more
+            than any other field.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    the_helper:
+      name: The helper
+      icon: mdi:toggle-switch-outline
+      input:
+        helper:
+          name: input_boolean to keep in sync
+          selector:
+            entity:
+              domain: input_boolean
+    hysteresis:
+      name: Hysteresis
+      icon: mdi:gauge
+      input:
+        on_threshold:
+          name: On threshold
+          description: At or above this, the helper turns on.
+          default: 0.7
+          selector:
+            number:
+              min: 0.5
+              max: 0.95
+              step: 0.05
+              mode: slider
+        off_threshold:
+          name: Off threshold
+          description: >-
+            Below this, the helper turns off. Between the two, it is left alone.
+            If this is above the on threshold, the run stops with an error
+            before it asks.
+          default: 0.3
+          selector:
+            number:
+              min: 0.05
+              max: 0.5
+              step: 0.05
+              mode: slider
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+    id: watched
+  - trigger: time_pattern
+    hours: "/1"
+    id: recheck
+
+variables:
+  recheck_hours: !input recheck_hours
+  on_threshold: !input on_threshold
+  off_threshold: !input off_threshold
+  helper: !input helper
+
+conditions:
+  # The hourly trigger asks only at the hours that divide by N, counted from
+  # midnight, and never when the recheck is off.
+  - "{{ trigger.id != 'recheck' or (recheck_hours | int(0) > 0 and now().hour % (recheck_hours | int(0)) == 0) }}"
+  # The helper may be watched so Jev sees the current mode, but it changing is
+  # not news about the situation. This blueprint sets it, and asking again would
+  # pay a second call for every flip.
+  - "{{ trigger.id != 'watched' or trigger.entity_id != helper }}"
+
+actions:
+  # The UI sliders keep "on" at or above "off". In YAML they can cross, and then
+  # an answer between them would turn the helper on and off in the same run.
+  - if: "{{ on_threshold < off_threshold }}"
+    then:
+      - stop: >-
+          The on threshold ({{ on_threshold }}) is below the off threshold
+          ({{ off_threshold }}). Set on at or above off.
+        error: true
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      true_means: !input true_means
+      false_means: !input false_means
+      threshold: !input on_threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+  - if: "{{ probability >= on_threshold }}"
+    then:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: !input helper
+  - if: "{{ probability < off_threshold }}"
+    then:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: !input helper
+  - delay: !input cooldown

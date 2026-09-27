@@ -1,0 +1,188 @@
+blueprint:
+  name: Jev - Window left open while heating
+  description: >-
+    Asks Jev whether an open window or door is wasting heat while the heating
+    runs. It asks when a window has stayed open for the hold time, again every
+    15 minutes while one stays open, and when the heating starts with a window
+    already open. It skips the question, with no call, while the heating is off.
+    After each answer it waits for the cooldown. With the default 60 minute
+    cooldown that is never more than 24 calls a day. A window left open all day
+    while the heating runs costs about 19 calls a day, one every 75 minutes. A
+    window opened a few times a day to air a room costs a few calls.
+
+
+    The heating counts as running while a climate entity reports heating or
+    preheating, and while it is set to heat but idle. A valve with window
+    detection goes idle when it sees the window, and the room still has to be
+    heated back up once the window closes. Cooling, drying and fan modes do not
+    count.
+
+
+    Your actions can read `probability` (0 to 1) and `open_windows` (the names
+    of the windows and doors that have been open for at least the hold time,
+    joined by commas).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/window_open_while_heating.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:window-open-variant
+      input:
+        windows:
+          name: Windows and doors
+          description: >-
+            Contact sensors. Jev reads which ones are open, and for how long
+            each has been open.
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        heating_entity:
+          name: Heating
+          description: A climate entity, or a binary sensor that is on while the heating runs.
+          selector:
+            entity:
+              domain:
+                - climate
+                - binary_sensor
+        outdoor_temp:
+          name: Outdoor temperature
+          selector:
+            entity:
+              domain: sensor
+        hold:
+          name: Hold time
+          description: A window must stay open this long before Jev is asked.
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, Jev is not asked again for this long.
+          default:
+            minutes: 60
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see, such as which room this is or how well
+            insulated the house is. This decides whether the open window is
+            airing the room or wasting heat.
+          default: >-
+            A few minutes of airing a room is healthy and does not waste much
+            heat. Leaving a window open for longer than that while the heating
+            runs does waste heat.
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        wasting_heat_actions:
+          name: When heat is being wasted
+          selector:
+            action: {}
+        ok_actions:
+          name: When it is still just airing the room
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input windows
+    to: "on"
+    for: !input hold
+  # A window that stays open is asked about again, and the cooldown sets how often.
+  - trigger: time_pattern
+    minutes: /15
+  # The heating starting while a window is already open.
+  - trigger: state
+    entity_id: !input heating_entity
+    attribute: hvac_action
+    to:
+      - heating
+      - preheating
+  - trigger: state
+    entity_id: !input heating_entity
+    to:
+      - heat
+      - "on"
+
+variables:
+  windows: !input windows
+  heating_entity: !input heating_entity
+  outdoor_temp: !input outdoor_temp
+  hold: !input hold
+  hold_seconds: >-
+    {% if hold is mapping %}
+    {{ hold.get('days', 0) * 86400 + hold.get('hours', 0) * 3600 + hold.get('minutes', 0) * 60 + hold.get('seconds', 0) }}
+    {% else %}
+    {{ as_timedelta(hold | string).total_seconds() }}
+    {% endif %}
+  open_long: >-
+    {{ expand(windows) | selectattr('state', 'eq', 'on')
+       | selectattr('last_changed', 'le', now() - timedelta(seconds=hold_seconds | float(0)))
+       | map(attribute='name') | list }}
+  open_windows: "{{ open_long | join(', ') }}"
+  is_climate: "{{ heating_entity.startswith('climate.') }}"
+  hvac_action: "{{ state_attr(heating_entity, 'hvac_action') if is_climate else none }}"
+  heating_text: >-
+    {% if not is_climate %}{{ 'on' if is_state(heating_entity, 'on') else 'off' }}
+    {% elif hvac_action in ['heating', 'preheating'] %}heating
+    {% elif states(heating_entity) == 'heat' %}set to heat but idle, possibly because a valve detected the open window
+    {% else %}not heating{% endif %}
+  heating_active: >-
+    {{ hvac_action in ['heating', 'preheating']
+       or (is_climate and states(heating_entity) == 'heat' and hvac_action in ['idle', 'off', none])
+       or (not is_climate and is_state(heating_entity, 'on')) }}
+
+conditions:
+  - condition: template
+    value_template: "{{ heating_active and open_long | count > 0 }}"
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: "{{ (windows | list) + [heating_entity, outdoor_temp] }}"
+    data:
+      state: >-
+        Open for at least {{ (hold_seconds | float(0) / 60) | round(0) | int }}
+        minutes: {{ open_windows }}. The heating is {{ heating_text }}.
+      instructions: >-
+        Has a window or door been left open long enough to waste heat, rather
+        than a short burst of fresh air?
+      background: !input background
+      true_means: Left open long enough to waste heat
+      false_means: Still just airing the room out
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+      wasting_heat: "{{ jev.is_true }}"
+  - if: "{{ wasting_heat }}"
+    then: !input wasting_heat_actions
+    else: !input ok_actions
+  - delay: !input cooldown

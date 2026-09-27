@@ -1,0 +1,164 @@
+blueprint:
+  name: Jev - Umbrella and coat for today
+  description: >-
+    Asks Jev about the next 12 hours of forecast each morning, and again when
+    someone chosen below leaves home and stays away for the hold time. Asks
+    whether an umbrella is worth carrying and how warmly to dress, in one call.
+    After each answer it waits for the cooldown.
+
+
+    That is 1 call each morning plus 1 for each departure, and never more than
+    one per 30 minute cooldown. Two people who each leave home three times a
+    day cost 7 calls a day. A location that flaps between home and away for
+    less than the 2 minute hold costs nothing.
+
+
+    Your actions can read `umbrella_probability` (0 to 1), `umbrella` (true or
+    false) and `clothing`, which is one of "A t-shirt is enough", "A light
+    jacket is enough", "A coat is needed" or "A winter coat is needed".
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/umbrella_and_coat.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:weather-partly-rainy
+      input:
+        weather_entity:
+          name: Weather
+          selector:
+            entity:
+              domain: weather
+        morning_time:
+          name: Morning time
+          default: "07:00:00"
+          selector:
+            time: {}
+        person:
+          name: Person to also trigger on
+          description: >-
+            Ask again when this person leaves home and stays away for the hold
+            time. Leave empty to only ask at the morning time.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: person
+        hold:
+          name: Hold time
+          description: >-
+            A person must stay away from home this long before Jev is asked.
+            This keeps a jumping GPS location from asking over and over.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, Jev is not asked again for this long.
+          default:
+            minutes: 30
+          selector:
+            duration: {}
+        umbrella_threshold:
+          name: Umbrella threshold
+          description: At or above this, the umbrella is worth carrying.
+          default: 0.5
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see, such as how far someone walks outside or
+            how warm they run.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        tell_actions:
+          name: How to tell someone
+          description: A notification, or text-to-speech.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time
+    at: !input morning_time
+  - trigger: state
+    entity_id: !input person
+    from: home
+    not_to:
+      - unavailable
+      - unknown
+    for: !input hold
+
+variables:
+  weather_entity: !input weather_entity
+  umbrella_threshold: !input umbrella_threshold
+
+actions:
+  - action: weather.get_forecasts
+    response_variable: forecast_response
+    target:
+      entity_id: "{{ [weather_entity] }}"
+    data:
+      type: hourly
+  - variables:
+      # Forecast times are UTC. The hour that has already started still counts.
+      forecast_text: >-
+        {% set ns = namespace(lines=[]) %}
+        {% for f in forecast_response[weather_entity]['forecast'] %}
+        {% set at = as_datetime(f.datetime) %}
+        {% if at is not none and at > now() - timedelta(hours=1) %}
+        {% set chance = f.get('precipitation_probability') | float(none) %}
+        {% set temp = f.get('temperature') | float(none) %}
+        {% set ns.lines = ns.lines + ['At ' ~ (at | as_local).strftime('%H:%M') ~ ': '
+          ~ (f.get('condition') or 'unknown') ~ ', '
+          ~ (('%d%% chance of rain' % chance) if chance is not none else 'chance of rain unknown') ~ ', '
+          ~ (('%g degrees' % temp) if temp is not none else 'temperature unknown') ~ '.'] %}
+        {% endif %}
+        {% endfor %}
+        {{ ns.lines[:12] | join(' ') if ns.lines else 'unknown.' }}
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: "{{ [weather_entity] }}"
+    data:
+      state: "Hourly forecast: {{ forecast_text }}"
+      questions:
+        umbrella:
+          type: noul
+          instructions: Will it rain enough today that an umbrella is worth carrying?
+          background: !input background
+        clothing:
+          type: score
+          instructions: How warmly does someone need to dress to go outside today?
+          background: !input background
+          criteria:
+            - A t-shirt is enough
+            - A light jacket is enough
+            - A coat is needed
+            - A winter coat is needed
+  - variables:
+      umbrella_probability: "{{ jev.answers.umbrella.noul }}"
+      umbrella: "{{ umbrella_probability >= umbrella_threshold }}"
+      clothing: "{{ jev.answers.clothing.nearest_level }}"
+  - sequence: !input tell_actions
+  - delay: !input cooldown

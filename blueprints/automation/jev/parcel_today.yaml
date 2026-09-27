@@ -1,0 +1,194 @@
+blueprint:
+  name: Jev - Parcel on its way
+  description: >-
+    Watches a notification or an email text entity, either the entity's state
+    or one named attribute. Each time the text changes and holds for the hold
+    time, Jev reads it and decides whether it is about a parcel arriving
+    today, on its way for another day, already delivered, delayed or needing
+    action, or not about a parcel at all, plus whether someone needs to be
+    home or act. Text that is empty, unknown, unavailable or the same as
+    before is skipped without asking. So is text that contains none of the
+    keywords. A message with a keyword that Jev says is not about a parcel
+    still costs one call.
+
+
+    It asks once per new message that passes the keywords. A run holds for
+    the 1 minute hold time and then waits out the 5 minute cooldown, so asks
+    are at least 6 minutes apart with the defaults. That is never more than
+    240 calls a day. A household with 5 parcel messages a day costs about 5
+    calls a day.
+
+
+    Your actions can read `status` (arriving_today, in_transit, delivered,
+    needs_action or not_about_parcel), `text` (what was read) and
+    `needs_someone` (0 to 1).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/parcel_today.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:package-variant-closed
+      input:
+        message_entity:
+          name: Notification or email text entity
+          selector:
+            entity: {}
+        message_attribute:
+          name: Attribute
+          description: >-
+            The attribute that holds the message text. Leave blank to read
+            the entity's state.
+          default: ""
+          selector:
+            text: {}
+        keywords:
+          name: Keywords
+          description: >-
+            Jev is asked only about a message that contains one of these
+            words, in any case. "deliver" also matches "delivery" and
+            "delivered". A blank list asks about every message.
+          default:
+            - deliver
+            - parcel
+            - package
+            - tracking
+            - shipment
+            - courier
+          selector:
+            text:
+              multiple: true
+        hold:
+          name: Hold time
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          default:
+            minutes: 5
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: Anything Jev cannot tell from the message alone.
+          default: ""
+          selector:
+            text:
+              multiline: true
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        arriving_actions:
+          name: Arriving today
+          default: []
+          selector:
+            action: {}
+        in_transit_actions:
+          name: On its way, arriving another day
+          default: []
+          selector:
+            action: {}
+        delivered_actions:
+          name: Already delivered
+          default: []
+          selector:
+            action: {}
+        needs_action_actions:
+          name: Delayed or needs action
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+# Two triggers, because a state trigger with no "to:" also fires on every
+# attribute change. The first fires on a change of state only. The second fires
+# on a change of the chosen attribute only, and never when the attribute is
+# blank, since a blank attribute name reads as nothing both before and after.
+# When the text is an attribute, a change of state alone leaves the text as it
+# was, and the condition below skips it.
+triggers:
+  - trigger: state
+    entity_id: !input message_entity
+    to: ~
+    for: !input hold
+  - trigger: state
+    entity_id: !input message_entity
+    attribute: !input message_attribute
+    for: !input hold
+
+variables:
+  message_entity: !input message_entity
+  message_attribute: !input message_attribute
+  text: >-
+    {{ state_attr(message_entity, message_attribute) if message_attribute
+       else states(message_entity) }}
+  keywords: !input keywords
+
+conditions:
+  # Unknown, unavailable or missing text is not a message, and text the same as
+  # before is the same message. Neither is worth a call.
+  - condition: template
+    value_template: >-
+      {% set now_text = '' if text is none else text | string | trim %}
+      {% set f = trigger.from_state %}
+      {% set raw = none if f is none
+         else (f.attributes.get(message_attribute) if message_attribute
+         else f.state) %}
+      {% set before = '' if raw is none else raw | string | trim %}
+      {{ now_text | lower not in ['', 'unknown', 'unavailable', 'none']
+         and now_text != before }}
+  # The keywords run before the call, so a newsletter costs nothing.
+  - condition: template
+    value_template: >-
+      {% set t = text | string | lower %}
+      {% set words = keywords | map('trim') | map('lower') | reject('eq', '') | list %}
+      {{ words | count == 0 or words | select('in', t) | list | count > 0 }}
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    data:
+      state:
+        text: "{{ text }}"
+        today: "{{ now().strftime('%A %d %B') }}"
+      questions:
+        status:
+          type: choice
+          instructions: What is the state of this parcel, based on the message?
+          background: !input background
+          criteria:
+            arriving_today: The message says a delivery is expected today
+            in_transit: It is on its way but arrives another day, or no day is given
+            delivered: The message says it has already arrived
+            needs_action: It is delayed, missing, or something must be done about it
+            not_about_parcel: This message is not about a parcel at all
+        needs_someone:
+          type: noul
+          instructions: Does someone need to be home or act on this?
+          "true": A signature, a code, or someone home is required
+          "false": It can be left, redirected, or needs nobody
+  - variables:
+      status: "{{ jev.answers.status.choice }}"
+      needs_someone: "{{ jev.answers.needs_someone.noul }}"
+  - choose:
+      - conditions: "{{ status == 'arriving_today' }}"
+        sequence: !input arriving_actions
+      - conditions: "{{ status == 'in_transit' }}"
+        sequence: !input in_transit_actions
+      - conditions: "{{ status == 'delivered' }}"
+        sequence: !input delivered_actions
+      - conditions: "{{ status == 'needs_action' }}"
+        sequence: !input needs_action_actions
+    default: []
+  - delay: !input cooldown

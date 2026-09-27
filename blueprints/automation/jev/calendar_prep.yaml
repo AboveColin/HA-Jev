@@ -1,0 +1,157 @@
+blueprint:
+  name: Jev - Does an appointment need preparing
+  description: >-
+    Watches one calendar. At the offset you set before each event starts, Jev
+    reads its summary, description, location, start time and how long is left
+    until it starts. It decides whether the event needs anything done in that
+    time, and what kind of preparation: bringing something, leaving early,
+    buying or booking something, or nothing. Both answers come from one call.
+    The "needs preparing" actions run only when the probability is at or
+    above the threshold and the kind is not nothing. Otherwise the "nothing
+    needs preparing" actions run. Events that start at the same time each get
+    their own run, up to 10 waiting at once.
+
+
+    It asks once per calendar event and has no cooldown, so the calendar
+    decides the count. A calendar with 5 events a day costs 5 calls a day.
+
+
+    Your actions can read `summary` (the event title), `starts_in` (the time
+    left, as text), `probability` (0 to 1, needs preparing before it starts)
+    and `what` (bring, leave_early, buy_or_book or nothing).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/calendar_prep.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:calendar-clock
+      input:
+        calendar_entity:
+          name: Calendar
+          selector:
+            entity:
+              domain: calendar
+        offset:
+          name: How long before the event
+          default:
+            hours: 12
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: >-
+            Anything Jev cannot see in the event, such as what this household
+            usually needs for this kind of appointment.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          description: >-
+            At or above this probability, and with a kind of preparation
+            other than nothing, the "needs preparing" actions run.
+          default: 0.5
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        prep_actions:
+          name: When something needs preparing
+          selector:
+            action: {}
+        clear_actions:
+          name: When nothing needs preparing
+          default: []
+          selector:
+            action: {}
+
+# Queued, so a second event with the same start is asked about after the first
+# instead of being dropped. Home Assistant logs a warning past 10.
+mode: queued
+max: 10
+
+triggers:
+  - trigger: calendar.event_started
+    target:
+      entity_id: !input calendar_entity
+    options:
+      offset: !input offset
+      offset_type: before
+
+variables:
+  summary: "{{ trigger.calendar_event.summary }}"
+  threshold: !input threshold
+  offset: !input offset
+  # The trigger fires exactly the offset before the start, so the offset is the
+  # time left. The duration selector gives a mapping of days, hours, minutes and
+  # seconds. Hand-written YAML may give "HH:MM:SS" instead.
+  starts_in: >-
+    {%- if offset is mapping -%}
+    {%- set m = ((offset.days | default(0) | float) * 1440
+        + (offset.hours | default(0) | float) * 60
+        + (offset.minutes | default(0) | float)
+        + (offset.seconds | default(0) | float) / 60) | round(0) | int -%}
+    {%- else -%}
+    {%- set td = as_timedelta(offset | string) -%}
+    {%- set m = ((td.total_seconds() / 60) if td else 0) | round(0) | int -%}
+    {%- endif -%}
+    {%- set d = m // 1440 -%}
+    {%- set h = (m % 1440) // 60 -%}
+    {%- set mm = m % 60 -%}
+    {%- set parts = [] -%}
+    {%- if d -%}{%- set parts = parts + [d ~ (' day' if d == 1 else ' days')] -%}{%- endif -%}
+    {%- if h -%}{%- set parts = parts + [h ~ (' hour' if h == 1 else ' hours')] -%}{%- endif -%}
+    {%- if mm -%}{%- set parts = parts + [mm ~ (' minute' if mm == 1 else ' minutes')] -%}{%- endif -%}
+    {{ parts | join(' ') if parts else 'less than a minute' }}
+
+actions:
+  - action: jev.ask
+    response_variable: jev
+    data:
+      state:
+        summary: "{{ trigger.calendar_event.summary }}"
+        description: "{{ trigger.calendar_event.description }}"
+        location: "{{ trigger.calendar_event.location }}"
+        start: "{{ trigger.calendar_event.start }}"
+        starts_in: "{{ starts_in }}"
+      questions:
+        needs_prep:
+          type: noul
+          instructions: >-
+            This appointment starts in {{ starts_in }}. Does it need anything
+            done before then?
+          background: !input background
+          "true": Something must be brought, bought, booked, or planned around
+          "false": Nothing to prepare before it starts
+        what:
+          type: choice
+          instructions: >-
+            What kind of preparation does it need in the {{ starts_in }} before
+            it starts, if any?
+          criteria:
+            bring: Something must be brought along
+            leave_early: Travel time or a queue means leaving earlier than usual
+            buy_or_book: Something must be bought or booked before it happens
+            nothing: No preparation is needed
+  - variables:
+      probability: "{{ jev.answers.needs_prep.noul }}"
+      what: "{{ jev.answers.what.choice }}"
+  - if:
+      - condition: template
+        value_template: "{{ probability >= threshold and what != 'nothing' }}"
+    then: !input prep_actions
+    else: !input clear_actions

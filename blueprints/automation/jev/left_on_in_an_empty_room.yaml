@@ -1,0 +1,153 @@
+blueprint:
+  name: Jev - Lights or media left on in an empty room
+  description: >-
+    Once a room's occupancy sensors go off and stay off for the hold time,
+    checks whether any of its lights, media players or fans are still on. A
+    media player counts as on in any state except off, standby, unavailable
+    or unknown, so a paused or idle TV counts. If nothing is on, nothing is
+    asked. If something is, asks Jev whether anybody is still using it, and
+    shows Jev the occupancy sensors too.
+
+
+    Motion sensors read off while people sit still, so an evening on the couch
+    with the TV on asks again each time nobody moves for the hold time. After
+    each call the cooldown blocks the next one, so with the defaults (15 minute
+    hold, 1 hour cooldown) that is at most one call an hour. A 6 hour evening
+    costs up to 6 calls, and the ceiling is 24 calls a day. Presence sensors
+    that see people sitting still (mmWave) ask far less often than motion
+    sensors.
+
+
+    Your actions can read `probability` (0 to 1) and `left_on` (the entity ids
+    that were on).
+
+
+    Every question is a paid API call. The hold time and the cooldown keep a
+    flapping occupancy sensor from spending your budget.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/left_on_in_an_empty_room.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:sofa
+      input:
+        lights:
+          name: Lights
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: light
+        media_players:
+          name: Media players
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: media_player
+        fans:
+          name: Fans
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain: fan
+        occupancy_sensors:
+          name: Occupancy or motion sensors
+          selector:
+            entity:
+              multiple: true
+              domain: binary_sensor
+        hold:
+          name: Hold time
+          description: The room must read empty this long before Jev is asked.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            hours: 1
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        threshold:
+          name: Threshold
+          description: The probability that counts as nobody using them any more.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        turn_off_actions:
+          name: Turn off actions
+          description: Runs when Jev thinks nobody is using them any more.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input occupancy_sensors
+    to: "off"
+    for: !input hold
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ occupancy_sensors | map('states') | select('eq', 'on') | list | count
+         == 0 }}
+
+variables:
+  lights: !input lights
+  media_players: !input media_players
+  fans: !input fans
+  occupancy_sensors: !input occupancy_sensors
+  threshold: !input threshold
+
+actions:
+  - variables:
+      left_on: >-
+        {{ (lights | select('is_state', 'on') | list)
+           + (media_players
+              | reject('is_state', ['off', 'standby', 'unavailable', 'unknown'])
+              | list)
+           + (fans | select('is_state', 'on') | list) }}
+  - if: "{{ left_on | count > 0 }}"
+    then:
+      - action: jev.noul
+        response_variable: jev
+        target:
+          entity_id: "{{ left_on + occupancy_sensors }}"
+        data:
+          instructions: >-
+            Is nobody using the lights, media players or fans that are still
+            on?
+          background: >-
+            Still on: {{ left_on | join(', ') }}. The other entities are the
+            room's occupancy or motion sensors. Motion sensors can read off
+            while people sit still.
+          true_means: Nobody is using any of them any more
+          false_means: Somebody is still using at least one of them
+          threshold: !input threshold
+      - variables:
+          probability: "{{ jev.noul }}"
+      - if: "{{ jev.is_true }}"
+        then: !input turn_off_actions
+      - delay: !input cooldown

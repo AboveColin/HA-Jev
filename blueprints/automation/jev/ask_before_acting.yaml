@@ -1,0 +1,206 @@
+blueprint:
+  name: Jev - Act when sure, ask when unsure
+  description: >-
+    Asks Jev a yes or no question about the entities you pick, each time one
+    of them changes and stays changed for the hold time. At or above the high
+    threshold, the actions run right away. Below the low threshold, the
+    optional "skipped" actions run. In between, your phone gets an actionable
+    notification, and if you tap "Yes" before the timeout, the actions run
+    then. If nobody taps in time, nothing runs and the notification is taken
+    off the phone. Each notification answers only its own run.
+
+
+    Your actions can read `probability` (0 to 1) and `confirmed`. It is true
+    when you tapped "Yes", and false when Jev was sure enough on its own.
+
+
+    It asks once for each change that lasts the hold time, and at most once
+    per cooldown. With the default 15 minute cooldown that is never more than
+    96 calls a day. Entities that change a few times a day cost a few calls.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/ask_before_acting.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:eye-outline
+      input:
+        entities:
+          name: Entities
+          description: >-
+            Jev reads the name, state, unit, area and "changed X ago" of each one.
+            A new state in any of them asks the question again.
+            An attribute change, or a drop to unavailable or unknown, does not.
+          selector:
+            entity:
+              multiple: true
+        hold:
+          name: Hold time
+          description: A change must last this long before Jev is asked.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            minutes: 15
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        question:
+          name: Question
+          description: One thing, asked so that yes and no are both possible. This is also what the notification says.
+          selector:
+            text:
+              multiline: true
+        true_means:
+          name: What yes means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        false_means:
+          name: What no means
+          default: ""
+          selector:
+            text:
+              multiline: true
+        background:
+          name: Background
+          description: >-
+            The rules Jev cannot see in the states. This moves the answer more
+            than any other field.
+          default: ""
+          selector:
+            text:
+              multiline: true
+        high_threshold:
+          name: High threshold
+          description: At or above this, the actions run without asking.
+          default: 0.85
+          selector:
+            number:
+              min: 0.5
+              max: 0.95
+              step: 0.05
+              mode: slider
+        low_threshold:
+          name: Low threshold
+          description: Below this, Jev is sure enough it is no, and the skipped actions run.
+          default: 0.3
+          selector:
+            number:
+              min: 0.05
+              max: 0.5
+              step: 0.05
+              mode: slider
+    notify_settings:
+      name: How to ask
+      icon: mdi:cellphone-message
+      input:
+        notify_device:
+          name: Phone to notify
+          description: Used between the two thresholds, when Jev wants a person to decide.
+          selector:
+            device:
+              integration: mobile_app
+        timeout:
+          name: Timeout
+          description: How long to wait for "Yes" before giving up on this run.
+          default:
+            minutes: 10
+          selector:
+            duration: {}
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        actions:
+          name: When Jev is sure, or you tap "Yes"
+          selector:
+            action: {}
+        skipped_actions:
+          name: When Jev is sure it is no
+          default: []
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    # Without a to: or not_to:, a change to an attribute alone would ask too.
+    # A sensor that drops out is not a new reading, so it does not ask.
+    not_to: [unavailable, unknown]
+    for: !input hold
+
+variables:
+  question: !input question
+  high_threshold: !input high_threshold
+  low_threshold: !input low_threshold
+  notify_device: !input notify_device
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: !input entities
+    data:
+      instructions: !input question
+      background: !input background
+      true_means: !input true_means
+      false_means: !input false_means
+      threshold: !input high_threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+      confirmed: false
+  - choose:
+      - conditions: "{{ probability >= high_threshold }}"
+        sequence: !input actions
+      - conditions: "{{ probability < low_threshold }}"
+        sequence: !input skipped_actions
+    default:
+      - variables:
+          action_id: "jev-confirm-{{ context.id }}"
+      # The mobile_app integration names this service after the device name the
+      # app registered with, which is the device's `name` and not a rename.
+      - variables:
+          notify_service: "notify.mobile_app_{{ device_attr(notify_device, 'name') | slugify }}"
+      - action: "{{ notify_service }}"
+        data:
+          message: !input question
+          data:
+            tag: "{{ action_id }}"
+            actions:
+              - action: "{{ action_id }}"
+                title: "Yes"
+      - wait_for_trigger:
+          - trigger: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "{{ action_id }}"
+        timeout: !input timeout
+        continue_on_timeout: true
+      - if: "{{ wait.trigger is not none }}"
+        then:
+          - variables:
+              confirmed: true
+          - if: "{{ true }}"
+            then: !input actions
+        # A tap after this would do nothing, so the question leaves the phone.
+        else:
+          - action: "{{ notify_service }}"
+            data:
+              message: clear_notification
+              data:
+                tag: "{{ action_id }}"
+  - delay: !input cooldown

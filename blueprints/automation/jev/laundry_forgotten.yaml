@@ -1,0 +1,145 @@
+blueprint:
+  name: Jev - Laundry done and forgotten
+  description: >-
+    Asks Jev whether a finished wash is still sitting in the machine, once the
+    power reading drops below the idle watts and stays there for the hold time.
+    Standby readings that move while the machine is idle do not ask again. It
+    asks only when the power has been above idle and drops back.
+
+
+    With the defaults that is one call per wash, so one or two calls a day. A
+    programme that pauses under idle watts for the hold time asks once more. The
+    ceiling is 24 calls a day: after each call the 1 hour cooldown drops every
+    other trigger, so 1440 / 60 minutes.
+
+
+    Your actions can read `probability` (0 to 1).
+
+
+    Every question is a paid API call. The hold time and the cooldown keep a
+    flapping power reading from spending your budget.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/laundry_forgotten.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:washing-machine
+      input:
+        power_sensor:
+          name: Washing machine power sensor
+          selector:
+            entity:
+              domain: sensor
+              device_class: power
+        door_sensor:
+          name: Door sensor
+          description: >-
+            Optional. Reads open once somebody has emptied the machine.
+          default: []
+          selector:
+            entity:
+              domain: binary_sensor
+              multiple: true
+        idle_watts:
+          name: Idle watts
+          description: >-
+            The machine counts as idle below this. Jev is asked once the reading
+            drops below it.
+          default: 5
+          selector:
+            number:
+              min: 0.5
+              max: 500
+              step: 0.5
+              mode: box
+              unit_of_measurement: W
+        running_watts:
+          name: Running watts
+          description: >-
+            What the machine draws while a programme runs. Jev reads it as a
+            rule, so it tells a pause from the end of a programme.
+          default: 300
+          selector:
+            number:
+              min: 1
+              max: 5000
+              mode: box
+              unit_of_measurement: W
+        hold:
+          name: Hold time
+          description: The power reading must stay below idle watts this long.
+          default:
+            minutes: 10
+          selector:
+            duration: {}
+        cooldown:
+          name: Cooldown
+          description: After an answer, changes are ignored for this long.
+          default:
+            hours: 1
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        threshold:
+          name: Threshold
+          description: The probability the reminder needs to reach.
+          default: 0.7
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        reminder_actions:
+          name: Reminder actions
+          description: Runs when Jev thinks the laundry is done and forgotten.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  # numeric_state fires only when the reading crosses below idle watts. A state
+  # trigger would also fire on every standby jitter and attribute change.
+  - trigger: numeric_state
+    entity_id: !input power_sensor
+    below: !input idle_watts
+    for: !input hold
+
+variables:
+  power_sensor: !input power_sensor
+  door_sensor: !input door_sensor
+  idle_watts: !input idle_watts
+  running_watts: !input running_watts
+  threshold: !input threshold
+
+actions:
+  - action: jev.noul
+    response_variable: jev
+    target:
+      entity_id: "{{ [power_sensor] + door_sensor }}"
+    data:
+      instructions: Is the laundry finished but still sitting in the machine?
+      background: >-
+        This machine draws under {{ idle_watts }} W when idle and about
+        {{ running_watts }} W or more while a programme runs. The door sensor
+        reads open once somebody has emptied it.
+      true_means: The programme is done and nobody has emptied it
+      false_means: Still running, or already emptied
+      threshold: !input threshold
+  - variables:
+      probability: "{{ jev.noul }}"
+  - if: "{{ jev.is_true }}"
+    then: !input reminder_actions
+  - delay: !input cooldown

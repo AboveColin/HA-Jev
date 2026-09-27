@@ -1,0 +1,248 @@
+blueprint:
+  name: Jev - Start the dishwasher at a good moment
+  description: >-
+    Once the dishwasher says it is loaded and ready, asks Jev whether now is a
+    good moment to run it, using the price and the panels compared to their own
+    averages rather than raw numbers. While it stays ready inside the time
+    window and the answer is no, it asks again once per cooldown. After a yes
+    it runs your start actions once and does not ask again until ready turns
+    off. A price sensor that is unavailable reaches Jev as "price unknown".
+
+
+    With the defaults the window is 14 hours (08:00 to 22:00) and the cooldown
+    is 1 hour, so a day that never has a good moment costs at most 14 calls a
+    day. A load that gets a yes on the first question costs 1 call.
+
+
+    Your actions can read `probability` (0 to 1) and `reason` (price, solar,
+    people, time or none).
+
+
+    Every question is a paid API call. The hold time and the cooldown keep a
+    flapping ready signal from spending your budget.
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/dishwasher_good_moment.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:dishwasher
+      input:
+        ready_entity:
+          name: Ready to run
+          description: A binary sensor or input boolean that turns on once loaded.
+          selector:
+            entity:
+              domain:
+                - binary_sensor
+                - input_boolean
+        price_sensor:
+          name: Electricity price sensor
+          selector:
+            entity:
+              domain: sensor
+        avg_price_sensor:
+          name: Average price sensor
+          description: Today's average price, so the current price can be compared to it.
+          selector:
+            entity:
+              domain: sensor
+        solar_sensor:
+          name: Solar power sensor
+          description: Optional. Current solar output.
+          default: ""
+          selector:
+            entity:
+              domain: sensor
+        solar_plenty:
+          name: Plenty of solar
+          description: >-
+            Solar output above this, in W, counts as enough to run the
+            dishwasher. A solar sensor that reports kW is converted to W.
+          default: 1500
+          selector:
+            number:
+              min: 0
+              max: 20000
+              mode: box
+              unit_of_measurement: W
+        people:
+          name: People
+          description: Optional. Who is home, so Jev can weigh a meal or sleep.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              domain:
+                - person
+                - binary_sensor
+        hold:
+          name: Hold time
+          description: Ready must stay on this long before the first question.
+          default:
+            minutes: 1
+          selector:
+            duration: {}
+        window_start:
+          name: Window start
+          default: "08:00:00"
+          selector:
+            time: {}
+        window_end:
+          name: Window end
+          default: "22:00:00"
+          selector:
+            time: {}
+        cooldown:
+          name: Cooldown
+          description: >-
+            After an answer, it waits this long before it asks again. This sets
+            how many calls a day it makes.
+          default:
+            hours: 1
+          selector:
+            duration: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        background:
+          name: Background
+          description: What Jev should know about your dishwasher and your days.
+          default: >-
+            The dishwasher is loud. Running it while people are asleep, or during
+            a meal, is worse than waiting. Cheap electricity matters, but not
+            enough to wake anybody.
+          selector:
+            text:
+              multiline: true
+        threshold:
+          name: Threshold
+          description: The probability that counts as a good moment.
+          default: 0.7
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        start_actions:
+          name: Start actions
+          description: >-
+            Runs when Jev thinks now is a good moment, at most once each time
+            ready turns on.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input ready_entity
+    to: "on"
+    for: !input hold
+    id: ready
+  # Checks every 15 minutes, and the cooldown decides how often that asks.
+  - trigger: time_pattern
+    minutes: /15
+
+conditions:
+  - condition: state
+    entity_id: !input ready_entity
+    state: "on"
+  # A recheck waits for the hold too. The ready trigger already waited it.
+  - condition: or
+    conditions:
+      - condition: trigger
+        id: ready
+      - condition: state
+        entity_id: !input ready_entity
+        state: "on"
+        for: !input hold
+  - condition: time
+    after: !input window_start
+    before: !input window_end
+
+variables:
+  price_sensor: !input price_sensor
+  avg_price_sensor: !input avg_price_sensor
+  solar_sensor: !input solar_sensor
+  solar_plenty: !input solar_plenty
+  people: !input people
+  threshold: !input threshold
+
+actions:
+  - variables:
+      price_now: "{{ states(price_sensor) | float(none) }}"
+      price_avg: "{{ states(avg_price_sensor) | float(none) }}"
+      # abs() keeps the 20 percent band the right way round when the average
+      # price is negative.
+      price_verdict: >-
+        {% if price_now is not number or price_avg is not number %}price unknown,
+        the price sensor is not reporting
+        {% elif price_now < price_avg - 0.2 * price_avg | abs %}well below
+        today's average
+        {% elif price_now > price_avg + 0.2 * price_avg | abs %}well above
+        today's average
+        {% else %}about average for today{% endif %}
+      solar_watts: >-
+        {%- set w = states(solar_sensor) | float(none) if solar_sensor else none -%}
+        {%- set kw = state_attr(solar_sensor, 'unit_of_measurement') == 'kW'
+            if solar_sensor else false -%}
+        {{ w * 1000 if w is number and kw else w }}
+      solar_verdict: >-
+        {% if not solar_sensor %}not tracked in this house
+        {% elif solar_watts is not number %}not reporting, output unknown
+        {% elif solar_watts > solar_plenty %}producing enough to run the
+        dishwasher
+        {% else %}producing too little to run the dishwasher{% endif %}
+  - action: jev.ask
+    response_variable: jev
+    target:
+      entity_id: >-
+        {{ [price_sensor, avg_price_sensor] + ([solar_sensor] if solar_sensor
+        else []) + people }}
+    data:
+      state:
+        electricity: "The price right now is {{ price_verdict }}."
+        solar: "The panels are {{ solar_verdict }}."
+        time: "{{ now().strftime('%H:%M on %A') }}"
+      questions:
+        good_moment:
+          type: noul
+          instructions: Is this a good moment to start the dishwasher?
+          background: !input background
+        reason:
+          type: choice
+          instructions: What mainly decides the answer?
+          criteria:
+            price: The cost of the electricity right now
+            solar: Whether the panels are covering it
+            people: Who is at home and what they are doing
+            time: The hour of the day
+            none: No single factor stands out
+  - variables:
+      probability: "{{ jev.answers.good_moment.noul }}"
+      reason: "{{ jev.answers.reason.choice }}"
+  - if: "{{ probability >= threshold }}"
+    then:
+      - sequence: !input start_actions
+      # mode: single drops the 15 minute rechecks while this run waits, so the
+      # start actions run once per ready period. 12 hours is longer than any
+      # programme plus the time window. A load still ready after that was not
+      # started, and asking again is right.
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: !input ready_entity
+            from: "on"
+        timeout:
+          hours: 12
+    else:
+      - delay: !input cooldown

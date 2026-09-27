@@ -2,6 +2,8 @@
 
 Copy-paste YAML for `configuration.yaml` and the automation editor. Every file is
 self-contained and uses invented entity ids, so change those and nothing else.
+To import an automation with one click instead, use a
+[blueprint](https://jev.cdevries.dev/blueprints/).
 
 | File | What it shows |
 |---|---|

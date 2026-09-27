@@ -1,0 +1,170 @@
+blueprint:
+  name: Jev - Which low batteries matter this week
+  description: >-
+    On each weekday you pick, at the time you pick, collects every battery
+    sensor below your percent limit, and every one that is unavailable or
+    unknown. A flat battery often stops reporting, so those are listed as "not
+    reporting". When none are low or silent, nothing is asked. Otherwise asks
+    Jev whether any of them protect people or the house, and how soon they
+    need replacing.
+
+
+    One call per chosen day at most. With the default of Monday only that is
+    one call a week. With every day picked it is 7 calls a week.
+
+
+    Your actions can read `low_batteries` (a readable list of what is low or
+    not reporting), `not_reporting` (the names that are not reporting),
+    `urgency` (0 to 3), `level` (the matching level text) and `protects_people`
+    (true or false).
+  domain: automation
+  author: AboveColin
+  homeassistant:
+    min_version: 2026.9.0
+  source_url: https://github.com/AboveColin/HA-Jev/blob/main/blueprints/automation/jev/battery_triage.yaml
+  input:
+    what_to_watch:
+      name: What Jev looks at
+      icon: mdi:battery-alert
+      input:
+        battery_sensors:
+          name: Battery sensors
+          selector:
+            entity:
+              multiple: true
+              domain: sensor
+              device_class: battery
+        low_percent:
+          name: Low percent
+          description: A sensor counts as low below this.
+          default: 20
+          selector:
+            number:
+              min: 1
+              max: 100
+              mode: box
+              unit_of_measurement: "%"
+        weekday:
+          name: Weekday
+          default:
+            - mon
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: Monday
+                  value: mon
+                - label: Tuesday
+                  value: tue
+                - label: Wednesday
+                  value: wed
+                - label: Thursday
+                  value: thu
+                - label: Friday
+                  value: fri
+                - label: Saturday
+                  value: sat
+                - label: Sunday
+                  value: sun
+        time:
+          name: Time
+          default: "09:00:00"
+          selector:
+            time: {}
+    the_question:
+      name: The question
+      icon: mdi:help-circle-outline
+      input:
+        protects_threshold:
+          name: Protects threshold
+          description: The probability that counts as protecting people or the house.
+          default: 0.6
+          selector:
+            number:
+              min: 0.05
+              max: 0.95
+              step: 0.05
+              mode: slider
+    what_to_do:
+      name: What to do
+      icon: mdi:play-outline
+      input:
+        actions:
+          name: Actions
+          description: Runs whenever at least one battery is low or not reporting.
+          selector:
+            action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time
+    at: !input time
+
+conditions:
+  - condition: time
+    weekday: !input weekday
+
+variables:
+  battery_sensors: !input battery_sensors
+  low_percent: !input low_percent
+  protects_threshold: !input protects_threshold
+
+actions:
+  - variables:
+      low_list: >-
+        {% set ns = namespace(items=[]) %}
+        {% for e in battery_sensors %}
+          {% set pct = states(e) | float(none) %}
+          {% if pct is number and pct < low_percent %}
+            {% set ns.items = ns.items + [(state_attr(e, 'friendly_name') or e)
+               ~ ': ' ~ (pct | round(0) | int) ~ '%'] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.items }}
+      # A sensor whose state is not a number has stopped reporting a level.
+      silent_list: >-
+        {% set ns = namespace(items=[]) %}
+        {% for e in battery_sensors %}
+          {% if states(e) | float(none) is not number %}
+            {% set ns.items = ns.items + [state_attr(e, 'friendly_name') or e] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.items }}
+  - if: "{{ low_list | count + silent_list | count > 0 }}"
+    then:
+      - variables:
+          not_reporting: "{{ silent_list | join(', ') }}"
+          low_batteries: >-
+            {% set ns = namespace(items=low_list) %}
+            {% for name in silent_list %}
+              {% set ns.items = ns.items + [name ~ ': not reporting'] %}
+            {% endfor %}
+            {{ ns.items | join(', ') }}
+      - action: jev.ask
+        response_variable: jev
+        data:
+          state: >-
+            Low batteries today: {{ low_list | join(', ') if low_list else 'none' }}.
+            Not reporting, possibly flat:
+            {{ not_reporting if silent_list else 'none' }}.
+          questions:
+            protects:
+              type: noul
+              instructions: >-
+                Does any of these protect people or the house: a smoke alarm, a
+                CO alarm, a water leak sensor or a door sensor?
+            urgency:
+              type: score
+              instructions: How soon do these batteries need replacing?
+              criteria:
+                - Whenever it suits, there is no rush
+                - Within the next few weeks
+                - Within the next few days
+                - Today
+      - variables:
+          urgency: "{{ jev.answers.urgency.score }}"
+          level: "{{ jev.answers.urgency.nearest_level }}"
+          protects_people: "{{ jev.answers.protects.noul >= protects_threshold }}"
+      - sequence: !input actions
