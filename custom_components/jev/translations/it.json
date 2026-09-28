@@ -61,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe ha rifiutato questa chiave.",
       "cannot_connect": "Home Assistant non è riuscito a raggiungere l'API a quell'indirizzo.",
+      "api_error": "Il server ha risposto con un errore: {reply}",
       "not_found": "Il server ha risposto HTTP 404. Jev aggiunge /v1/systemone all'indirizzo, quindi inserisci solo la parte precedente. Per OpenRouter è {openrouter_url}.",
       "invalid_url": "Non è un indirizzo API utilizzabile. Servono uno schema e un host, e non può contenere spazi, query, frammenti, nome utente o password.",
       "invalid_model": "Questo id modello non è stato accettato. Controllalo, oppure svuota il campo per usare quello predefinito.",

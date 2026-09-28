@@ -8,6 +8,7 @@ as well as the key.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -30,6 +31,7 @@ from jevclient import (
     USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
+    JevConnectionError,
     JevError,
     JevResponseError,
     JevValidationError,
@@ -53,6 +55,8 @@ from .const import (
 )
 from .identity import entry_unique_id
 from .subentry import JevQuestionSubentryFlow
+
+_LOGGER = logging.getLogger(__name__)
 
 # The placeholders every form that can show the not_found error needs.
 FORM_PLACEHOLDERS = {"openrouter_url": OPENROUTER_BASE_URL}
@@ -177,6 +181,30 @@ def _suggest(base_url: str, model: str) -> dict[str, Any]:
     return {CONF_ADVANCED: {CONF_URL: base_url, CONF_MODEL: model}}
 
 
+def _error_key(err: JevError) -> str:
+    """Name the form error for a failed check."""
+    if isinstance(err, JevAuthError):
+        return "invalid_auth"
+    if isinstance(err, JevValidationError):
+        # The probe's question is fixed, so the model id is the only part of
+        # this request a typo can reach.
+        return "invalid_model"
+    if isinstance(err, JevConnectionError):
+        return "cannot_connect"
+    if isinstance(err, JevResponseError):
+        # A 404 means the host answered and has nothing on that path, which
+        # "could not reach the API" describes wrongly. It is what an address
+        # carrying the request path already, or a gateway mounted elsewhere,
+        # comes back as. jevclient does not expose the status, only its own
+        # message, so tests/test_config_flow.py drives a real JevClient
+        # against a 404 body: a message change fails there, not in the field.
+        if str(err).startswith("HTTP 404"):
+            return "not_found"
+    # Any other status, a rate limit or a reply with no answers: the host
+    # answered, so "could not reach" is wrong. The form shows what it said.
+    return "api_error"
+
+
 class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     """Take an API key and the address to send it to, and prove the pair works."""
 
@@ -184,6 +212,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     # 2: the unique id hashes the endpoint with the key. async_migrate_entry moves
     # entries written before that.
     MINOR_VERSION = 2
+
+    # What the server said on the last failed check, for the api_error text.
+    _reply = ""
 
     async def _async_validate(
         self, api_key: str, base_url: str, model: str
@@ -197,25 +228,14 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         try:
             await client.ask("ok", {"probe": Noul("Is this text in English?")})
-        except JevAuthError:
-            return "invalid_auth"
-        except JevValidationError:
-            # The probe's question is fixed, so the model id is the only part of
-            # this request a typo can reach.
-            return "invalid_model"
-        except JevResponseError as err:
-            # A 404 means the host answered and has nothing on that path, which
-            # "could not reach the API" describes wrongly. It is what an address
-            # carrying the request path already, or a gateway mounted elsewhere,
-            # comes back as. jevclient does not expose the status, only its own
-            # message, so tests/test_config_flow.py drives a real JevClient
-            # against a 404 body: a message change fails there, not in the field.
-            if str(err).startswith("HTTP 404"):
-                return "not_found"
-            return "cannot_connect"
-        except JevError:
-            return "cannot_connect"
+        except JevError as err:
+            _LOGGER.warning("Setup check against %s failed: %s", base_url, err)
+            self._reply = str(err)
+            return _error_key(err)
         return None
+
+    def _placeholders(self) -> dict[str, str]:
+        return {**FORM_PLACEHOLDERS, "reply": self._reply}
 
     async def _async_update_credentials(
         self, entry: ConfigEntry, updates: dict[str, Any]
@@ -276,7 +296,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 {CONF_ADVANCED: user_input.get(CONF_ADVANCED, {})} if user_input else {},
             ),
             errors=errors,
-            description_placeholders=FORM_PLACEHOLDERS,
+            description_placeholders=self._placeholders(),
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -304,7 +324,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=STEP_REAUTH_SCHEMA,
             errors=errors,
-            description_placeholders=FORM_PLACEHOLDERS,
+            description_placeholders=self._placeholders(),
         )
 
     async def async_step_reconfigure(
@@ -344,7 +364,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 _suggest(*_stored(entry)),
             ),
             errors=errors,
-            description_placeholders=FORM_PLACEHOLDERS,
+            description_placeholders=self._placeholders(),
         )
 
     @staticmethod

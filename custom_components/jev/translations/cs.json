@@ -61,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe tento klíč odmítl.",
       "cannot_connect": "Home Assistant nedokázal na této adrese kontaktovat API.",
+      "api_error": "Server odpověděl chybou: {reply}",
       "not_found": "Server odpověděl HTTP 404. Jev k adrese připojuje /v1/systemone, zadejte tedy jen část před tím. Pro OpenRouter je to {openrouter_url}.",
       "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
       "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí.",

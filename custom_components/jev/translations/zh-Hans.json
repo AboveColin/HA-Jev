@@ -61,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe 拒绝了此密钥。",
       "cannot_connect": "Home Assistant 无法通过该地址访问 API。",
+      "api_error": "服务器返回了错误：{reply}",
       "not_found": "服务器返回 HTTP 404。Jev 会在地址后面加上 /v1/systemone，因此只填写它前面的部分。OpenRouter 的地址是 {openrouter_url}。",
       "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
       "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。",

@@ -61,6 +61,7 @@
     "error": {
       "invalid_auth": "TypeSafe rejected this key.",
       "cannot_connect": "Home Assistant could not reach the API at that address.",
+      "api_error": "The server answered with an error: {reply}",
       "not_found": "The server answered HTTP 404. Jev adds /v1/systemone to the address, so give only the part before that. For OpenRouter that is {openrouter_url}.",
       "invalid_url": "That is not a usable API address. It needs a scheme and a host, and it cannot carry a space, a query, a fragment, a username or a password.",
       "invalid_model": "That model id was not accepted. Check it, or clear the field to use the default.",

@@ -111,26 +111,41 @@ class _AnsweringSession:
 
 
 @pytest.mark.parametrize(
-    ("status", "body", "error"),
+    ("status", "body", "error", "reply"),
     [
         (
             404,
             '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}',
             "not_found",
+            'HTTP 404: {"error": {"message": "No endpoint found matching '
+            '/api/v1/systemone"}}',
         ),
-        (500, '{"error": {"message": "internal error"}}', "cannot_connect"),
+        (
+            500,
+            '{"error": {"message": "internal error"}}',
+            "api_error",
+            'HTTP 500: {"error": {"message": "internal error"}}',
+        ),
+        (
+            429,
+            '{"error": {"message": "slow down"}}',
+            "api_error",
+            'rate limited: {"error": {"message": "slow down"}}',
+        ),
+        (200, "{}", "api_error", "the reply carries no answers object"),
     ],
 )
-async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(
-    hass, status, body, error
+async def test_a_host_that_answers_is_not_a_host_that_cannot_be_reached(
+    hass, caplog, status, body, error, reply
 ):
-    """A 404 says the address is wrong. Any other failure says the host is.
+    """A 404 says the address is wrong. Any other answer shows what the host said.
 
     A base URL carrying the request path already, which is what a reader of the
     published API docs types first, answered "could not reach the API at that
-    address". The host answered perfectly well. This drives the real client so the
-    message it raises is the library's own: a change there fails here. The 500 case
-    holds the other side, so a broken host is not reported as a wrong address.
+    address". The host answered perfectly well. So did an OpenRouter user's host,
+    and the form gave them the same words and nothing to act on. This drives the
+    real client so the message it raises is the library's own: a change there
+    fails here.
     """
     with patch(
         "custom_components.jev.config_flow.async_get_clientsession",
@@ -149,8 +164,22 @@ async def test_a_host_that_answers_404_is_not_a_host_that_cannot_be_reached(
     # The not_found message names this address through a placeholder, and a
     # placeholder the form does not supply renders as the literal braces.
     assert result["description_placeholders"] == {
-        "openrouter_url": "https://openrouter.ai/api"
+        "openrouter_url": "https://openrouter.ai/api",
+        "reply": reply,
     }
+    # The log carries the reason for every failure, the 404 included.
+    assert "Setup check against https://openrouter.ai/api/alpha/decisions" in caplog.text
+
+
+async def test_a_host_that_cannot_be_reached_says_so(hass, mock_client):
+    """No answer at all keeps the old words."""
+    mock_client.ask.side_effect = JevConnectionError("no")
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], _form())
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert result["description_placeholders"]["reply"] == "no"
 
 
 async def test_same_key_twice_is_refused(hass, mock_client, config_entry):
