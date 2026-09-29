@@ -133,6 +133,23 @@ class _AnsweringSession:
             'rate limited: {"error": {"message": "slow down"}}',
         ),
         (200, "{}", "api_error", "the reply carries no answers object"),
+        # OpenRouter's reply to a valid key on an account that never bought
+        # credit, as a user pasted it on 2026-09-28.
+        (
+            402,
+            '{"error":{"message":"Insufficient credits. This account never '
+            'purchased credits.","code":402}}',
+            "no_credit",
+            'HTTP 402: {"error":{"message":"Insufficient credits. This account '
+            'never purchased credits.","code":402}}',
+        ),
+        (
+            401,
+            '{"error":{"message":"User not found.","code":401}}',
+            "invalid_auth",
+            'the API key was rejected: {"error":{"message":"User not found.",'
+            '"code":401}}',
+        ),
     ],
 )
 async def test_a_host_that_answers_is_not_a_host_that_cannot_be_reached(

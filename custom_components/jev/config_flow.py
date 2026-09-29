@@ -200,6 +200,10 @@ def _error_key(err: JevError) -> str:
         # against a 404 body: a message change fails there, not in the field.
         if str(err).startswith("HTTP 404"):
             return "not_found"
+        # OpenRouter answers 402 to a valid key on an account with no credit.
+        # The generic api_error text would show only its JSON.
+        if str(err).startswith("HTTP 402"):
+            return "no_credit"
     # Any other status, a rate limit or a reply with no answers: the host
     # answered, so "could not reach" is wrong. The form shows what it said.
     return "api_error"
