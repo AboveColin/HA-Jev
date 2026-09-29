@@ -59,8 +59,10 @@
       }
     },
     "error": {
-      "invalid_auth": "TypeSafe weigert deze sleutel.",
+      "invalid_auth": "De server weigert deze sleutel.",
       "cannot_connect": "Home Assistant kan de API op dat adres niet bereiken.",
+      "api_error": "De server antwoordde met een fout: {reply}",
+      "no_credit": "Het account op dit adres heeft geen tegoed (HTTP 402). Vul tegoed aan bij de aanbieder en probeer het opnieuw. De server zei: {reply}",
       "not_found": "De server antwoordde met HTTP 404. Jev plakt /v1/systemone achter het adres, dus vul alleen het deel daarvoor in. Voor OpenRouter is dat {openrouter_url}.",
       "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
       "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard.",

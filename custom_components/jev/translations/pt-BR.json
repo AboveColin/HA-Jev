@@ -59,8 +59,10 @@
       }
     },
     "error": {
-      "invalid_auth": "O TypeSafe rejeitou esta chave.",
+      "invalid_auth": "O servidor rejeitou esta chave.",
       "cannot_connect": "O Home Assistant não conseguiu acessar a API nesse endereço.",
+      "api_error": "O servidor respondeu com um erro: {reply}",
+      "no_credit": "A conta neste endereço não tem crédito (HTTP 402). Adicione crédito com o provedor e tente de novo. O servidor disse: {reply}",
       "not_found": "O servidor respondeu HTTP 404. O Jev acrescenta /v1/systemone ao endereço, então informe apenas a parte anterior. Para o OpenRouter isso é {openrouter_url}.",
       "invalid_url": "Esse não é um endereço de API utilizável. Ele precisa de um esquema e de um host, e não pode conter espaço, consulta, fragmento, nome de usuário ou senha.",
       "invalid_model": "Esse id de modelo não foi aceito. Verifique, ou deixe o campo vazio para usar o padrão.",

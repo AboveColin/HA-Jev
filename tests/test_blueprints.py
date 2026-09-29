@@ -92,6 +92,10 @@ async def blueprint_home(hass, tmp_path, loaded_entry):
         )
 
 
+# A fixed start, half an hour from any full hour. A time_pattern recheck at
+# minute 0 fired a second ask whenever the real clock was a second before the
+# hour: at 06:59:59 three dishwasher cases failed, at 06:30 and 06:59:30 none.
+@pytest.mark.freeze_time("2026-09-29T10:30:00+00:00")
 @pytest.mark.parametrize("name", sorted(CASES), ids=str)
 async def test_a_blueprint_runs(hass, blueprint_home, mock_client, freezer, name):
     case: Case = CASES[name]

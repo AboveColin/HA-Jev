@@ -59,8 +59,10 @@
       }
     },
     "error": {
-      "invalid_auth": "TypeSafe ha rechazado esta clave.",
+      "invalid_auth": "El servidor ha rechazado esta clave.",
       "cannot_connect": "Home Assistant no ha podido acceder a la API en esa dirección.",
+      "api_error": "El servidor respondió con un error: {reply}",
+      "no_credit": "La cuenta de esta dirección no tiene saldo (HTTP 402). Añade saldo con el proveedor y vuelve a intentarlo. El servidor dijo: {reply}",
       "not_found": "El servidor respondió HTTP 404. Jev añade /v1/systemone a la dirección, así que introduce solo la parte anterior. Para OpenRouter es {openrouter_url}.",
       "invalid_url": "Esa no es una dirección de API utilizable. Necesita un esquema y un host, y no puede llevar un espacio, una consulta, un fragmento, un usuario ni una contraseña.",
       "invalid_model": "Ese id de modelo no se aceptó. Revísalo, o deja el campo vacío para usar el predeterminado.",

@@ -59,8 +59,10 @@
       }
     },
     "error": {
-      "invalid_auth": "TypeSafe hat diesen Schlüssel abgelehnt.",
+      "invalid_auth": "Der Server hat diesen Schlüssel abgelehnt.",
       "cannot_connect": "Home Assistant konnte die API unter dieser Adresse nicht erreichen.",
+      "api_error": "Der Server hat mit einem Fehler geantwortet: {reply}",
+      "no_credit": "Das Konto unter dieser Adresse hat kein Guthaben (HTTP 402). Lade beim Anbieter Guthaben auf und versuche es erneut. Der Server sagte: {reply}",
       "not_found": "Der Server hat mit HTTP 404 geantwortet. Jev hängt /v1/systemone an die Adresse an, gib also nur den Teil davor ein. Für OpenRouter ist das {openrouter_url}.",
       "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten.",
       "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID.",

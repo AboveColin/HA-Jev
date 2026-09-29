@@ -18,6 +18,9 @@ logger:
 | Entities unavailable, budget sensor off | Look for one line saying TypeSafe is not answering |
 | Setup fails with "TypeSafe did not answer" | Connectivity, not configuration. Home Assistant retries |
 | Setup fails with "The server answered HTTP 404" | The address carries the request path. `/v1/systemone` is added for you |
+| Setup fails with "no credit (HTTP 402)" | The key works, and the account behind it has no balance. On OpenRouter, add credit under Settings, Credits |
+| Setup fails with "The server answered with an error" | The host answered. The text after the colon is its reply, and the Home Assistant log has it too |
+| Setup fails with "could not reach the API" | No answer arrived. Check the address, DNS and the network from the Home Assistant host |
 | An AI Task is refused before it is sent | Read the message. It names the field and what its selector would have to be |
 | An error names a limit | It names your number too. 2 to 255 options, 2 to 10 levels, 250 entities |
 | Voice commands all go to the fallback | Check the traces in diagnostics. Each one records the reason |
