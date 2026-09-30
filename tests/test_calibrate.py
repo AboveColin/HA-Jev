@@ -9,7 +9,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
 )
 
-from custom_components.jev.calibrate import Span, best, build_spans, outcome
+from custom_components.jev.calibrate import Span, best, budget, build_spans, outcome
 from custom_components.jev.const import DOMAIN
 
 PROBABILITY = "sensor.laundry_done"
@@ -100,6 +100,54 @@ def test_the_middle_of_the_tied_thresholds_is_returned():
     assert (result.precision, result.recall) == (1.0, 1.0)
 
 
+# 300 seconds: a sure yes wrong 5 times in 100, an even split the model cannot
+# call, and a sure no wrong 2 times in 100.
+MIXED = [
+    Span(0.95, True, 95),
+    Span(0.95, False, 5),
+    Span(0.5, True, 50),
+    Span(0.5, False, 50),
+    Span(0.05, False, 98),
+    Span(0.05, True, 2),
+]
+
+
+def test_the_budget_trusts_each_side_up_to_the_error_rate():
+    """At 5%, a yes from 0.51 is wrong 5 in 100 and a no below 0.5 is wrong 2 in
+    100. The 100 seconds at 0.5 are left to a person: 200 of 300 are automated."""
+    result = budget(MIXED, 0.05)
+    assert (result.yes_at, result.no_below) == (0.51, 0.5)
+    assert result.automated == 200 / 300
+    assert (result.yes_wrong, result.no_wrong) == (0.05, 0.02)
+
+
+def test_a_side_that_is_wrong_too_often_is_not_trusted():
+    """At 1%, the sure yes (5%) and the sure no (2%) are both wrong too often."""
+    result = budget(MIXED, 0.01)
+    assert (result.yes_at, result.no_below) == (None, None)
+    assert result.automated == 0.0
+    assert (result.yes_wrong, result.no_wrong) == (None, None)
+
+
+def test_a_noul_that_is_never_sure_automates_nothing():
+    result = budget([Span(0.5, True, 60), Span(0.5, False, 60)], 0.05)
+    assert result.automated == 0.0
+
+
+def test_sides_that_overlap_do_not_count_time_twice():
+    """A perfect split is trusted from 0.21 up and below 0.41, so the no side stops
+    at 0.21, where the yes side starts."""
+    spans = [
+        Span(0.2, False, 3600),
+        Span(0.7, True, 3600),
+        Span(0.41, True, 3600),
+        Span(0.1, False, 3600),
+    ]
+    result = budget(spans, 0.01)
+    assert (result.yes_at, result.no_below) == (0.21, 0.21)
+    assert result.automated == 1.0
+
+
 async def record_a_day(hass, freezer):
     """Four hours: the door opens with the noul at 0.7, and closes at 0.1."""
     start = dt_util.utcnow() - timedelta(hours=4)
@@ -162,6 +210,24 @@ async def test_calibrate_reads_the_recorder_and_returns_the_best_threshold(
         "recall": 1.0,
         "f1": 0.667,
     }
+    assert result["error_budget"] == [
+        {
+            "error_rate": 0.01,
+            "yes_at": 0.21,
+            "no_below": 0.21,
+            "automated": 1.0,
+            "yes_wrong": 0.0,
+            "no_wrong": 0.0,
+        },
+        {
+            "error_rate": 0.05,
+            "yes_at": 0.21,
+            "no_below": 0.21,
+            "automated": 1.0,
+            "yes_wrong": 0.0,
+            "no_wrong": 0.0,
+        },
+    ]
     # It reads history and nothing else, so it costs no tokens.
     assert mock_client.ask.await_count == 0
 
