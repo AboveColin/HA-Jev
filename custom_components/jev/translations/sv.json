@@ -85,7 +85,8 @@
           "fallback_agent": "Fall tillbaka på den här agenten",
           "min_confidence": "Agera bara över den här säkerheten (0 till 1)",
           "allow_whole_home": "Tillåt kommandon som inte nämner rum eller enhet",
-          "llm_tools": "Erbjud Jev som verktyg till andra LLM-agenter"
+          "llm_tools": "Erbjud Jev som verktyg till andra LLM-agenter",
+          "house_check_weekly": "Kontrollera huset en gång i veckan"
         },
         "data_description": {
           "daily_token_budget": "Räknas från midnatt i Home Assistants tidszon. 0 betyder ingen gräns.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Får hela meningen när Jev inte är säker på vad som ska göras.",
           "min_confidence": "Under detta värde gör Jev ingenting och skickar kommandot vidare till reservagenten.",
           "allow_whole_home": "Att stänga av allt är alltid tillåtet, med eller utan detta val.",
-          "llm_tools": "Lägger till två verktyg i Assist-API:et, ett för ja/nej-frågor och ett för att välja ett alternativ. Varje LLM-agent som använder Assist får deras beskrivningar i varje prompt, vilket kostar tokens hos den agentens leverantör. Varje anrop räknas också mot budgeten ovan."
+          "llm_tools": "Lägger till två verktyg i Assist-API:et, ett för ja/nej-frågor och ett för att välja ett alternativ. Varje LLM-agent som använder Assist får deras beskrivningar i varje prompt, vilket kostar tokens hos den agentens leverantör. Varje anrop räknas också mot budgeten ovan.",
+          "house_check_weekly": "Kl. 10:00, när 7 dagar har gått sedan den senaste kontrollen, går Jev igenom varje entitet som Jevs konversationsagent kan styra i en enda förfrågan och öppnar ett reparationskort för varje tillstånd som ser ut som ett misstag. Kontrollerna av otillgängliga entiteter och svaga batterier kostar ingenting och körs samtidigt."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev har slutat utvärdera: daglig budget nådd",
       "description": "Den dagliga budgeten är {budget} indatatoken och {used} har använts i dag, så inga fler frågor ställs. Svarssensorerna blir otillgängliga tills en ny dag börjar eller budgeten höjs. Höj budgeten i integrationens alternativ, utvärdera kontexter mer sällan, eller korta ner dina frågor."
+    },
+    "house_check_unavailable": {
+      "title": "{name} har varit otillgänglig i en vecka",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Vad ska göras med {name}",
+            "description": "{entity_id} har varit otillgänglig i minst {value} dagar. Om enheten är borta, ta bort den. Om den har tappat anslutningen, kontrollera strömmen eller batteriet.\n\nIgnorera gör att huskontrollen inte frågar om {entity_id} igen. Skjut upp frågar igen om 30 dagar.",
+            "menu_options": {
+              "ignore": "Ignorera från och med nu",
+              "snooze": "Fråga igen om 30 dagar",
+              "turn_off": "Stäng av nu"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev är inte laddad. Ladda integrationen och öppna sedan kortet igen."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entiteter från {name} har varit otillgängliga i en vecka",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Vad ska göras med {name}",
+            "description": "{count} entiteter från {name} har varit otillgängliga i minst {value} dagar, till exempel {examples}. Om enheten eller servern är borta, ta bort den. Om den har tappat anslutningen, kontrollera strömmen eller nätverket.\n\nIgnorera gör att huskontrollen inte rapporterar dessa {count} entiteter igen. Skjut upp rapporterar dem igen om 30 dagar.",
+            "menu_options": {
+              "ignore": "Ignorera från och med nu",
+              "snooze": "Rapportera igen om 30 dagar"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev är inte laddad. Ladda integrationen och öppna sedan kortet igen."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "Batteriet i {name} är svagt",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Vad ska göras med {name}",
+            "description": "{entity_id} visar {value}. Byt eller ladda batteriet innan enheten slutar rapportera.\n\nIgnorera gör att huskontrollen inte frågar om {entity_id} igen. Skjut upp frågar igen om 30 dagar.",
+            "menu_options": {
+              "ignore": "Ignorera från och med nu",
+              "snooze": "Fråga igen om 30 dagar",
+              "turn_off": "Stäng av nu"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev är inte laddad. Ladda integrationen och öppna sedan kortet igen."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} kan vara {state} av misstag",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Vad ska göras med {name}",
+            "description": "Jev gav ett ja/nej-värde på {value} för att {entity_id} är {state} av misstag. Om Jev har rätt, stäng av den här. Om det är meningen, ignorera den.\n\nIgnorera gör att huskontrollen inte frågar om {entity_id} igen. Skjut upp frågar igen om 30 dagar.",
+            "menu_options": {
+              "ignore": "Ignorera från och med nu",
+              "snooze": "Fråga igen om 30 dagar",
+              "turn_off": "Stäng av nu"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev är inte laddad. Ladda integrationen och öppna sedan kortet igen."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "Den veckovisa huskontrollen nådde inte Jev",
+      "description": "Jev svarade inte: {reason}. Kontrollerna av otillgängliga entiteter och svaga batterier kördes ändå. Huskontrollen försöker igen i morgon kl. 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Hur långt tillbaka som läses. Recordern sparar 10 dagar om du inte har ändrat det."
         }
       }
+    },
+    "house_check": {
+      "name": "Kontrollera huset",
+      "description": "Letar efter entiteter som har varit otillgängliga i en vecka, batterier under 10 % och, om Fråga Jev är på, tillstånd som ser ut som ett misstag. Öppnar ett reparationskort för varje fynd och returnerar listan.",
+      "fields": {
+        "use_jev": {
+          "name": "Fråga Jev",
+          "description": "Av kör bara de två kostnadsfria kontrollerna. På lägger till en förfrågan som täcker varje entitet som Jevs konversationsagent kan styra."
+        },
+        "config_entry": {
+          "name": "API-nyckel",
+          "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Ångra huskontrollen",
+      "description": "Återställer det som huskontrollen stängde av, med tillståndet det hade innan.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiteter",
+          "description": "Bara dessa. Tomt återställer allt som huskontrollen stängde av."
+        },
+        "config_entry": {
+          "name": "API-nyckel",
+          "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} var {state} under hela de senaste {days} dagarna, så det finns inget att jämföra med. Läs en längre period, eller kontrollera vilket tillstånd som betyder ja."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} är inte en påslagen lampa, strömbrytare eller fläkt, så huskontrollen kan inte stänga av den."
     }
   },
   "common": {

@@ -31,6 +31,8 @@
     "choice": "mdi:format-list-checks",
     "score": "mdi:ruler",
     "ask": "mdi:comment-multiple-outline",
-    "calibrate": "mdi:tune-vertical"
+    "calibrate": "mdi:tune-vertical",
+    "house_check": "mdi:home-search-outline",
+    "undo_house_check": "mdi:undo"
   }
 }

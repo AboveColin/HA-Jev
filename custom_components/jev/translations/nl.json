@@ -85,7 +85,8 @@
           "fallback_agent": "Val terug op deze agent",
           "min_confidence": "Alleen handelen boven dit vertrouwen (0 tot 1)",
           "allow_whole_home": "Sta opdrachten toe die geen kamer of apparaat noemen",
-          "llm_tools": "Jev als tool aanbieden aan andere LLM-agents"
+          "llm_tools": "Jev als tool aanbieden aan andere LLM-agents",
+          "house_check_weekly": "Het huis eens per week controleren"
         },
         "data_description": {
           "daily_token_budget": "Geteld vanaf middernacht in de tijdzone van Home Assistant. 0 betekent geen limiet.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Krijgt de hele zin wanneer Jev niet zeker weet wat te doen.",
           "min_confidence": "Daaronder doet Jev niets en geeft het de opdracht door aan de terugvalagent.",
           "allow_whole_home": "Alles uitzetten mag altijd, met of zonder deze optie.",
-          "llm_tools": "Voegt twee tools toe aan de Assist-API, een voor ja/nee-vragen en een voor het kiezen van een optie. Elke LLM-agent die Assist gebruikt, krijgt hun beschrijvingen in elke prompt, en dat kost tokens bij de provider van die agent. Elke aanroep telt ook mee voor het budget hierboven."
+          "llm_tools": "Voegt twee tools toe aan de Assist-API, een voor ja/nee-vragen en een voor het kiezen van een optie. Elke LLM-agent die Assist gebruikt, krijgt hun beschrijvingen in elke prompt, en dat kost tokens bij de provider van die agent. Elke aanroep telt ook mee voor het budget hierboven.",
+          "house_check_weekly": "Om 10:00, zodra de laatste controle 7 dagen geleden is, bekijkt Jev in één verzoek elke entiteit die de Jev-gespreksagent kan bedienen en opent een reparatiekaart voor elke toestand die op een vergissing lijkt. De controles op onbeschikbare entiteiten en lege batterijen kosten niets en draaien mee."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev is gestopt: daglimiet bereikt",
       "description": "De daglimiet is {budget} invoertokens en er zijn er vandaag {used} gebruikt, dus er worden geen vragen meer gesteld. De antwoordsensoren worden onbeschikbaar tot de volgende dag of tot de limiet omhoog gaat. Verhoog de limiet in de opties, evalueer minder vaak, of maak je vragen korter."
+    },
+    "house_check_unavailable": {
+      "title": "{name} is al een week onbeschikbaar",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Wat te doen met {name}",
+            "description": "{entity_id} is al minstens {value} dagen onbeschikbaar. Is het apparaat weg, verwijder het dan. Is de verbinding weg, controleer dan de stroom of de batterij.\n\nNegeren zorgt dat de huiscontrole niet meer naar {entity_id} vraagt. Uitstellen vraagt over 30 dagen opnieuw.",
+            "menu_options": {
+              "ignore": "Voortaan negeren",
+              "snooze": "Over 30 dagen opnieuw vragen",
+              "turn_off": "Nu uitzetten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is niet geladen. Laad de integratie en open deze kaart daarna opnieuw."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entiteiten van {name} zijn al een week onbeschikbaar",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Wat te doen met {name}",
+            "description": "{count} entiteiten van {name} zijn al minstens {value} dagen onbeschikbaar, bijvoorbeeld {examples}. Is het apparaat of de server weg, verwijder het dan. Is de verbinding weg, controleer dan de stroom of het netwerk.\n\nNegeren zorgt dat de huiscontrole deze {count} entiteiten niet meer meldt. Uitstellen meldt ze over 30 dagen opnieuw.",
+            "menu_options": {
+              "ignore": "Voortaan negeren",
+              "snooze": "Over 30 dagen opnieuw melden"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is niet geladen. Laad de integratie en open deze kaart daarna opnieuw."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "De batterij van {name} is bijna leeg",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Wat te doen met {name}",
+            "description": "{entity_id} meldt {value}. Vervang of laad de batterij voordat het apparaat niets meer meldt.\n\nNegeren zorgt dat de huiscontrole niet meer naar {entity_id} vraagt. Uitstellen vraagt over 30 dagen opnieuw.",
+            "menu_options": {
+              "ignore": "Voortaan negeren",
+              "snooze": "Over 30 dagen opnieuw vragen",
+              "turn_off": "Nu uitzetten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is niet geladen. Laad de integratie en open deze kaart daarna opnieuw."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} staat misschien per vergissing {state}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Wat te doen met {name}",
+            "description": "Jev gaf een ja/nee-waarde van {value} dat {entity_id} per vergissing {state} staat. Heeft Jev gelijk, zet het dan hier uit. Is het zo bedoeld, negeer het dan.\n\nNegeren zorgt dat de huiscontrole niet meer naar {entity_id} vraagt. Uitstellen vraagt over 30 dagen opnieuw.",
+            "menu_options": {
+              "ignore": "Voortaan negeren",
+              "snooze": "Over 30 dagen opnieuw vragen",
+              "turn_off": "Nu uitzetten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is niet geladen. Laad de integratie en open deze kaart daarna opnieuw."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "De wekelijkse huiscontrole bereikte Jev niet",
+      "description": "Jev antwoordde niet: {reason}. De controles op onbeschikbare entiteiten en lege batterijen zijn wel uitgevoerd. De huiscontrole probeert het morgen om 10:00 opnieuw."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Hoe ver terug er gelezen wordt. De recorder bewaart 10 dagen, tenzij je dat hebt aangepast."
         }
       }
+    },
+    "house_check": {
+      "name": "Het huis controleren",
+      "description": "Zoek naar entiteiten die al een week onbeschikbaar zijn, batterijen onder 10 % en, als Jev vragen aan staat, toestanden die op een vergissing lijken. Opent voor elk een reparatiekaart en geeft de lijst terug.",
+      "fields": {
+        "use_jev": {
+          "name": "Jev vragen",
+          "description": "Uit voert alleen de twee controles uit die niets kosten. Aan voegt één verzoek toe dat elke entiteit omvat die de Jev-gespreksagent kan bedienen."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "De huiscontrole ongedaan maken",
+      "description": "Zet terug wat de huiscontrole heeft uitgezet, met de toestand van daarvoor.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiteiten",
+          "description": "Alleen deze. Leeg zet alles terug wat de huiscontrole heeft uitgezet."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} was de hele laatste {days} dagen {state}, dus er is niets om mee te vergelijken. Lees een langere periode, of controleer welke status ja betekent."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} is geen lamp, schakelaar of ventilator die aan staat, dus de huiscontrole kan het niet uitzetten."
     }
   },
   "common": {

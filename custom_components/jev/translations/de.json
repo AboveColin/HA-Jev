@@ -85,7 +85,8 @@
           "fallback_agent": "Auf diesen Agenten zurückfallen",
           "min_confidence": "Nur oberhalb dieser Konfidenz handeln (0 bis 1)",
           "allow_whole_home": "Befehle erlauben, die keinen Raum und kein Gerät nennen",
-          "llm_tools": "Jev anderen LLM-Agenten als Werkzeug anbieten"
+          "llm_tools": "Jev anderen LLM-Agenten als Werkzeug anbieten",
+          "house_check_weekly": "Das Haus einmal pro Woche prüfen"
         },
         "data_description": {
           "daily_token_budget": "Gezählt ab Mitternacht in der Zeitzone von Home Assistant. 0 bedeutet kein Limit.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Bekommt den ganzen Satz, wenn Jev nicht sicher ist, was zu tun ist.",
           "min_confidence": "Darunter tut Jev nichts und gibt den Befehl an den Ersatz-Agenten weiter.",
           "allow_whole_home": "Alles ausschalten ist immer erlaubt, mit oder ohne diese Option.",
-          "llm_tools": "Fügt der Assist-API zwei Werkzeuge hinzu, eines für Ja/Nein-Fragen und eines für die Wahl einer Option. Jeder LLM-Agent, der Assist nutzt, erhält ihre Beschreibungen in jedem Prompt, was beim Anbieter dieses Agenten Tokens kostet. Jeder Aufruf zählt außerdem zum Budget oben."
+          "llm_tools": "Fügt der Assist-API zwei Werkzeuge hinzu, eines für Ja/Nein-Fragen und eines für die Wahl einer Option. Jeder LLM-Agent, der Assist nutzt, erhält ihre Beschreibungen in jedem Prompt, was beim Anbieter dieses Agenten Tokens kostet. Jeder Aufruf zählt außerdem zum Budget oben.",
+          "house_check_weekly": "Um 10:00, sobald die letzte Prüfung 7 Tage zurückliegt, sieht sich Jev in einer Anfrage jede Entität, die der Jev-Gesprächsagent steuern kann an und öffnet für jeden Zustand, der wie ein Versehen aussieht, eine Reparaturkarte. Die Prüfungen auf nicht verfügbare Entitäten und schwache Batterien kosten nichts und laufen mit."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev wertet nicht mehr aus: Tagesbudget erreicht",
       "description": "Das Tagesbudget beträgt {budget} Eingabe-Tokens, heute wurden {used} verbraucht, es werden also keine Fragen mehr gestellt. Die Antwort-Sensoren sind nicht verfügbar, bis ein neuer Tag beginnt oder das Budget erhöht wird. Erhöhe das Budget in den Optionen der Integration, werte Kontexte seltener aus oder kürze deine Fragen."
+    },
+    "house_check_unavailable": {
+      "title": "{name} ist seit einer Woche nicht verfügbar",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Was mit {name} tun",
+            "description": "{entity_id} ist seit mindestens {value} Tagen nicht verfügbar. Ist das Gerät weg, entferne es. Hat es die Verbindung verloren, prüfe Stromversorgung oder Batterie.\n\nIgnorieren sorgt dafür, dass die Hausprüfung nicht mehr nach {entity_id} fragt. Zurückstellen fragt in 30 Tagen erneut.",
+            "menu_options": {
+              "ignore": "Ab jetzt ignorieren",
+              "snooze": "In 30 Tagen erneut fragen",
+              "turn_off": "Jetzt ausschalten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev ist nicht geladen. Lade die Integration und öffne diese Karte danach erneut."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} Entitäten von {name} sind seit einer Woche nicht verfügbar",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Was mit {name} tun",
+            "description": "{count} Entitäten von {name} sind seit mindestens {value} Tagen nicht verfügbar, zum Beispiel {examples}. Ist das Gerät oder der Server weg, entferne es. Hat es die Verbindung verloren, prüfe Stromversorgung oder Netzwerk.\n\nIgnorieren sorgt dafür, dass die Hausprüfung diese {count} Entitäten nicht mehr meldet. Zurückstellen meldet sie in 30 Tagen erneut.",
+            "menu_options": {
+              "ignore": "Ab jetzt ignorieren",
+              "snooze": "In 30 Tagen erneut melden"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev ist nicht geladen. Lade die Integration und öffne diese Karte danach erneut."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "Die Batterie von {name} ist schwach",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Was mit {name} tun",
+            "description": "{entity_id} meldet {value}. Ersetze oder lade die Batterie, bevor das Gerät nichts mehr meldet.\n\nIgnorieren sorgt dafür, dass die Hausprüfung nicht mehr nach {entity_id} fragt. Zurückstellen fragt in 30 Tagen erneut.",
+            "menu_options": {
+              "ignore": "Ab jetzt ignorieren",
+              "snooze": "In 30 Tagen erneut fragen",
+              "turn_off": "Jetzt ausschalten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev ist nicht geladen. Lade die Integration und öffne diese Karte danach erneut."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} ist vielleicht versehentlich {state}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Was mit {name} tun",
+            "description": "Jev gab einen Ja/Nein-Wert von {value} dafür, dass {entity_id} versehentlich {state} ist. Hat Jev recht, schalte es hier aus. Ist es so gewollt, ignoriere es.\n\nIgnorieren sorgt dafür, dass die Hausprüfung nicht mehr nach {entity_id} fragt. Zurückstellen fragt in 30 Tagen erneut.",
+            "menu_options": {
+              "ignore": "Ab jetzt ignorieren",
+              "snooze": "In 30 Tagen erneut fragen",
+              "turn_off": "Jetzt ausschalten"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev ist nicht geladen. Lade die Integration und öffne diese Karte danach erneut."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "Die wöchentliche Hausprüfung hat Jev nicht erreicht",
+      "description": "Jev hat nicht geantwortet: {reason}. Die Prüfungen auf nicht verfügbare Entitäten und schwache Batterien liefen trotzdem. Die Hausprüfung versucht es morgen um 10:00 erneut."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Wie weit zurück gelesen wird. Der Recorder behält 10 Tage, sofern du das nicht geändert hast."
         }
       }
+    },
+    "house_check": {
+      "name": "Das Haus prüfen",
+      "description": "Sucht nach Entitäten, die seit einer Woche nicht verfügbar sind, Batterien unter 10 % und, wenn Jev fragen an ist, Zuständen, die wie ein Versehen aussehen. Öffnet für jeden Fund eine Reparaturkarte und gibt die Liste zurück.",
+      "fields": {
+        "use_jev": {
+          "name": "Jev fragen",
+          "description": "Aus führt nur die zwei kostenlosen Prüfungen aus. An fügt eine Anfrage hinzu, die jede Entität, die der Jev-Gesprächsagent steuern kann umfasst."
+        },
+        "config_entry": {
+          "name": "API-Schlüssel",
+          "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Die Hausprüfung rückgängig machen",
+      "description": "Stellt wieder her, was die Hausprüfung ausgeschaltet hat, mit dem Zustand von davor.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäten",
+          "description": "Nur diese. Leer stellt alles wieder her, was die Hausprüfung ausgeschaltet hat."
+        },
+        "config_entry": {
+          "name": "API-Schlüssel",
+          "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} war die gesamten letzten {days} Tage {state}, also gibt es nichts zum Vergleichen. Lies einen längeren Zeitraum oder prüfe, welcher Zustand Ja bedeutet."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} ist kein eingeschaltetes Licht, kein Schalter und kein Ventilator, daher kann die Hausprüfung es nicht ausschalten."
     }
   },
   "common": {

@@ -85,7 +85,8 @@
           "fallback_agent": "Recurrir a este agente",
           "min_confidence": "Actuar solo por encima de esta confianza (de 0 a 1)",
           "allow_whole_home": "Permitir órdenes que no nombren ninguna habitación ni dispositivo",
-          "llm_tools": "Ofrecer Jev como herramienta a otros agentes LLM"
+          "llm_tools": "Ofrecer Jev como herramienta a otros agentes LLM",
+          "house_check_weekly": "Revisar la casa una vez por semana"
         },
         "data_description": {
           "daily_token_budget": "Se cuenta desde la medianoche en la zona horaria de Home Assistant. 0 significa sin límite.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Recibe la frase entera cuando Jev no está seguro de qué hacer.",
           "min_confidence": "Por debajo de este valor, Jev no hace nada y pasa el comando al agente de respaldo.",
           "allow_whole_home": "Apagarlo todo siempre está permitido, con o sin esta opción.",
-          "llm_tools": "Añade dos herramientas a la API de Assist, una para preguntas de sí o no y otra para elegir una opción. Cada agente LLM que usa Assist recibe sus descripciones en cada prompt, lo que cuesta tokens en el proveedor de ese agente. Cada llamada también cuenta para el presupuesto de arriba."
+          "llm_tools": "Añade dos herramientas a la API de Assist, una para preguntas de sí o no y otra para elegir una opción. Cada agente LLM que usa Assist recibe sus descripciones en cada prompt, lo que cuesta tokens en el proveedor de ese agente. Cada llamada también cuenta para el presupuesto de arriba.",
+          "house_check_weekly": "A las 10:00, cuando han pasado 7 días desde la última revisión, Jev mira en una sola solicitud cada entidad que el agente de conversación Jev puede controlar y abre una tarjeta de reparación por cada estado que parezca un error. Las revisiones de entidades no disponibles y baterías bajas no cuestan nada y se hacen a la vez."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev ha dejado de evaluar: presupuesto diario alcanzado",
       "description": "El presupuesto diario es de {budget} tokens de entrada y hoy se han usado {used}, así que no se envían más preguntas. Los sensores de respuesta quedan no disponibles hasta que empiece un nuevo día o se suba el presupuesto. Sube el presupuesto en las opciones de la integración, evalúa los contextos con menos frecuencia o acorta tus preguntas."
+    },
+    "house_check_unavailable": {
+      "title": "{name} lleva una semana no disponible",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Qué hacer con {name}",
+            "description": "{entity_id} lleva al menos {value} días no disponible. Si el dispositivo ya no existe, elimínalo. Si perdió la conexión, revisa su alimentación o su batería.\n\nIgnorar hace que la revisión de la casa no vuelva a preguntar por {entity_id}. Posponer vuelve a preguntar en 30 días.",
+            "menu_options": {
+              "ignore": "Ignorarlo a partir de ahora",
+              "snooze": "Volver a preguntar en 30 días",
+              "turn_off": "Apagarlo ahora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev no está cargado. Carga la integración y vuelve a abrir esta tarjeta."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entidades de {name} llevan una semana no disponibles",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Qué hacer con {name}",
+            "description": "{count} entidades de {name} llevan al menos {value} días no disponibles, por ejemplo {examples}. Si el dispositivo o el servidor ya no existe, elimínalo. Si perdió la conexión, revisa su alimentación o su red.\n\nIgnorar hace que la revisión de la casa no vuelva a avisar de estas {count} entidades. Posponer vuelve a avisar en 30 días.",
+            "menu_options": {
+              "ignore": "Ignorarlas a partir de ahora",
+              "snooze": "Volver a avisar en 30 días"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev no está cargado. Carga la integración y vuelve a abrir esta tarjeta."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "La batería de {name} está baja",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Qué hacer con {name}",
+            "description": "{entity_id} indica {value}. Cambia o carga la batería antes de que el dispositivo deje de informar.\n\nIgnorar hace que la revisión de la casa no vuelva a preguntar por {entity_id}. Posponer vuelve a preguntar en 30 días.",
+            "menu_options": {
+              "ignore": "Ignorarlo a partir de ahora",
+              "snooze": "Volver a preguntar en 30 días",
+              "turn_off": "Apagarlo ahora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev no está cargado. Carga la integración y vuelve a abrir esta tarjeta."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} puede estar {state} por error",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Qué hacer con {name}",
+            "description": "Jev dio un valor sí/no de {value} a que {entity_id} está {state} por error. Si Jev tiene razón, apágalo aquí. Si es a propósito, ignóralo.\n\nIgnorar hace que la revisión de la casa no vuelva a preguntar por {entity_id}. Posponer vuelve a preguntar en 30 días.",
+            "menu_options": {
+              "ignore": "Ignorarlo a partir de ahora",
+              "snooze": "Volver a preguntar en 30 días",
+              "turn_off": "Apagarlo ahora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev no está cargado. Carga la integración y vuelve a abrir esta tarjeta."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "La revisión semanal de la casa no llegó a Jev",
+      "description": "Jev no respondió: {reason}. Las revisiones de entidades no disponibles y baterías bajas se hicieron igualmente. La revisión de la casa lo intenta de nuevo mañana a las 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Hasta dónde leer hacia atrás. El recorder guarda 10 días, salvo que lo hayas cambiado."
         }
       }
+    },
+    "house_check": {
+      "name": "Revisar la casa",
+      "description": "Busca entidades no disponibles desde hace una semana, baterías por debajo del 10 % y, si Preguntar a Jev está activado, estados que parecen un error. Abre una tarjeta de reparación por cada uno y devuelve la lista.",
+      "fields": {
+        "use_jev": {
+          "name": "Preguntar a Jev",
+          "description": "Desactivado solo hace las dos revisiones gratuitas. Activado añade una solicitud que cubre cada entidad que el agente de conversación Jev puede controlar."
+        },
+        "config_entry": {
+          "name": "Clave API",
+          "description": "Con qué clave configurada se pregunta. Solo hace falta cuando hay más de una."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Deshacer la revisión de la casa",
+      "description": "Restaura lo que la revisión de la casa apagó, con el estado que tenía antes.",
+      "fields": {
+        "entity_id": {
+          "name": "Entidades",
+          "description": "Solo estas. Vacío restaura todo lo que la revisión de la casa apagó."
+        },
+        "config_entry": {
+          "name": "Clave API",
+          "description": "Con qué clave configurada se pregunta. Solo hace falta cuando hay más de una."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} estuvo en {state} durante todos los últimos {days} días, así que no hay nada con qué comparar. Lee un periodo más largo, o comprueba qué estado significa sí."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} no es una luz, un interruptor ni un ventilador encendido, así que la revisión de la casa no puede apagarlo."
     }
   },
   "common": {

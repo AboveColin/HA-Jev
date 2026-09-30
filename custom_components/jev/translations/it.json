@@ -85,7 +85,8 @@
           "fallback_agent": "Ripiega su questo agente",
           "min_confidence": "Agisci solo sopra questa confidenza (da 0 a 1)",
           "allow_whole_home": "Consenti comandi che non nominano una stanza o un dispositivo",
-          "llm_tools": "Offri Jev come strumento ad altri agenti LLM"
+          "llm_tools": "Offri Jev come strumento ad altri agenti LLM",
+          "house_check_weekly": "Controllare la casa una volta a settimana"
         },
         "data_description": {
           "daily_token_budget": "Conteggiato dalla mezzanotte nel fuso orario di Home Assistant. 0 significa nessun limite.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Riceve l'intera frase quando Jev non è sicuro di cosa fare.",
           "min_confidence": "Sotto questo valore Jev non fa nulla e passa il comando all'agente di riserva.",
           "allow_whole_home": "Spegnere tutto è sempre consentito, con o senza questa opzione.",
-          "llm_tools": "Aggiunge due strumenti all'API Assist, uno per le domande sì/no e uno per scegliere un'opzione. Ogni agente LLM che usa Assist riceve le loro descrizioni in ogni prompt, il che costa token presso il fornitore di quell'agente. Ogni chiamata conta anche nel budget qui sopra."
+          "llm_tools": "Aggiunge due strumenti all'API Assist, uno per le domande sì/no e uno per scegliere un'opzione. Ogni agente LLM che usa Assist riceve le loro descrizioni in ogni prompt, il che costa token presso il fornitore di quell'agente. Ogni chiamata conta anche nel budget qui sopra.",
+          "house_check_weekly": "Alle 10:00, quando sono passati 7 giorni dall'ultimo controllo, Jev esamina in una sola richiesta ogni entità che l'agente di conversazione Jev può controllare e apre una scheda di riparazione per ogni stato che sembra un errore. I controlli su entità non disponibili e batterie scariche non costano nulla e vengono fatti insieme."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev ha smesso di valutare: budget giornaliero raggiunto",
       "description": "Il budget giornaliero è di {budget} token di input e oggi ne sono stati usati {used}, quindi non vengono poste altre domande. I sensori delle risposte diventano non disponibili fino al giorno successivo o finché il budget non viene alzato. Alza il budget nelle opzioni dell'integrazione, valuta i contesti meno spesso, o accorcia le domande."
+    },
+    "house_check_unavailable": {
+      "title": "{name} non è disponibile da una settimana",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Cosa fare con {name}",
+            "description": "{entity_id} non è disponibile da almeno {value} giorni. Se il dispositivo non c'è più, rimuovilo. Se ha perso la connessione, controlla l'alimentazione o la batteria.\n\nIgnora fa sì che il controllo della casa non chieda più di {entity_id}. Rimanda chiede di nuovo tra 30 giorni.",
+            "menu_options": {
+              "ignore": "Ignoralo d'ora in poi",
+              "snooze": "Chiedi di nuovo tra 30 giorni",
+              "turn_off": "Spegnilo ora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev non è caricato. Carica l'integrazione, poi apri di nuovo questa scheda."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entità di {name} non sono disponibili da una settimana",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Cosa fare con {name}",
+            "description": "{count} entità di {name} non sono disponibili da almeno {value} giorni, per esempio {examples}. Se il dispositivo o il server non c'è più, rimuovilo. Se ha perso la connessione, controlla l'alimentazione o la rete.\n\nIgnora fa sì che il controllo della casa non segnali più queste {count} entità. Rimanda le segnala di nuovo tra 30 giorni.",
+            "menu_options": {
+              "ignore": "Ignorale d'ora in poi",
+              "snooze": "Segnala di nuovo tra 30 giorni"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev non è caricato. Carica l'integrazione, poi apri di nuovo questa scheda."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "La batteria di {name} è scarica",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Cosa fare con {name}",
+            "description": "{entity_id} indica {value}. Sostituisci o ricarica la batteria prima che il dispositivo smetta di comunicare.\n\nIgnora fa sì che il controllo della casa non chieda più di {entity_id}. Rimanda chiede di nuovo tra 30 giorni.",
+            "menu_options": {
+              "ignore": "Ignoralo d'ora in poi",
+              "snooze": "Chiedi di nuovo tra 30 giorni",
+              "turn_off": "Spegnilo ora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev non è caricato. Carica l'integrazione, poi apri di nuovo questa scheda."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} potrebbe essere {state} per errore",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Cosa fare con {name}",
+            "description": "Jev ha dato un valore sì/no di {value} al fatto che {entity_id} sia {state} per errore. Se Jev ha ragione, spegnilo qui. Se è voluto, ignoralo.\n\nIgnora fa sì che il controllo della casa non chieda più di {entity_id}. Rimanda chiede di nuovo tra 30 giorni.",
+            "menu_options": {
+              "ignore": "Ignoralo d'ora in poi",
+              "snooze": "Chiedi di nuovo tra 30 giorni",
+              "turn_off": "Spegnilo ora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev non è caricato. Carica l'integrazione, poi apri di nuovo questa scheda."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "Il controllo settimanale della casa non ha raggiunto Jev",
+      "description": "Jev non ha risposto: {reason}. I controlli su entità non disponibili e batterie scariche sono stati fatti comunque. Il controllo della casa riprova domani alle 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Quanto indietro leggere. Il recorder conserva 10 giorni, salvo modifiche."
         }
       }
+    },
+    "house_check": {
+      "name": "Controllare la casa",
+      "description": "Cerca entità non disponibili da una settimana, batterie sotto il 10 % e, se Chiedi a Jev è attivo, stati che sembrano un errore. Apre una scheda di riparazione per ciascuno e restituisce l'elenco.",
+      "fields": {
+        "use_jev": {
+          "name": "Chiedi a Jev",
+          "description": "Disattivato esegue solo i due controlli gratuiti. Attivato aggiunge una richiesta che copre ogni entità che l'agente di conversazione Jev può controllare."
+        },
+        "config_entry": {
+          "name": "Chiave API",
+          "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Annullare il controllo della casa",
+      "description": "Ripristina ciò che il controllo della casa ha spento, con lo stato che aveva prima.",
+      "fields": {
+        "entity_id": {
+          "name": "Entità",
+          "description": "Solo queste. Vuoto ripristina tutto ciò che il controllo della casa ha spento."
+        },
+        "config_entry": {
+          "name": "Chiave API",
+          "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} è stato {state} per tutti gli ultimi {days} giorni, quindi non c'è nulla da confrontare. Leggi un periodo più lungo, o controlla quale stato significa sì."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} non è una luce, un interruttore o un ventilatore acceso, quindi il controllo della casa non può spegnerlo."
     }
   },
   "common": {

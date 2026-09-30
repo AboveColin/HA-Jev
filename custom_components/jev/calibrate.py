@@ -282,7 +282,7 @@ async def async_calibrate(hass: HomeAssistant, call: ServiceCall) -> ServiceResp
     end = dt_util.utcnow()
     start = end - timedelta(days=days)
     found = await get_instance(hass).async_add_executor_job(
-        _history, hass, start, end, [source, truth_entity]
+        recorded_states, hass, start, end, [source, truth_entity]
     )
     spans = build_spans(
         found.get(source, []), found.get(truth_entity, []), truth_state, start, end
@@ -340,7 +340,7 @@ def _times_true(spans: list[Span]) -> int:
     return count
 
 
-def _history(
+def recorded_states(
     hass: HomeAssistant, start: datetime, end: datetime, entity_ids: list[str]
 ) -> dict[str, list[State]]:
     found = history.get_significant_states(

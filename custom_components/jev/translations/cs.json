@@ -85,7 +85,8 @@
           "fallback_agent": "Záložní agent",
           "min_confidence": "Jednat jen nad touto jistotou (0 až 1)",
           "allow_whole_home": "Povolit příkazy, které neuvádějí místnost ani zařízení",
-          "llm_tools": "Nabídnout Jev jako nástroj ostatním LLM agentům"
+          "llm_tools": "Nabídnout Jev jako nástroj ostatním LLM agentům",
+          "house_check_weekly": "Kontrolovat dům jednou týdně"
         },
         "data_description": {
           "daily_token_budget": "Počítá se od půlnoci v časovém pásmu Home Assistantu. 0 znamená bez limitu.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Dostane celou větu, když si Jev není jistý, co udělat.",
           "min_confidence": "Pod touto hodnotou Jev nic neudělá a předá příkaz záložnímu agentovi.",
           "allow_whole_home": "Vypnout všechno je dovoleno vždy, s touto volbou i bez ní.",
-          "llm_tools": "Přidá do API Assist dva nástroje, jeden pro otázky ano/ne a jeden pro výběr možnosti. Každý LLM agent, který používá Assist, dostane jejich popisy v každém promptu, což stojí tokeny u poskytovatele tohoto agenta. Každé volání se také počítá do rozpočtu výše."
+          "llm_tools": "Přidá do API Assist dva nástroje, jeden pro otázky ano/ne a jeden pro výběr možnosti. Každý LLM agent, který používá Assist, dostane jejich popisy v každém promptu, což stojí tokeny u poskytovatele tohoto agenta. Každé volání se také počítá do rozpočtu výše.",
+          "house_check_weekly": "V 10:00, jakmile od poslední kontroly uplyne 7 dní, Jev v jednom požadavku projde každou entitu, kterou může ovládat konverzační agent Jev a otevře kartu opravy pro každý stav, který vypadá jako omyl. Kontroly nedostupných entit a slabých baterií nic nestojí a běží spolu s ní."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev přestal vyhodnocovat: dosažen denní rozpočet",
       "description": "Denní rozpočet je {budget} vstupních tokenů a dnes jich bylo spotřebováno {used}, takže se další otázky nekladou. Senzory s odpověďmi budou nedostupné, dokud nezačne nový den nebo se rozpočet nezvýší. Zvyšte rozpočet v možnostech integrace, vyhodnocujte kontexty méně často, nebo zkraťte své otázky."
+    },
+    "house_check_unavailable": {
+      "title": "{name} je nedostupné už týden",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Co udělat s {name}",
+            "description": "{entity_id} je nedostupné nejméně {value} dní. Pokud zařízení už neexistuje, odeberte ho. Pokud ztratilo připojení, zkontrolujte napájení nebo baterii.\n\nIgnorovat zařídí, že se kontrola domu už nebude ptát na {entity_id}. Odložit se zeptá znovu za 30 dní.",
+            "menu_options": {
+              "ignore": "Od teď ignorovat",
+              "snooze": "Zeptat se znovu za 30 dní",
+              "turn_off": "Vypnout teď"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev není načtený. Načtěte integraci a pak tuto kartu otevřete znovu."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entit z {name} je nedostupných už týden",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Co udělat s {name}",
+            "description": "{count} entit z {name} je nedostupných nejméně {value} dní, například {examples}. Pokud zařízení nebo server už neexistuje, odeberte ho. Pokud ztratilo připojení, zkontrolujte napájení nebo síť.\n\nIgnorovat zařídí, že kontrola domu už nebude hlásit těchto {count} entit. Odložit je nahlásí znovu za 30 dní.",
+            "menu_options": {
+              "ignore": "Od teď ignorovat",
+              "snooze": "Nahlásit znovu za 30 dní"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev není načtený. Načtěte integraci a pak tuto kartu otevřete znovu."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "Baterie v {name} je slabá",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Co udělat s {name}",
+            "description": "{entity_id} hlásí {value}. Vyměňte nebo nabijte baterii dřív, než zařízení přestane hlásit.\n\nIgnorovat zařídí, že se kontrola domu už nebude ptát na {entity_id}. Odložit se zeptá znovu za 30 dní.",
+            "menu_options": {
+              "ignore": "Od teď ignorovat",
+              "snooze": "Zeptat se znovu za 30 dní",
+              "turn_off": "Vypnout teď"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev není načtený. Načtěte integraci a pak tuto kartu otevřete znovu."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} je možná omylem {state}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Co udělat s {name}",
+            "description": "Jev dal hodnotu ano/ne {value} tomu, že {entity_id} je omylem {state}. Pokud má Jev pravdu, vypněte ho tady. Pokud je to záměr, ignorujte to.\n\nIgnorovat zařídí, že se kontrola domu už nebude ptát na {entity_id}. Odložit se zeptá znovu za 30 dní.",
+            "menu_options": {
+              "ignore": "Od teď ignorovat",
+              "snooze": "Zeptat se znovu za 30 dní",
+              "turn_off": "Vypnout teď"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev není načtený. Načtěte integraci a pak tuto kartu otevřete znovu."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "Týdenní kontrola domu se k Jev nedostala",
+      "description": "Jev neodpověděl: {reason}. Kontroly nedostupných entit a slabých baterií přesto proběhly. Kontrola domu to zkusí znovu zítra v 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Jak daleko zpět číst. Recorder uchovává 10 dní, pokud jste to nezměnili."
         }
       }
+    },
+    "house_check": {
+      "name": "Zkontrolovat dům",
+      "description": "Hledá entity nedostupné už týden, baterie pod 10 % a, pokud je zapnuté Zeptat se Jev, stavy, které vypadají jako omyl. Pro každý nález otevře kartu opravy a vrátí seznam.",
+      "fields": {
+        "use_jev": {
+          "name": "Zeptat se Jev",
+          "description": "Vypnuto spustí jen dvě bezplatné kontroly. Zapnuto přidá jeden požadavek, který pokryje každou entitu, kterou může ovládat konverzační agent Jev."
+        },
+        "config_entry": {
+          "name": "Klíč API",
+          "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Vrátit kontrolu domu",
+      "description": "Vrátí to, co kontrola domu vypnula, do stavu, který mělo předtím.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "Jen tyto. Prázdné vrátí vše, co kontrola domu vypnula."
+        },
+        "config_entry": {
+          "name": "Klíč API",
+          "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} byl celých posledních {days} dní {state}, takže není s čím porovnat. Čtěte delší období, nebo zkontrolujte, který stav znamená ano."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} není zapnuté světlo, vypínač ani ventilátor, takže ho kontrola domu nemůže vypnout."
     }
   },
   "common": {

@@ -85,7 +85,8 @@
           "fallback_agent": "回退到此代理",
           "min_confidence": "仅在置信度高于此值时执行（0 到 1）",
           "allow_whole_home": "允许未指明房间或设备的命令",
-          "llm_tools": "将 Jev 作为工具提供给其他 LLM 代理"
+          "llm_tools": "将 Jev 作为工具提供给其他 LLM 代理",
+          "house_check_weekly": "每周检查一次房屋"
         },
         "data_description": {
           "daily_token_budget": "从 Home Assistant 时区的午夜开始计算。0 表示不限制。",
@@ -93,7 +94,8 @@
           "fallback_agent": "当 Jev 不确定该做什么时，接收完整的句子。",
           "min_confidence": "低于此值时，Jev 不执行任何操作，并把命令交给备用代理。",
           "allow_whole_home": "无论是否开启此项，关闭所有设备始终允许。",
-          "llm_tools": "向 Assist API 添加两个工具，一个用于是/否问题，一个用于选择选项。每个使用 Assist 的 LLM 代理都会在每条提示中收到它们的描述，这会在该代理的提供商处消耗 token。每次调用也计入上面的预算。"
+          "llm_tools": "向 Assist API 添加两个工具，一个用于是/否问题，一个用于选择选项。每个使用 Assist 的 LLM 代理都会在每条提示中收到它们的描述，这会在该代理的提供商处消耗 token。每次调用也计入上面的预算。",
+          "house_check_weekly": "距上次检查满 7 天后，在 10:00，Jev 用一次请求查看Jev 对话代理可以控制的每个实体，并为每个看起来像失误的状态打开一张修复卡片。不可用实体和低电量电池的检查不花费任何费用，并一起运行。"
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev 已停止评估：已达每日预算",
       "description": "每日预算为 {budget} 个输入令牌，今天已用掉 {used} 个，因此不再发出问题。回答实体会变为不可用，直到新的一天开始或预算提高。请在集成选项中提高预算、降低上下文的评估频率，或缩短你的问题。"
+    },
+    "house_check_unavailable": {
+      "title": "{name} 已不可用一周",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "如何处理 {name}",
+            "description": "{entity_id} 已不可用至少 {value} 天。如果设备已不存在，请将其删除。如果它失去了连接，请检查电源或电池。\n\n忽略后，房屋检查不再询问 {entity_id}。推迟后，30 天后再次询问。",
+            "menu_options": {
+              "ignore": "从现在起忽略",
+              "snooze": "30 天后再问",
+              "turn_off": "立即关闭"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev 未加载。请加载集成，然后重新打开此卡片。"
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{name} 的 {count} 个实体已不可用一周",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "如何处理 {name}",
+            "description": "{name} 的 {count} 个实体已不可用至少 {value} 天，例如 {examples}。如果设备或服务器已不存在，请将其删除。如果它失去了连接，请检查电源或网络。\n\n忽略后，房屋检查不再报告这 {count} 个实体。推迟后，30 天后再次报告。",
+            "menu_options": {
+              "ignore": "从现在起忽略",
+              "snooze": "30 天后再报告"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev 未加载。请加载集成，然后重新打开此卡片。"
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "{name} 的电池电量低",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "如何处理 {name}",
+            "description": "{entity_id} 显示 {value}。请在设备停止上报之前更换电池或充电。\n\n忽略后，房屋检查不再询问 {entity_id}。推迟后，30 天后再次询问。",
+            "menu_options": {
+              "ignore": "从现在起忽略",
+              "snooze": "30 天后再问",
+              "turn_off": "立即关闭"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev 未加载。请加载集成，然后重新打开此卡片。"
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} 可能被误设为 {state}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "如何处理 {name}",
+            "description": "Jev 给出的是/否值为 {value}，认为 {entity_id} 被误设为 {state}。如果 Jev 是对的，请在这里将其关闭。如果本来就是这样，请忽略。\n\n忽略后，房屋检查不再询问 {entity_id}。推迟后，30 天后再次询问。",
+            "menu_options": {
+              "ignore": "从现在起忽略",
+              "snooze": "30 天后再问",
+              "turn_off": "立即关闭"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev 未加载。请加载集成，然后重新打开此卡片。"
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "每周房屋检查未能连接到 Jev",
+      "description": "Jev 没有回应：{reason}。不可用实体和低电量电池的检查仍已运行。房屋检查将在明天 10:00 重试。"
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "向前读取多少天。除非你修改过，recorder 保留 10 天。"
         }
       }
+    },
+    "house_check": {
+      "name": "检查房屋",
+      "description": "查找已不可用一周的实体、电量低于 10 % 的电池，以及在开启“询问 Jev”时看起来像失误的状态。为每一项打开一张修复卡片并返回列表。",
+      "fields": {
+        "use_jev": {
+          "name": "询问 Jev",
+          "description": "关闭时只运行两项免费检查。开启时增加一次请求，覆盖Jev 对话代理可以控制的每个实体。"
+        },
+        "config_entry": {
+          "name": "API 密钥",
+          "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "撤销房屋检查",
+      "description": "恢复房屋检查关闭的内容，恢复为之前的状态。",
+      "fields": {
+        "entity_id": {
+          "name": "实体",
+          "description": "仅这些。留空则恢复房屋检查关闭的所有内容。"
+        },
+        "config_entry": {
+          "name": "API 密钥",
+          "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "过去 {days} 天中 {truth} 一直处于 {state}，因此没有可比较的内容。请读取更长的时间段，或检查哪个状态表示“是”。"
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} 不是已打开的灯、开关或风扇，因此房屋检查无法将其关闭。"
     }
   },
   "common": {

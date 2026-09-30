@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from math import ceil
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -53,6 +53,9 @@ from .const import (
 from .models import ContextConfig
 from .payload import payload_bytes
 from .statebuilder import async_build_state
+
+if TYPE_CHECKING:
+    from .house_check import HouseCheck
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -248,6 +251,7 @@ class JevRuntimeData:
 
     client: JevClient
     usage: UsageAccount
+    house_check: HouseCheck
     # The model id asked for, which the client also holds but does not expose. The
     # pre-flight size check builds the same body the client posts, and the model is
     # part of that body.

@@ -81,6 +81,7 @@ plugins:
           - blueprints.md: Automation blueprints to import, and how to share one
           - examples.md: Worked automations
           - calibrate.md: jev.calibrate, a threshold measured from recorder history
+          - house-check.md: jev.house_check, Repairs cards for unavailable entities, low batteries and states that look wrong
         Voice:
           - conversation.md: The Assist conversation agent and what it will not control
           - llm-tools.md: The jev__noul and jev__choice tools for other LLM agents
@@ -125,6 +126,7 @@ nav:
       - Blueprints: blueprints.md
       - Examples: examples.md
       - Tuning a threshold: calibrate.md
+      - The house check: house-check.md
   - Voice:
       - Conversation agent: conversation.md
       - Tools for other LLM agents: llm-tools.md
