@@ -85,7 +85,8 @@
           "fallback_agent": "Se replier sur cet agent",
           "min_confidence": "N'agir qu'au-dessus de cette confiance (0 à 1)",
           "allow_whole_home": "Autoriser les commandes qui ne nomment ni pièce ni appareil",
-          "llm_tools": "Proposer Jev comme outil aux autres agents LLM"
+          "llm_tools": "Proposer Jev comme outil aux autres agents LLM",
+          "house_check_weekly": "Vérifier la maison une fois par semaine"
         },
         "data_description": {
           "daily_token_budget": "Compté à partir de minuit dans le fuseau horaire de Home Assistant. 0 signifie aucune limite.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Reçoit la phrase entière quand Jev ne sait pas quoi faire.",
           "min_confidence": "En dessous, Jev ne fait rien et transmet la commande à l'agent de secours.",
           "allow_whole_home": "Tout éteindre est toujours autorisé, avec ou sans cette option.",
-          "llm_tools": "Ajoute deux outils à l'API Assist, l'un pour les questions oui/non et l'autre pour choisir une option. Chaque agent LLM qui utilise Assist reçoit leurs descriptions dans chaque prompt, ce qui coûte des tokens chez le fournisseur de cet agent. Chaque appel compte aussi dans le budget ci-dessus."
+          "llm_tools": "Ajoute deux outils à l'API Assist, l'un pour les questions oui/non et l'autre pour choisir une option. Chaque agent LLM qui utilise Assist reçoit leurs descriptions dans chaque prompt, ce qui coûte des tokens chez le fournisseur de cet agent. Chaque appel compte aussi dans le budget ci-dessus.",
+          "house_check_weekly": "À 10:00, dès que la dernière vérification date de 7 jours, Jev examine en une seule requête chaque entité que l'agent de conversation Jev peut commander et ouvre une carte de réparation pour chaque état qui ressemble à une erreur. Les vérifications des entités indisponibles et des piles faibles ne coûtent rien et sont faites en même temps."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev a cessé d'évaluer : budget quotidien atteint",
       "description": "Le budget quotidien est de {budget} jetons d'entrée et {used} ont été utilisés aujourd'hui, donc plus aucune question n'est posée. Les capteurs de réponse deviennent indisponibles jusqu'au jour suivant ou jusqu'à ce que le budget soit augmenté. Augmentez le budget dans les options de l'intégration, évaluez les contextes moins souvent, ou raccourcissez vos questions."
+    },
+    "house_check_unavailable": {
+      "title": "{name} est indisponible depuis une semaine",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Que faire de {name}",
+            "description": "{entity_id} est indisponible depuis au moins {value} jours. Si l'appareil n'existe plus, supprimez-le. S'il a perdu sa connexion, vérifiez son alimentation ou sa pile.\n\nIgnorer empêche la vérification de la maison de demander à nouveau pour {entity_id}. Reporter demande à nouveau dans 30 jours.",
+            "menu_options": {
+              "ignore": "L'ignorer désormais",
+              "snooze": "Demander à nouveau dans 30 jours",
+              "turn_off": "L'éteindre maintenant"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev n'est pas chargé. Chargez l'intégration, puis ouvrez à nouveau cette carte."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entités de {name} sont indisponibles depuis une semaine",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Que faire de {name}",
+            "description": "{count} entités de {name} sont indisponibles depuis au moins {value} jours, par exemple {examples}. Si l'appareil ou le serveur n'existe plus, supprimez-le. S'il a perdu sa connexion, vérifiez son alimentation ou son réseau.\n\nIgnorer empêche la vérification de la maison de signaler à nouveau ces {count} entités. Reporter les signale à nouveau dans 30 jours.",
+            "menu_options": {
+              "ignore": "Les ignorer désormais",
+              "snooze": "Signaler à nouveau dans 30 jours"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev n'est pas chargé. Chargez l'intégration, puis ouvrez à nouveau cette carte."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "La pile de {name} est faible",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Que faire de {name}",
+            "description": "{entity_id} indique {value}. Remplacez ou rechargez la pile avant que l'appareil cesse de répondre.\n\nIgnorer empêche la vérification de la maison de demander à nouveau pour {entity_id}. Reporter demande à nouveau dans 30 jours.",
+            "menu_options": {
+              "ignore": "L'ignorer désormais",
+              "snooze": "Demander à nouveau dans 30 jours",
+              "turn_off": "L'éteindre maintenant"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev n'est pas chargé. Chargez l'intégration, puis ouvrez à nouveau cette carte."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} est peut-être {state} par erreur",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Que faire de {name}",
+            "description": "Jev a donné une valeur oui/non de {value} pour le fait que {entity_id} est {state} par erreur. Si Jev a raison, éteignez-le ici. Si c'est voulu, ignorez-le.\n\nIgnorer empêche la vérification de la maison de demander à nouveau pour {entity_id}. Reporter demande à nouveau dans 30 jours.",
+            "menu_options": {
+              "ignore": "L'ignorer désormais",
+              "snooze": "Demander à nouveau dans 30 jours",
+              "turn_off": "L'éteindre maintenant"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev n'est pas chargé. Chargez l'intégration, puis ouvrez à nouveau cette carte."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "La vérification hebdomadaire de la maison n'a pas atteint Jev",
+      "description": "Jev n'a pas répondu : {reason}. Les vérifications des entités indisponibles et des piles faibles ont quand même été faites. La vérification de la maison réessaie demain à 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Jusqu'où remonter. Le recorder garde 10 jours, sauf si vous l'avez modifié."
         }
       }
+    },
+    "house_check": {
+      "name": "Vérifier la maison",
+      "description": "Cherche les entités indisponibles depuis une semaine, les piles sous 10 % et, si Demander à Jev est activé, les états qui ressemblent à une erreur. Ouvre une carte de réparation pour chacun et renvoie la liste.",
+      "fields": {
+        "use_jev": {
+          "name": "Demander à Jev",
+          "description": "Désactivé, seules les deux vérifications gratuites sont faites. Activé, une requête couvrant chaque entité que l'agent de conversation Jev peut commander est ajoutée."
+        },
+        "config_entry": {
+          "name": "Clé API",
+          "description": "Avec quelle clé configurée poser la question. Nécessaire uniquement si plusieurs sont configurées."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Annuler la vérification de la maison",
+      "description": "Remet ce que la vérification de la maison a éteint, avec l'état d'avant.",
+      "fields": {
+        "entity_id": {
+          "name": "Entités",
+          "description": "Seulement celles-ci. Vide remet tout ce que la vérification de la maison a éteint."
+        },
+        "config_entry": {
+          "name": "Clé API",
+          "description": "Avec quelle clé configurée poser la question. Nécessaire uniquement si plusieurs sont configurées."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} a été {state} pendant tous les {days} derniers jours, il n'y a donc rien à comparer. Lisez une période plus longue, ou vérifiez quel état veut dire oui."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} n'est pas une lumière, un interrupteur ou un ventilateur allumé, la vérification de la maison ne peut donc pas l'éteindre."
     }
   },
   "common": {

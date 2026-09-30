@@ -85,7 +85,8 @@
           "fallback_agent": "Fall back to this agent",
           "min_confidence": "Act only above this confidence (0 to 1)",
           "allow_whole_home": "Allow commands that name no room or device",
-          "llm_tools": "Offer Jev as a tool to other LLM agents"
+          "llm_tools": "Offer Jev as a tool to other LLM agents",
+          "house_check_weekly": "Check the house once a week"
         },
         "data_description": {
           "daily_token_budget": "Counted from midnight in the Home Assistant time zone. 0 means no limit.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Receives the whole sentence when Jev is not sure what to do.",
           "min_confidence": "Below this, Jev does nothing and passes the command to the fallback agent.",
           "allow_whole_home": "Turning everything off is always allowed, with or without this.",
-          "llm_tools": "Adds two tools to the Assist API, one for yes/no questions and one for picking an option. Each LLM agent that uses Assist gets their descriptions in every prompt, which costs tokens at that agent's provider. Each call also counts against the budget above."
+          "llm_tools": "Adds two tools to the Assist API, one for yes/no questions and one for picking an option. Each LLM agent that uses Assist gets their descriptions in every prompt, which costs tokens at that agent's provider. Each call also counts against the budget above.",
+          "house_check_weekly": "At 10:00, once 7 days have passed since the last check, Jev looks at every entity the Jev conversation agent can control in one request and opens a Repairs card for each state that looks like a mistake. The checks for unavailable entities and low batteries cost nothing and run with it."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "Jev stopped evaluating: daily budget reached",
       "description": "The daily budget is {budget} input tokens and {used} have been used today, so no further questions are being asked. The answer sensors go unavailable until the day rolls over or the budget is raised. Raise the budget in the integration options, evaluate contexts less often, or shorten your questions."
+    },
+    "house_check_unavailable": {
+      "title": "{name} has been unavailable for a week",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "What to do about {name}",
+            "description": "{entity_id} has been unavailable for at least {value} days. If the device is gone, remove it. If it lost its connection, check its power or its battery.\n\nIgnore stops the house check from asking about {entity_id}. Snooze asks again in 30 days.",
+            "menu_options": {
+              "ignore": "Ignore it from now on",
+              "snooze": "Ask again in 30 days",
+              "turn_off": "Turn it off now"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is not loaded. Load the integration, then open this card again."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entities of {name} have been unavailable for a week",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "What to do about {name}",
+            "description": "{count} entities of {name} have been unavailable for at least {value} days, for example {examples}. If the device or the server is gone, remove it. If it lost its connection, check its power or its network.\n\nIgnore stops the house check from reporting these {count} entities. Snooze reports them again in 30 days.",
+            "menu_options": {
+              "ignore": "Ignore them from now on",
+              "snooze": "Report them again in 30 days"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is not loaded. Load the integration, then open this card again."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "The battery of {name} is low",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "What to do about {name}",
+            "description": "{entity_id} reads {value}. Replace or charge the battery before the device stops reporting.\n\nIgnore stops the house check from asking about {entity_id}. Snooze asks again in 30 days.",
+            "menu_options": {
+              "ignore": "Ignore it from now on",
+              "snooze": "Ask again in 30 days",
+              "turn_off": "Turn it off now"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is not loaded. Load the integration, then open this card again."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} may be {state} by mistake",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "What to do about {name}",
+            "description": "Jev gave a yes/no value of {value} that {entity_id} is {state} by mistake. If Jev is right, turn it off here. If it is meant to be this way, ignore it.\n\nIgnore stops the house check from asking about {entity_id}. Snooze asks again in 30 days.",
+            "menu_options": {
+              "ignore": "Ignore it from now on",
+              "snooze": "Ask again in 30 days",
+              "turn_off": "Turn it off now"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "Jev is not loaded. Load the integration, then open this card again."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "The weekly house check did not reach Jev",
+      "description": "Jev did not answer: {reason}. The checks for unavailable entities and low batteries ran anyway. The house check tries again at 10:00 tomorrow."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "How far back to read. The recorder keeps 10 days unless you changed it."
         }
       }
+    },
+    "house_check": {
+      "name": "Check the house",
+      "description": "Look for entities that have been unavailable for a week, batteries below 10 % and, if Ask Jev is on, states that look like a mistake. Opens a Repairs card for each one and returns the list.",
+      "fields": {
+        "use_jev": {
+          "name": "Ask Jev",
+          "description": "Off runs only the two checks that cost nothing. On adds one request that covers every entity the Jev conversation agent can control."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Undo the house check",
+      "description": "Put back what the house check turned off, with the state it had before.",
+      "fields": {
+        "entity_id": {
+          "name": "Entities",
+          "description": "Only these. Empty puts back everything the house check turned off."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} was {state} for all of the last {days} days, so there is nothing to compare against. Read a longer period, or check which state means yes."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} is not a light, switch or fan that is on, so the house check cannot turn it off."
     }
   },
   "common": {

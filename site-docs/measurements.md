@@ -262,3 +262,49 @@ right at 0.99. It now sends the literal name "all", which Home Assistant reads a
 entity, and it needs a domain beside it: a bare "all" is refused with "Service handler
 cannot target all devices", so a whole-house command with no kind of device now asks
 which kind.
+
+## The house check
+
+One test instance on 2026-09-30, with the house check run through
+`jev.house_check` and the usage sensors read before and after each run.
+
+### One card for each integration
+
+The first version opened one card for each unavailable entity. On this instance that
+was 518 cards. Most of them came from integrations whose device or server was gone,
+and one of those integrations had 438 entities. The same instance now gets 5 cards:
+
+| Card | Entities |
+|---|---|
+| One integration | 438 |
+| One integration | 54 |
+| One integration | 14 |
+| One integration | 11 |
+| One entity with no integration | 1 |
+
+After a restart, all 5 cards were still in Repairs. Before the cards were persistent,
+Home Assistant dropped them at a restart, and the weekly run brought them back only a
+week later.
+
+### What the Jev check sends
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Unavailable cards | 518 | 5 |
+| Calls | 1 | 1 |
+| Input tokens | 773 | 773 |
+| Time for the whole action | 517 ms | 636 ms |
+
+The request described 6 entities exposed to Assist, 4 scenes and 2 lights, and asked
+about the 2 lights. I counted these from the exposure list, not from the request. Less
+the fixed part of 250 tokens from [Bytes per input token](#bytes-per-input-token),
+that is 523 tokens of body. The time covers the recorder read and the call together,
+and there is one run of each, so it is not a latency figure. Neither run opened a card
+for a state that looks wrong.
+
+### What is not measured
+
+The 0.8 that turns an answer into a card has no measurement behind it. The action
+returns only the answers at 0.8 or more, and neither run had one, so these runs do not
+show where the other answers fell. The 10 % for a low battery is a starting value too: how many days a
+battery has left at 10 % differs by device.

@@ -38,6 +38,13 @@ This integration puts that in three places in Home Assistant.
 
     [Conversation agent](conversation.md)
 
+-   **A house check**
+
+    Repairs cards for entities unavailable for a week, low batteries and states
+    that look like a mistake. The first two cost nothing.
+
+    [The house check](house-check.md)
+
 -   **It says what it spends**
 
     Calls, input tokens and estimated cost as entities, plus a daily budget that

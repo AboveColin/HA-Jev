@@ -85,7 +85,8 @@
           "fallback_agent": "Recorrer a este agente",
           "min_confidence": "Agir apenas acima desta confiança (0 a 1)",
           "allow_whole_home": "Permitir comandos que não citam cômodo nem dispositivo",
-          "llm_tools": "Oferecer o Jev como ferramenta para outros agentes LLM"
+          "llm_tools": "Oferecer o Jev como ferramenta para outros agentes LLM",
+          "house_check_weekly": "Verificar a casa uma vez por semana"
         },
         "data_description": {
           "daily_token_budget": "Contado a partir da meia-noite no fuso horário do Home Assistant. 0 significa sem limite.",
@@ -93,7 +94,8 @@
           "fallback_agent": "Recebe a frase inteira quando o Jev não tem certeza do que fazer.",
           "min_confidence": "Abaixo disso, o Jev não faz nada e passa o comando para o agente reserva.",
           "allow_whole_home": "Desligar tudo é sempre permitido, com ou sem esta opção.",
-          "llm_tools": "Adiciona duas ferramentas à API do Assist, uma para perguntas de sim ou não e outra para escolher uma opção. Cada agente LLM que usa o Assist recebe as descrições delas em todo prompt, o que custa tokens no provedor desse agente. Cada chamada também conta no orçamento acima."
+          "llm_tools": "Adiciona duas ferramentas à API do Assist, uma para perguntas de sim ou não e outra para escolher uma opção. Cada agente LLM que usa o Assist recebe as descrições delas em todo prompt, o que custa tokens no provedor desse agente. Cada chamada também conta no orçamento acima.",
+          "house_check_weekly": "Às 10:00, quando 7 dias se passaram desde a última verificação, o Jev examina em uma única solicitação cada entidade que o agente de conversa Jev pode controlar e abre um cartão de reparo para cada estado que parece um engano. As verificações de entidades indisponíveis e baterias fracas não custam nada e são feitas junto."
         }
       }
     }
@@ -106,6 +108,85 @@
     "daily_budget_spent": {
       "title": "O Jev parou de avaliar: orçamento diário atingido",
       "description": "O orçamento diário é de {budget} tokens de entrada e {used} já foram usados hoje, então nenhuma outra pergunta está sendo feita. Os sensores de resposta ficam indisponíveis até o dia seguinte ou até o orçamento ser aumentado. Aumente o orçamento nas opções da integração, avalie os contextos com menos frequência ou encurte suas perguntas."
+    },
+    "house_check_unavailable": {
+      "title": "{name} está indisponível há uma semana",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "O que fazer com {name}",
+            "description": "{entity_id} está indisponível há pelo menos {value} dias. Se o dispositivo não existe mais, remova-o. Se ele perdeu a conexão, verifique a alimentação ou a bateria.\n\nIgnorar faz a verificação da casa não perguntar mais sobre {entity_id}. Adiar pergunta de novo em 30 dias.",
+            "menu_options": {
+              "ignore": "Ignorar a partir de agora",
+              "snooze": "Perguntar de novo em 30 dias",
+              "turn_off": "Desligar agora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "O Jev não está carregado. Carregue a integração e abra este cartão de novo."
+        }
+      }
+    },
+    "house_check_unavailable_many": {
+      "title": "{count} entidades de {name} estão indisponíveis há uma semana",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "O que fazer com {name}",
+            "description": "{count} entidades de {name} estão indisponíveis há pelo menos {value} dias, por exemplo {examples}. Se o dispositivo ou o servidor não existe mais, remova-o. Se ele perdeu a conexão, verifique a alimentação ou a rede.\n\nIgnorar faz a verificação da casa não avisar mais sobre estas {count} entidades. Adiar avisa de novo em 30 dias.",
+            "menu_options": {
+              "ignore": "Ignorá-las a partir de agora",
+              "snooze": "Avisar de novo em 30 dias"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "O Jev não está carregado. Carregue a integração e abra este cartão de novo."
+        }
+      }
+    },
+    "house_check_low_battery": {
+      "title": "A bateria de {name} está fraca",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "O que fazer com {name}",
+            "description": "{entity_id} indica {value}. Troque ou carregue a bateria antes que o dispositivo pare de informar.\n\nIgnorar faz a verificação da casa não perguntar mais sobre {entity_id}. Adiar pergunta de novo em 30 dias.",
+            "menu_options": {
+              "ignore": "Ignorar a partir de agora",
+              "snooze": "Perguntar de novo em 30 dias",
+              "turn_off": "Desligar agora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "O Jev não está carregado. Carregue a integração e abra este cartão de novo."
+        }
+      }
+    },
+    "house_check_looks_wrong": {
+      "title": "{name} pode estar {state} por engano",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "O que fazer com {name}",
+            "description": "O Jev deu um valor sim/não de {value} para {entity_id} estar {state} por engano. Se o Jev estiver certo, desligue aqui. Se for de propósito, ignore.\n\nIgnorar faz a verificação da casa não perguntar mais sobre {entity_id}. Adiar pergunta de novo em 30 dias.",
+            "menu_options": {
+              "ignore": "Ignorar a partir de agora",
+              "snooze": "Perguntar de novo em 30 dias",
+              "turn_off": "Desligar agora"
+            }
+          }
+        },
+        "abort": {
+          "not_loaded": "O Jev não está carregado. Carregue a integração e abra este cartão de novo."
+        }
+      }
+    },
+    "house_check_failed": {
+      "title": "A verificação semanal da casa não chegou ao Jev",
+      "description": "O Jev não respondeu: {reason}. As verificações de entidades indisponíveis e baterias fracas foram feitas mesmo assim. A verificação da casa tenta de novo amanhã às 10:00."
     }
   },
   "services": {
@@ -254,6 +335,34 @@
           "description": "Até onde ler para trás. O recorder guarda 10 dias, a menos que você tenha mudado isso."
         }
       }
+    },
+    "house_check": {
+      "name": "Verificar a casa",
+      "description": "Procura entidades indisponíveis há uma semana, baterias abaixo de 10 % e, se Perguntar ao Jev estiver ativado, estados que parecem um engano. Abre um cartão de reparo para cada um e retorna a lista.",
+      "fields": {
+        "use_jev": {
+          "name": "Perguntar ao Jev",
+          "description": "Desativado faz só as duas verificações gratuitas. Ativado adiciona uma solicitação que cobre cada entidade que o agente de conversa Jev pode controlar."
+        },
+        "config_entry": {
+          "name": "Chave de API",
+          "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        }
+      }
+    },
+    "undo_house_check": {
+      "name": "Desfazer a verificação da casa",
+      "description": "Restaura o que a verificação da casa desligou, com o estado de antes.",
+      "fields": {
+        "entity_id": {
+          "name": "Entidades",
+          "description": "Só estas. Vazio restaura tudo o que a verificação da casa desligou."
+        },
+        "config_entry": {
+          "name": "Chave de API",
+          "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        }
+      }
     }
   },
   "entity": {
@@ -382,6 +491,9 @@
     },
     "calibrate_always_true": {
       "message": "{truth} esteve em {state} durante todos os últimos {days} dias, então não há com o que comparar. Leia um período maior, ou verifique qual estado significa sim."
+    },
+    "house_check_cannot_turn_off": {
+      "message": "{entity_id} não é uma luz, um interruptor ou um ventilador ligado, então a verificação da casa não pode desligá-lo."
     }
   },
   "common": {
