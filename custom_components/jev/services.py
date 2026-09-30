@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -53,6 +54,7 @@ from .const import (
     ATTR_LATENCY_MS,
     ATTR_QUESTIONS,
     ATTR_USAGE,
+    ATTR_USE_JEV,
     CONF_BACKGROUND,
     CONF_FALSE_MEANS,
     CONF_INCLUDE_ATTRIBUTES,
@@ -67,8 +69,10 @@ from .const import (
     SERVICE_ASK,
     SERVICE_CALIBRATE,
     SERVICE_CHOICE,
+    SERVICE_HOUSE_CHECK,
     SERVICE_NOUL,
     SERVICE_SCORE,
+    SERVICE_UNDO_HOUSE_CHECK,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
@@ -127,6 +131,20 @@ ASK_SCHEMA = vol.Schema(
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
         vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
         **cv.TARGET_SERVICE_FIELDS,
+    }
+)
+
+HOUSE_CHECK_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_USE_JEV, default=True): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+
+UNDO_HOUSE_CHECK_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     }
 )
 
@@ -219,6 +237,16 @@ async def _ask(
         type(state).__name__,
         state,
     )
+    return await async_ask(hass, entry, state, questions)
+
+
+async def async_ask(
+    hass: HomeAssistant,
+    entry: JevConfigEntry,
+    state: Any,
+    questions: dict[str, Question],
+) -> JevResponse:
+    """Send one request inside the daily budget, and account for what it cost."""
     usage = entry.runtime_data.usage
     usage.roll_over(dt_util.now().date())
     request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
@@ -299,7 +327,7 @@ def answer_as_dict(answer: Any) -> dict[str, Any]:
 
 
 def async_register_services(hass: HomeAssistant) -> None:
-    """Register all five actions once, the first time the component loads."""
+    """Register every action once, the first time the component loads."""
     if hass.services.has_service(DOMAIN, SERVICE_NOUL):
         return
 
@@ -403,6 +431,18 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def _calibrate(call: ServiceCall) -> ServiceResponse:
         return await async_calibrate(hass, call)
 
+    async def _house_check(call: ServiceCall) -> ServiceResponse:
+        check = _entry(hass, call).runtime_data.house_check
+        findings = await check.async_run(call.data[ATTR_USE_JEV])
+        return {"findings": [f.as_dict() for f in findings]}
+
+    async def _undo_house_check(call: ServiceCall) -> ServiceResponse:
+        check = _entry(hass, call).runtime_data.house_check
+        restored: list[Any] = await check.async_undo(
+            call.data.get(ATTR_ENTITY_ID), call.context
+        )
+        return {"restored": restored}
+
     for name, handler, schema in (
         (SERVICE_NOUL, _noul, NOUL_SCHEMA),
         (SERVICE_CHOICE, _choice, CHOICE_SCHEMA),
@@ -412,4 +452,17 @@ def async_register_services(hass: HomeAssistant) -> None:
     ):
         hass.services.async_register(
             DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.ONLY
+        )
+    # These two change the house as well as answering, so an automation can call
+    # them without asking for the response.
+    for name, handler, schema in (
+        (SERVICE_HOUSE_CHECK, _house_check, HOUSE_CHECK_SCHEMA),
+        (SERVICE_UNDO_HOUSE_CHECK, _undo_house_check, UNDO_HOUSE_CHECK_SCHEMA),
+    ):
+        hass.services.async_register(
+            DOMAIN,
+            name,
+            handler,
+            schema=schema,
+            supports_response=SupportsResponse.OPTIONAL,
         )

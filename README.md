@@ -33,6 +33,9 @@ Not affiliated with TypeSafe. The API client is
   becomes the matching question.
 - A [conversation agent](https://jev.cdevries.dev/conversation/) for Assist routes
   spoken commands through the same model.
+- A [house check](https://jev.cdevries.dev/house-check/) opens a Repairs card for
+  entities unavailable for a week, low batteries and, in one request, states that
+  look like a mistake. A light left on can be turned off from its card and put back.
 - It [reports what it spends](https://jev.cdevries.dev/cost/): calls, input tokens and
   estimated cost per day, against a daily token budget.
 - 25 [blueprints](https://jev.cdevries.dev/blueprints/) to import with one click.

@@ -159,3 +159,39 @@ CONF_OPTIONS_TEXT: Final = "options"
 # path left on comes back as. hassfest refuses a URL written into strings.json, so
 # the address travels as a placeholder.
 OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+
+# --- House check ---
+
+SERVICE_HOUSE_CHECK: Final = "house_check"
+SERVICE_UNDO_HOUSE_CHECK: Final = "undo_house_check"
+CONF_HOUSE_CHECK_WEEKLY: Final = "house_check_weekly"
+ATTR_USE_JEV: Final = "use_jev"
+
+# The three kinds of finding. Each is a Repairs issue translation key as well.
+ISSUE_UNAVAILABLE: Final = "house_check_unavailable"
+ISSUE_LOW_BATTERY: Final = "house_check_low_battery"
+ISSUE_LOOKS_WRONG: Final = "house_check_looks_wrong"
+# The text of an unavailable card that covers more than one entity.
+ISSUE_UNAVAILABLE_MANY: Final = "house_check_unavailable_many"
+# How many names such a card shows. Its data holds all of them.
+UNAVAILABLE_EXAMPLES: Final = 3
+# Raised when the weekly run did not reach Jev, so a spent budget is seen.
+ISSUE_HOUSE_CHECK_FAILED: Final = "house_check_failed"
+
+# A week, so a device that is off for a weekend away is not reported. The recorder
+# keeps 10 days by default, which covers the whole window.
+UNAVAILABLE_DAYS: Final = 7
+# A starting value with no measurement behind it. A battery sensor reports in
+# percent, and how many days are left at 10% differs by device.
+LOW_BATTERY_PERCENT: Final = 10
+# A yes/no value needs this much before it becomes a card. 0.5 means the model
+# cannot tell. Not measured yet: see docs/measurements.md, "The house check".
+LOOKS_WRONG_MIN_NOUL: Final = 0.8
+SNOOZE_DAYS: Final = 30
+HOUSE_CHECK_EVERY_DAYS: Final = 7
+# The weekly run looks at the house in the morning, when a light left on overnight
+# is still on and someone is awake to act on the card.
+HOUSE_CHECK_HOUR: Final = 10
+# Only these may be turned off from a card. A lock, cover, climate or valve that
+# changes when nobody watches can let someone in or let a pipe freeze.
+TURN_OFF_DOMAINS: Final = ("fan", "light", "switch")

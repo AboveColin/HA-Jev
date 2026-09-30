@@ -48,6 +48,7 @@ from .const import (
     CONF_DAILY_TOKEN_BUDGET,
     CONF_ENTITIES,
     CONF_FALSE,
+    CONF_HOUSE_CHECK_WEEKLY,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
     CONF_MODEL,
@@ -59,6 +60,7 @@ from .const import (
     CONF_TRUE,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
+    HOUSE_CHECK_HOUR,
     ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
     STORAGE_VERSION,
@@ -67,6 +69,7 @@ from .const import (
     TYPE_SCORE,
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
+from .house_check import HouseCheck
 from .identity import entry_unique_id
 from .models import ENTRY, ContextConfig, build_question_config
 from .services import async_register_services
@@ -387,7 +390,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     # be wrong: the count is restored too, and the probe below can fail, which
     # leaves an exhausted budget with nothing on screen to say so.
     usage.set_budget_exceeded(usage.would_exceed(), used=usage.input_tokens)
-    runtime = JevRuntimeData(client=client, usage=usage, model=model)
+    house_check = HouseCheck(hass, entry)
+    await house_check.async_load()
+    runtime = JevRuntimeData(
+        client=client, usage=usage, house_check=house_check, model=model
+    )
     entry.runtime_data = runtime
 
     # The day otherwise turns over at the first call after midnight, so a quiet
@@ -401,6 +408,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     entry.async_on_unload(
         async_track_time_change(hass, _new_day, hour=0, minute=0, second=0)
     )
+    # Checked each morning so that a week missed while Home Assistant was down runs
+    # on the next morning it is up, rather than a week later.
+    if entry.options.get(CONF_HOUSE_CHECK_WEEKLY, False):
+        entry.async_on_unload(
+            async_track_time_change(
+                hass,
+                house_check.async_weekly,
+                hour=HOUSE_CHECK_HOUR,
+                minute=0,
+                second=0,
+            )
+        )
 
     # Prove the service answers before entities appear. One noul against a two word
     # state costs about 40 input tokens, well under a thousandth of a cent, and it
@@ -447,6 +466,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
 
 async def _async_reload_entry(hass: HomeAssistant, entry: JevConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: JevConfigEntry) -> None:
+    """A removed entry's house check cards would stay in Repairs for good."""
+    await HouseCheck(hass, entry).async_remove()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:

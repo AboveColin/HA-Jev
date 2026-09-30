@@ -221,3 +221,33 @@ calibrate:
           min: 1
           mode: box
           unit_of_measurement: days
+
+house_check:
+  fields:
+    use_jev:
+      required: false
+      default: true
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+
+undo_house_check:
+  fields:
+    entity_id:
+      required: false
+      selector:
+        entity:
+          multiple: true
+          domain:
+            - fan
+            - light
+            - switch
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev

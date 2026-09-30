@@ -44,6 +44,7 @@ from .const import (
     CONF_ALLOW_WHOLE_HOME,
     CONF_DAILY_TOKEN_BUDGET,
     CONF_FALLBACK_AGENT,
+    CONF_HOUSE_CHECK_WEEKLY,
     CONF_LLM_TOOLS,
     CONF_MIN_CONFIDENCE,
     CONF_MODEL,
@@ -427,6 +428,10 @@ class JevOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_LLM_TOOLS,
                     default=options.get(CONF_LLM_TOOLS, False),
+                ): bool,
+                vol.Optional(
+                    CONF_HOUSE_CHECK_WEEKLY,
+                    default=options.get(CONF_HOUSE_CHECK_WEEKLY, False),
                 ): bool,
             }
         )

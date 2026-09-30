@@ -201,7 +201,12 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             if resolved is not None:
                 return resolved
 
-        snapshot = async_snapshot(self.hass, MAX_CONVERSATION_ENTITIES)
+        heard_in = async_heard_in(
+            self.hass, user_input.satellite_id, user_input.device_id
+        )
+        snapshot = async_snapshot(
+            self.hass, MAX_CONVERSATION_ENTITIES, user_input.text, heard_in
+        )
         if not snapshot.entities:
             return await self._fall_back(user_input, "no entities are exposed to Assist")
 
@@ -216,9 +221,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             user_input.text,
             snapshot,
             self._min_confidence,
-            heard_in=async_heard_in(
-                self.hass, user_input.satellite_id, user_input.device_id
-            ),
+            heard_in=heard_in,
         )
         self._trace(
             chat_log,
@@ -226,6 +229,7 @@ class JevConversationEntity(conversation.ConversationEntity, AbstractConversatio
             {
                 "text": user_input.text,
                 "exposed_entities": len(snapshot.entities),
+                "left_out_by_cap": snapshot.left_out,
                 **asdict(decision),
             },
         )
