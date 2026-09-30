@@ -125,6 +125,25 @@ Assist is then about 2,200 tokens, and the 150 entity cap is about 16,500, or $0
 at the published price. These are derived from a measured figure, not measured
 end to end: nobody has run a token count against the live API for this payload yet.
 
+## Which entities fit under the cap
+
+Measured locally on 2026-09-30, Apple M5 Pro, Python 3.14, with no API call. The
+house had two room lights plus bulbs spread over 20 areas. The time is the median of
+30 calls to `async_snapshot` with the command "turn on bulb 7 in room 3". The bytes
+are the request body the conversation agent built for one command.
+
+| exposed entities | sent | snapshot, ranked | snapshot, entity_id order | request bytes |
+|---|---|---|---|---|
+| 150 | 150 | 0.18 ms | 0.18 ms | 30,716 |
+| 200 | 150 | 0.66 ms | 0.24 ms | 30,716 |
+| 1,000 | 150 | 3.97 ms | 1.65 ms | 30,716 |
+| 2,000 | 150 | 10.18 ms | 3.46 ms | 30,716 |
+
+At 150 the ranking does not run, so both columns are the same code. Ranking adds
+0.42 ms at 200 entities and 2.32 ms at 1,000. The request does not grow, because the
+cap still sends 150. Home Assistant hardware slower than this laptop was not
+measured.
+
 ## Where the numbers are read, and where they are asked for
 
 Jev judges and does not calculate, which is why "set the lamp to 40 percent" has its

@@ -104,6 +104,30 @@ says "Done."
     widen that. This is the voice path only. The [four actions](actions.md) send
     whatever an automation targets, exposed or not.
 
+## A house with more than 150 exposed entities
+
+One command sends at most 150 entities. When more are exposed, Jev keeps the 150
+that the command is most likely about. It scores each entity by the words the
+command shares with the entity's names and aliases, its area and area aliases, and
+its floor and floor aliases. A word that few entities have counts for more than a
+word that most of them have. This is BM25, the scoring many search engines use. It
+runs in Home Assistant and costs no tokens.
+
+With 200 bulbs exposed, "turn on the zebra lamp" reaches `light.zebra_lamp`, although
+it is past the first 150 by entity_id. "Lights on in the snug" keeps the lights of the
+area that has the alias "snug". When scores are equal, the entities in the room of the
+satellite that heard you come first, then the rest by entity_id. A command that names
+nothing in the house keeps the room that heard you and then the first by entity_id.
+
+An entity that the cap leaves out is treated as hidden. If you name it and a
+shorter name fits an entity that was sent, the command goes to the fallback agent,
+the same as for an entity you did not expose. With 150 or fewer exposed, nothing
+changes and the request is the same as before.
+
+On a laptop, ranking added 0.4 ms to a command at 200 exposed entities and 2.3 ms
+at 1,000. The request stayed at 30,716 bytes, because 150 entities are sent at every
+size. See [measurements](measurements.md#which-entities-fit-under-the-cap).
+
 ## When a word from the names means some devices
 
 With a Lamp, a Desk lamp and a Ceiling light, "turn off the lamps" came back as every
@@ -286,5 +310,6 @@ note as an `intent-progress` event of the run. The note goes to the pipeline onl
 is not added to the conversation, so a fallback agent does not read it.
 
 The last 20 decisions the agent made are in the integration's diagnostics, with the
-reason for every decision and the action distribution behind it. The sentence itself
+reason for every decision and the action distribution behind it. `left_out_by_cap`
+is the number of exposed entities that the 150 entity cap did not send. The sentence itself
 is redacted, because the file is meant to be pasted into an issue.

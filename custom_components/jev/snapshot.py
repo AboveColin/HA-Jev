@@ -21,6 +21,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers import intent
 
+from .rank import bm25, words
+
 # Domains a spoken command can act on through a built-in intent. Anything else is
 # left to the fallback agent rather than half-handled here.
 #
@@ -116,6 +118,8 @@ class HomeSnapshot:
     # past the cap. They never leave Home Assistant. interpret() reads them so that
     # "the desk lamp" cannot land on an exposed "Lamp" when the desk lamp is hidden.
     hidden_names: list[str] = field(default_factory=list)
+    # How many exposed entities the cap left out, for the trace.
+    left_out: int = 0
 
     @property
     def domains(self) -> list[str]:
@@ -191,8 +195,17 @@ def async_heard_in(
 
 
 @callback
-def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
-    """Collect the exposed, controllable entities, newest registry state."""
+def async_snapshot(
+    hass: HomeAssistant,
+    limit: int,
+    command: str | None = None,
+    heard_in: str | None = None,
+) -> HomeSnapshot:
+    """Collect the exposed, controllable entities, newest registry state.
+
+    When more are exposed than `limit`, the ones the command is most likely about
+    are kept: see rank.py. Without a command, the first by entity_id are kept.
+    """
     entities = er.async_get(hass)
     devices = dr.async_get(hass)
     areas = ar.async_get(hass)
@@ -247,8 +260,12 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
     # Sorted so the option list is stable between requests, which makes a trace
     # readable when the same command is tried twice.
     found.sort(key=lambda e: e.entity_id)
-    hidden.extend(name for e in found[limit:] for name in e.names)
-    found = found[:limit]
+    left_out: list[ExposedEntity] = []
+    if len(found) > limit:
+        ranked = _by_relevance(found, command, heard_in, areas, floors)
+        found, left_out = ranked[:limit], ranked[limit:]
+        found.sort(key=lambda e: e.entity_id)
+    hidden.extend(name for e in left_out for name in e.names)
     # Counted after the cap, so a room that only had entities past the limit is not
     # offered as somewhere the command could go.
     used_area_ids = {e.area_id for e in found if e.area_id}
@@ -294,4 +311,44 @@ def async_snapshot(hass: HomeAssistant, limit: int) -> HomeSnapshot:
             a.name for a in used_areas if a and a.id in sensed_area_ids
         ),
         hidden_names=hidden,
+        left_out=len(left_out),
     )
+
+
+def _by_relevance(
+    found: list[ExposedEntity],
+    command: str | None,
+    heard_in: str | None,
+    areas: ar.AreaRegistry,
+    floors: fr.FloorRegistry,
+) -> list[ExposedEntity]:
+    """The entities in the order the cap keeps them: most likely meant first.
+
+    The words the command shares with an entity's names, area and floor come
+    first, then the room that heard the command, then entity_id. A command that
+    names nothing in the house keeps today's order apart from the room.
+    """
+
+    def place_words(entity: ExposedEntity) -> list[str]:
+        area = areas.async_get_area(entity.area_id) if entity.area_id else None
+        if area is None:
+            return []
+        floor = floors.async_get_floor(area.floor_id) if area.floor_id else None
+        names = [area.name, *area.aliases]
+        if floor is not None:
+            names += [floor.name, *floor.aliases]
+        return [word for name in names for word in words(name)]
+
+    documents = [
+        [word for name in e.names for word in words(name)] + place_words(e) for e in found
+    ]
+    scores = bm25(words(command or ""), documents)
+    order = sorted(
+        range(len(found)),
+        key=lambda i: (
+            -scores[i],
+            heard_in is None or found[i].area_id != heard_in,
+            found[i].entity_id,
+        ),
+    )
+    return [found[i] for i in order]

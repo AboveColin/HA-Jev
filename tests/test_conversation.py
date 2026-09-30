@@ -1974,6 +1974,46 @@ async def test_a_room_past_the_entity_cap_is_not_offered(hass, config_entry):
     assert snapshot.hidden_names == ["c"]
 
 
+async def test_a_named_light_past_the_first_150_by_entity_id_is_reached(
+    hass, house, mock_client
+):
+    """200 bulbs sort before the Zebra lamp, so the old cap never sent it."""
+    registry = er.async_get(hass)
+    for i in range(200):
+        object_id = f"bulb_{i:03}"
+        entry = registry.async_get_or_create(
+            "light", "demo", object_id, suggested_object_id=object_id
+        )
+        registry.async_update_entity(entry.entity_id, name=f"Bulb {i}")
+        hass.states.async_set(entry.entity_id, "off", {"friendly_name": f"Bulb {i}"})
+        async_expose_entity(hass, conversation.DOMAIN, entry.entity_id, True)
+    entry = registry.async_get_or_create(
+        "light", "demo", "zebra_lamp", suggested_object_id="zebra_lamp"
+    )
+    registry.async_update_entity(entry.entity_id, name="Zebra lamp")
+    hass.states.async_set("light.zebra_lamp", "off", {"friendly_name": "Zebra lamp"})
+    async_expose_entity(hass, conversation.DOMAIN, "light.zebra_lamp", True)
+    mock_client.ask.return_value = build_response(
+        **answer_set(
+            entity=ChoiceAnswer(
+                choice="light.zebra_lamp", probabilities={}, confidence=0.98
+            )
+        )
+    )
+    calls = []
+    hass.services.async_register("light", "turn_on", lambda call: calls.append(call))
+
+    await converse(hass, "turn on the zebra lamp")
+    await hass.async_block_till_done()
+
+    sent = [e["entity_id"] for e in mock_client.ask.call_args.args[0]["entities"]]
+    assert len(sent) == 150
+    assert "light.zebra_lamp" in sent
+    assert [call.data["entity_id"] for call in calls] == [["light.zebra_lamp"]]
+    # 200 bulbs, two room lights and the lamp, less the 150 that fit.
+    assert house.runtime_data.conversation_traces[0]["left_out_by_cap"] == 53
+
+
 _ENTITY = {}
 _AREA = {
     "target_type": ChoiceAnswer(choice="area", probabilities={}, confidence=0.94),
