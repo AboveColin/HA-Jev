@@ -127,6 +127,13 @@ pytest
 The tests run the integration inside a real Home Assistant with the API client
 replaced, so the suite spends nothing.
 
+## Supporting the project
+
+Jev for Home Assistant is free and stays free. If it is useful to you, you can support its
+development through [GitHub Sponsors](https://github.com/sponsors/AboveColin).
+Sponsorship is voluntary and unlocks nothing: every feature, fix and security
+update ships in the public release.
+
 ## Changelog
 
 See the [release history](https://github.com/AboveColin/HA-Jev/releases).
