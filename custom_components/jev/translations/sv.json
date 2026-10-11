@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Anslut till TypeSafe",
-        "description": "Klistra in en API-nyckel från ditt TypeSafe-konto. Home Assistant ställer en kort fråga för att kontrollera att nyckeln fungerar.",
+        "title": "Anslut en beslutsmodell",
+        "description": "Välj vem som svarar och klistra in en API-nyckel från den leverantören. Home Assistant ställer en kort fråga för att kontrollera att nyckeln fungerar.",
         "data": {
+          "provider": "Leverantör",
           "api_key": "API-nyckel"
         },
         "data_description": {
-          "api_key": "Nyckeln som förfrågningarna skickas med. Lämna det tomt endast för en egen slutpunkt som inte behöver någon nyckel."
+          "provider": "Jev (TypeSafe), SubQ Snap och OpenRouter är värdbaserade. En lokal server kör du själv och anger under Avancerat.",
+          "api_key": "Nyckeln som förfrågningarna skickas med. Lämna den tom bara för en lokal server som inte behöver någon nyckel."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Modell"
             },
             "data_description": {
-              "url": "Låt det här stå, om du inte kör något eget som talar samma API, till exempel en proxy som håller nyckeln eller cachar svar. Nyckeln skickas som en bearer-header, så med en http-adress går den i klartext över nätet.",
-              "model": "Modell-id:t som skickas med varje förfrågan. Tomt fält betyder standardmodellen."
+              "url": "Lämna tomt för att använda leverantörens egen adress. En lokal server behöver en adress här. Nyckeln skickas som bearer-header, så en http-adress skickar den okrypterad.",
+              "model": "Modell-id som skickas med varje förfrågan. Lämna tomt för leverantörens standard."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "Byt din API-nyckel eller adress",
-        "description": "Klistra in en annan TypeSafe API-nyckel, och ändra adressen om API:et nås någon annanstans än hos TypeSafe. Dina frågor och entiteter behålls.",
+        "title": "Byt leverantör, nyckel eller adress",
+        "description": "Välj en annan leverantör, klistra in en annan nyckel eller ändra adressen. Dina frågor och entiteter behålls.",
         "data": {
+          "provider": "Leverantör",
           "api_key": "API-nyckel"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap och OpenRouter är värdbaserade. En lokal server kör du själv och anger under Avancerat.",
           "api_key": "Lämna tomt för att behålla den nuvarande nyckeln så länge adressen är densamma. En ny adress får ingen nyckel om du inte skriver in en."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Modell"
             },
             "data_description": {
-              "url": "Töm fältet för att gå tillbaka till TypeSafe-API:et. Nyckeln skickas som en bearer-header, så med en http-adress går den i klartext över nätet.",
-              "model": "Modell-id:t som skickas med varje förfrågan. Tomt fält betyder standardmodellen."
+              "url": "Lämna tomt för att använda leverantörens egen adress. En lokal server behöver en adress här. Nyckeln skickas som bearer-header, så en http-adress skickar den okrypterad.",
+              "model": "Modell-id som skickas med varje förfrågan. Lämna tomt för leverantörens standard."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "Servern svarade HTTP 404. Jev lägger till /v1/systemone efter adressen, så ange bara delen före. För OpenRouter är det {openrouter_url}.",
       "invalid_url": "Det är inte en användbar API-adress. Den behöver ett schema och en värd, och den kan inte innehålla mellanslag, frågesträng, fragment, användarnamn eller lösenord.",
       "invalid_model": "Det modell-id:t godtogs inte. Kontrollera det, eller lämna fältet tomt för standardmodellen.",
-      "key_required": "TypeSafe-API:t kräver en nyckel. En tom nyckel fungerar bara med en egen adress som inte behöver någon."
+      "key_required": "Den här leverantören behöver en API-nyckel. Bara en lokal server klarar sig utan.",
+      "url_required": "En lokal server har ingen egen adress. Ange dess adress under Avancerat."
     },
     "abort": {
       "already_configured": "Den här API-nyckeln är redan konfigurerad. En post identifieras av sin nyckel, så en andra adress behöver en egen nyckel.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Frågan uppdaterad"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Lokal server"
       }
     }
   }

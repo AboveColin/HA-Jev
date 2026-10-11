@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Připojení k TypeSafe",
-        "description": "Vložte klíč API ze svého účtu TypeSafe. Home Assistant položí jednu krátkou otázku, aby ověřil, že klíč funguje.",
+        "title": "Připojit rozhodovací model",
+        "description": "Vyberte, kdo odpovídá, a vložte klíč API od tohoto poskytovatele. Home Assistant položí jednu krátkou otázku, aby ověřil, že klíč funguje.",
         "data": {
+          "provider": "Poskytovatel",
           "api_key": "Klíč API"
         },
         "data_description": {
-          "api_key": "Klíč, se kterým se odesílají požadavky. Nechte prázdné jen u vlastního endpointu, který klíč nepotřebuje."
+          "provider": "Jev (TypeSafe), SubQ Snap a OpenRouter jsou hostované. Místní server provozujete sami a jeho adresu zadáte v části Pokročilé.",
+          "api_key": "Klíč, se kterým se odesílají požadavky. Nechte prázdné jen pro místní server, který klíč nepotřebuje."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Nechte beze změny, pokud neprovozujete něco vlastního, co mluví stejným API, například proxy, která drží klíč nebo ukládá odpovědi do mezipaměti. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně.",
-              "model": "Identifikátor modelu posílaný s každým požadavkem. Prázdné pole znamená výchozí."
+              "url": "Nechte prázdné pro adresu poskytovatele. Místní server zde potřebuje adresu. Klíč se posílá v hlavičce bearer, takže adresa http ho přenáší nešifrovaně.",
+              "model": "ID modelu odesílané s každým požadavkem. Nechte prázdné pro výchozí model poskytovatele."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "Nahraďte klíč API nebo adresu",
-        "description": "Vložte jiný klíč API pro TypeSafe a změňte adresu, pokud se API nachází jinde než u TypeSafe. Vaše otázky a entity zůstanou zachovány.",
+        "title": "Změnit poskytovatele, klíč nebo adresu",
+        "description": "Vyberte jiného poskytovatele, vložte jiný klíč nebo změňte adresu. Vaše otázky a entity zůstanou zachovány.",
         "data": {
+          "provider": "Poskytovatel",
           "api_key": "Klíč API"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap a OpenRouter jsou hostované. Místní server provozujete sami a jeho adresu zadáte v části Pokročilé.",
           "api_key": "Nechte prázdné, aby zůstal současný klíč, dokud se adresa nemění. Nová adresa nedostane žádný klíč, pokud ho nezadáte."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Vyprázdněte toto pole pro návrat k API TypeSafe. Klíč se posílá jako hlavička bearer, takže u adresy http putuje po síti nešifrovaně.",
-              "model": "Identifikátor modelu posílaný s každým požadavkem. Prázdné pole znamená výchozí."
+              "url": "Nechte prázdné pro adresu poskytovatele. Místní server zde potřebuje adresu. Klíč se posílá v hlavičce bearer, takže adresa http ho přenáší nešifrovaně.",
+              "model": "ID modelu odesílané s každým požadavkem. Nechte prázdné pro výchozí model poskytovatele."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "Server odpověděl HTTP 404. Jev k adrese připojuje /v1/systemone, zadejte tedy jen část před tím. Pro OpenRouter je to {openrouter_url}.",
       "invalid_url": "Toto není použitelná adresa API. Potřebuje schéma a hostitele a nesmí obsahovat mezeru, dotaz, fragment, uživatelské jméno ani heslo.",
       "invalid_model": "Tento identifikátor modelu nebyl přijat. Zkontrolujte jej, nebo pole vyprázdněte pro výchozí.",
-      "key_required": "API TypeSafe vyžaduje klíč. Prázdný klíč funguje jen u vlastní adresy, která žádný nevyžaduje."
+      "key_required": "Tento poskytovatel potřebuje klíč API. Bez klíče může fungovat jen místní server.",
+      "url_required": "Místní server nemá vlastní adresu. Zadejte jeho adresu v části Pokročilé."
     },
     "abort": {
       "already_configured": "Tento klíč API je už nastavený. Záznam se rozpoznává podle svého klíče, takže druhá adresa potřebuje vlastní klíč.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Otázka aktualizována"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Místní server"
       }
     }
   }

@@ -26,9 +26,6 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from jevclient import (
-    DEFAULT_BASE_URL,
-    DEFAULT_MODEL,
-    USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
     JevConnectionError,
@@ -49,10 +46,15 @@ from .const import (
     CONF_MIN_CONFIDENCE,
     CONF_MODEL,
     CONF_PRICE_PER_MILLION,
+    CONF_PROVIDER,
     DEFAULT_MIN_CONFIDENCE,
     DOMAIN,
     OPENROUTER_BASE_URL,
+    PROVIDER_TYPESAFE,
+    PROVIDERS,
     SUBENTRY_QUESTION,
+    Provider,
+    provider_for_url,
 )
 from .identity import entry_unique_id
 from .subentry import JevQuestionSubentryFlow
@@ -62,22 +64,30 @@ _LOGGER = logging.getLogger(__name__)
 # The placeholders every form that can show the not_found error needs.
 FORM_PLACEHOLDERS = {"openrouter_url": OPENROUTER_BASE_URL}
 
-# Collapsed, so the common setup is one field. Both of these only matter to
-# someone running their own endpoint, and either one cleared is the default.
+# Collapsed, so the common setup is a provider and a key. Either field left empty
+# is the provider's own value, which is why neither has a default: a default
+# would be one provider's address, and it would win after a switch to another.
 ADVANCED_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONF_URL, default=DEFAULT_BASE_URL): selector.TextSelector(
+        vol.Optional(CONF_URL): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
         ),
-        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
+        vol.Optional(CONF_MODEL): str,
     }
 )
 
-# Optional, not because TypeSafe takes an empty key, but because an endpoint of
-# your own may need none. An empty key against the published address is refused
-# below rather than sent.
+# The key is optional, not because a hosted provider takes an empty one, but
+# because a server of your own may need none. An empty key for a provider that
+# needs one is refused below rather than sent.
 STEP_USER_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_PROVIDER, default=PROVIDER_TYPESAFE): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=list(PROVIDERS),
+                translation_key=CONF_PROVIDER,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
         vol.Optional(CONF_API_KEY, default=""): str,
         vol.Required(CONF_ADVANCED): section(ADVANCED_SCHEMA, {"collapsed": True}),
     }
@@ -88,10 +98,10 @@ STEP_USER_SCHEMA = vol.Schema(
 STEP_REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_API_KEY): str})
 
 
-def _normalised_url(raw: str | None) -> str:
-    """The endpoint to store, or ValueError naming what is wrong with it.
+def _normalised_url(raw: str | None) -> str | None:
+    """The endpoint to store, None for none given, or ValueError naming what is wrong.
 
-    Empty means the published API, so clearing the field is how you go back.
+    Empty means the provider's own address, so clearing the field is how you go back.
 
     A space is refused before yarl sees it. yarl keeps one inside the host, and a
     host of " gateway.local" is truthy, so the check below would pass a typo on to
@@ -103,7 +113,7 @@ def _normalised_url(raw: str | None) -> str:
     diagnostics redacts secrets by key name and would not see these.
     """
     if not (text := (raw or "").strip()):
-        return DEFAULT_BASE_URL
+        return None
     if any(character.isspace() for character in text):
         raise ValueError("the address cannot contain a space")
     url = URL(text)
@@ -118,68 +128,96 @@ def _normalised_url(raw: str | None) -> str:
     return str(url).rstrip("/")
 
 
-def _normalised_model(raw: str | None) -> str:
-    """The model to ask for, or ValueError. Empty means the published default.
+def _normalised_model(raw: str | None) -> str | None:
+    """The model to ask for, None for none given, or ValueError.
 
     The id is opaque to us, so only a paste error is checked here. Whether the
     endpoint knows it is settled by the request below.
     """
     if not (text := (raw or "").strip()):
-        return DEFAULT_MODEL
+        return None
     if any(character.isspace() for character in text):
         raise ValueError("the model id cannot contain a space")
     return text
 
 
-def _credentials(user_input: dict[str, Any]) -> tuple[str, str, str, dict[str, str]]:
-    """The key, the address and the model out of one submitted form.
+def _credentials(
+    user_input: dict[str, Any],
+) -> tuple[str, str, str, str, dict[str, str]]:
+    """The provider, key, address and model out of one submitted form.
 
     Every field is checked before the request that would use them, so two typos
     are two messages on one submit rather than one per attempt.
     """
+    name = user_input.get(CONF_PROVIDER, PROVIDER_TYPESAFE)
+    provider = PROVIDERS[name]
     api_key = (user_input.get(CONF_API_KEY) or "").strip()
-    base_url, model, errors = _advanced(user_input)
-    if not api_key and base_url == DEFAULT_BASE_URL:
-        # The published API answers 401 to a request with no key, so an empty key
+    base_url, model, errors = _advanced(user_input, provider)
+    if not api_key and provider.key_required:
+        # A hosted provider answers 401 to a request with no key, so an empty key
         # here is a mistake that can be named without spending a request on it.
         errors[CONF_API_KEY] = "key_required"
-    return api_key, base_url, model, errors
+    return name, api_key, base_url, model, errors
 
 
-def _advanced(user_input: dict[str, Any]) -> tuple[str, str, dict[str, str]]:
+def _advanced(
+    user_input: dict[str, Any], provider: Provider
+) -> tuple[str, str, dict[str, str]]:
     """The address and the model out of the section, with what is wrong with them.
 
     Both are checked, so two typos are reported once rather than one per submit.
-    A field that failed falls back to the default and is named in the errors.
+    A field left empty is the provider's own value. A local server has no address
+    of its own, so for it an empty address is an error.
     """
     values = user_input.get(CONF_ADVANCED) or {}
     errors: dict[str, str] = {}
+    base_url = provider.base_url or ""
     try:
-        base_url = _normalised_url(values.get(CONF_URL))
+        base_url = _normalised_url(values.get(CONF_URL)) or base_url
     except ValueError:
-        base_url, errors[CONF_URL] = DEFAULT_BASE_URL, "invalid_url"
+        errors[CONF_URL] = "invalid_url"
+    if not base_url and CONF_URL not in errors:
+        errors[CONF_URL] = "url_required"
+    model = provider.model
     try:
-        model = _normalised_model(values.get(CONF_MODEL))
+        model = _normalised_model(values.get(CONF_MODEL)) or model
     except ValueError:
-        model, errors[CONF_MODEL] = DEFAULT_MODEL, "invalid_model"
+        errors[CONF_MODEL] = "invalid_model"
     return base_url, model, errors
 
 
-def _stored(entry: ConfigEntry) -> tuple[str, str]:
-    """What an entry already talks to.
+def _stored(entry: ConfigEntry) -> tuple[str, str, str]:
+    """The provider, address and model an entry already talks to.
 
-    Entries made before these were configurable carry neither, and mean the
+    Entries made before these were configurable carry none of them, and mean the
     published API and its default model, which is what they have always used.
+    async_migrate_entry fills in the provider; it is derived here too, so a flow
+    never depends on the migration having run.
     """
+    typesafe = PROVIDERS[PROVIDER_TYPESAFE]
+    base_url = entry.data.get(CONF_URL, typesafe.base_url)
     return (
-        entry.data.get(CONF_URL, DEFAULT_BASE_URL),
-        entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        entry.data.get(CONF_PROVIDER) or provider_for_url(base_url),
+        base_url,
+        entry.data.get(CONF_MODEL, typesafe.model),
     )
 
 
-def _suggest(base_url: str, model: str) -> dict[str, Any]:
-    """Section values shaped the way add_suggested_values_to_schema reads them."""
-    return {CONF_ADVANCED: {CONF_URL: base_url, CONF_MODEL: model}}
+def _suggest(name: str, base_url: str, model: str) -> dict[str, Any]:
+    """Form values shaped the way add_suggested_values_to_schema reads them.
+
+    Only a value that differs from the provider's own is shown in the section.
+    Shown always, it would outlive a switch to another provider and send the new
+    provider's key to the old provider's address.
+    """
+    provider = PROVIDERS[name]
+    return {
+        CONF_PROVIDER: name,
+        CONF_ADVANCED: {
+            CONF_URL: "" if base_url == provider.base_url else base_url,
+            CONF_MODEL: "" if model == provider.model else model,
+        },
+    }
 
 
 def _error_key(err: JevError) -> str:
@@ -214,9 +252,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     """Take an API key and the address to send it to, and prove the pair works."""
 
     VERSION = 1
-    # 2: the unique id hashes the endpoint with the key. async_migrate_entry moves
-    # entries written before that.
-    MINOR_VERSION = 2
+    # 2: the unique id hashes the endpoint with the key. 3: the entry names its
+    # provider. async_migrate_entry moves entries written before either.
+    MINOR_VERSION = 3
 
     # What the server said on the last failed check, for the api_error text.
     _reply = ""
@@ -258,7 +296,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         new_id = entry_unique_id(
             # Reauth changes the key alone and leaves the endpoint where it is.
-            updates.get(CONF_URL, _stored(entry)[0]),
+            updates.get(CONF_URL, _stored(entry)[1]),
             updates[CONF_API_KEY],
         )
         for other in self._async_current_entries(include_ignore=True):
@@ -274,7 +312,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            api_key, base_url, model, errors = _credentials(user_input)
+            name, api_key, base_url, model, errors = _credentials(user_input)
             if not errors:
                 await self.async_set_unique_id(entry_unique_id(base_url, api_key))
                 self._abort_if_unique_id_configured()
@@ -282,8 +320,9 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = error
                 else:
                     return self.async_create_entry(
-                        title="Jev",
+                        title=PROVIDERS[name].title,
                         data={
+                            CONF_PROVIDER: name,
                             CONF_API_KEY: api_key,
                             CONF_URL: base_url,
                             CONF_MODEL: model,
@@ -298,7 +337,12 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                 # it is being corrected.
                 # What was typed, not what it normalised to, so a bad value comes
                 # back to be corrected rather than silently replaced.
-                {CONF_ADVANCED: user_input.get(CONF_ADVANCED, {})} if user_input else {},
+                {
+                    CONF_PROVIDER: user_input.get(CONF_PROVIDER, PROVIDER_TYPESAFE),
+                    CONF_ADVANCED: user_input.get(CONF_ADVANCED, {}),
+                }
+                if user_input
+                else {},
             ),
             errors=errors,
             description_placeholders=self._placeholders(),
@@ -313,11 +357,11 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             entry = self._get_reauth_entry()
-            base_url, model = _stored(entry)
+            name, base_url, model = _stored(entry)
             # The same rules as the first form. A pasted key with a trailing
             # newline was stored as it was and hashed into the unique id with it.
             api_key = (user_input.get(CONF_API_KEY) or "").strip()
-            if not api_key and base_url == DEFAULT_BASE_URL:
+            if not api_key and PROVIDERS[name].key_required:
                 errors[CONF_API_KEY] = "key_required"
             elif error := await self._async_validate(api_key, base_url, model):
                 errors["base"] = error
@@ -339,12 +383,12 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
-            api_key, base_url, model, errors = _credentials(user_input)
+            name, api_key, base_url, model, errors = _credentials(user_input)
             # The form never shows the key back, so an empty field while the
             # address stays put means keep it. A new address gets no key it was not
             # given, because the key would travel to a host the user did not pick
             # it for.
-            if not api_key and base_url == _stored(entry)[0]:
+            if not api_key and base_url == _stored(entry)[1]:
                 api_key = entry.data.get(CONF_API_KEY, "")
                 errors.pop(CONF_API_KEY, None)
             if not errors:
@@ -354,6 +398,7 @@ class JevConfigFlow(ConfigFlow, domain=DOMAIN):
                     return await self._async_update_credentials(
                         entry,
                         {
+                            CONF_PROVIDER: name,
                             CONF_API_KEY: api_key,
                             CONF_URL: base_url,
                             CONF_MODEL: model,
@@ -408,7 +453,10 @@ class JevOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_PRICE_PER_MILLION,
                     default=options.get(
-                        CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
+                        CONF_PRICE_PER_MILLION,
+                        PROVIDERS[
+                            _stored(self.config_entry)[0]
+                        ].usd_per_million_input_tokens,
                     ),
                 ): vol.All(vol.Coerce(float), vol.Range(min=0)),
                 vol.Optional(

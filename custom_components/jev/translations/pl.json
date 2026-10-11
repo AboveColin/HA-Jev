@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Połącz z TypeSafe",
-        "description": "Wklej klucz API ze swojego konta TypeSafe. Home Assistant zadaje jedno krótkie pytanie, żeby sprawdzić, czy klucz działa.",
+        "title": "Połącz model decyzyjny",
+        "description": "Wybierz, kto odpowiada, i wklej klucz API tego dostawcy. Home Assistant zada jedno krótkie pytanie, aby sprawdzić, czy klucz działa.",
         "data": {
+          "provider": "Dostawca",
           "api_key": "Klucz API"
         },
         "data_description": {
-          "api_key": "Klucz, z którym wysyłane są żądania. Zostaw puste tylko dla własnego punktu końcowego, który nie wymaga klucza."
+          "provider": "Jev (TypeSafe), SubQ Snap i OpenRouter są hostowane. Serwer lokalny uruchamiasz sam, a jego adres podajesz w sekcji Zaawansowane.",
+          "api_key": "Klucz, z którym wysyłane są żądania. Zostaw puste tylko dla serwera lokalnego, który nie wymaga klucza."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Zostaw to bez zmian, chyba że uruchamiasz coś własnego, co mówi tym samym API, na przykład proxy przechowujące klucz albo buforujące odpowiedzi. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem.",
-              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Puste pole oznacza domyślny."
+              "url": "Zostaw puste, aby użyć adresu dostawcy. Serwer lokalny wymaga tu adresu. Klucz jest wysyłany w nagłówku bearer, więc adres http przesyła go bez szyfrowania.",
+              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Zostaw puste, aby użyć domyślnego modelu dostawcy."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "Zmień klucz API lub adres",
-        "description": "Wklej inny klucz API TypeSafe i zmień adres, jeśli API jest osiągalne gdzie indziej niż w TypeSafe. Twoje pytania i encje zostają zachowane.",
+        "title": "Zmień dostawcę, klucz lub adres",
+        "description": "Wybierz innego dostawcę, wklej inny klucz lub zmień adres. Twoje pytania i encje zostaną zachowane.",
         "data": {
+          "provider": "Dostawca",
           "api_key": "Klucz API"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap i OpenRouter są hostowane. Serwer lokalny uruchamiasz sam, a jego adres podajesz w sekcji Zaawansowane.",
           "api_key": "Zostaw puste, aby zachować obecny klucz, dopóki adres się nie zmienia. Nowy adres nie dostaje żadnego klucza, jeśli go nie wpiszesz."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Wyczyść to pole, żeby wrócić do API TypeSafe. Klucz jest wysyłany w nagłówku bearer, więc przy adresie http trafia do sieci otwartym tekstem.",
-              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Puste pole oznacza domyślny."
+              "url": "Zostaw puste, aby użyć adresu dostawcy. Serwer lokalny wymaga tu adresu. Klucz jest wysyłany w nagłówku bearer, więc adres http przesyła go bez szyfrowania.",
+              "model": "Identyfikator modelu wysyłany z każdym żądaniem. Zostaw puste, aby użyć domyślnego modelu dostawcy."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "Serwer odpowiedział HTTP 404. Jev dodaje /v1/systemone do adresu, więc podaj tylko część przed nim. Dla OpenRouter jest to {openrouter_url}.",
       "invalid_url": "To nie jest poprawny adres API. Potrzebuje schematu i hosta, i nie może zawierać spacji, zapytania, fragmentu, nazwy użytkownika ani hasła.",
       "invalid_model": "Ten identyfikator modelu nie został przyjęty. Sprawdź go albo wyczyść pole, aby użyć domyślnego.",
-      "key_required": "API TypeSafe wymaga klucza. Pusty klucz działa tylko z własnym adresem, który go nie wymaga."
+      "key_required": "Ten dostawca wymaga klucza API. Tylko serwer lokalny może działać bez niego.",
+      "url_required": "Serwer lokalny nie ma własnego adresu. Podaj jego adres w sekcji Zaawansowane."
     },
     "abort": {
       "already_configured": "Ten klucz API jest już skonfigurowany. Wpis jest rozpoznawany po kluczu, więc drugi adres potrzebuje własnego klucza.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Pytanie zaktualizowane"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Serwer lokalny"
       }
     }
   }

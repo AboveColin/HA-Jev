@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Conectar ao TypeSafe",
-        "description": "Cole uma chave de API da sua conta TypeSafe. O Home Assistant faz uma pergunta curta para verificar se a chave funciona.",
+        "title": "Conectar um modelo de decisão",
+        "description": "Escolha quem responde e cole uma chave de API desse provedor. O Home Assistant faz uma pergunta curta para verificar se a chave funciona.",
         "data": {
+          "provider": "Provedor",
           "api_key": "Chave de API"
         },
         "data_description": {
-          "api_key": "A chave com a qual as requisições são enviadas. Deixe em branco apenas para um endpoint seu que não precise de chave."
+          "provider": "Jev (TypeSafe), SubQ Snap e OpenRouter são hospedados. Um servidor local é executado por você e o endereço vai em Avançado.",
+          "api_key": "A chave com que as solicitações são enviadas. Deixe vazio apenas para um servidor local que não precisa de chave."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Modelo"
             },
             "data_description": {
-              "url": "Não mexa neste campo, a não ser que você execute algo próprio que fale a mesma API, como um proxy que guarda a chave ou faz cache das respostas. A chave é enviada como cabeçalho bearer, então um endereço http a coloca em texto aberto na rede.",
-              "model": "O id do modelo enviado em cada requisição. Deixe vazio para usar o padrão."
+              "url": "Deixe vazio para usar o endereço do provedor. Um servidor local precisa de um endereço aqui. A chave é enviada em um cabeçalho bearer, então um endereço http a transmite sem criptografia.",
+              "model": "O id do modelo enviado em cada solicitação. Deixe vazio para usar o padrão do provedor."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "Substitua sua chave de API ou o endereço",
-        "description": "Cole outra chave de API do TypeSafe e mude o endereço se a API for acessada em outro lugar que não o TypeSafe. Suas perguntas e entidades são mantidas.",
+        "title": "Alterar o provedor, a chave ou o endereço",
+        "description": "Escolha outro provedor, cole outra chave ou altere o endereço. Suas perguntas e entidades são mantidas.",
         "data": {
+          "provider": "Provedor",
           "api_key": "Chave de API"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap e OpenRouter são hospedados. Um servidor local é executado por você e o endereço vai em Avançado.",
           "api_key": "Deixe vazio para manter a chave atual enquanto o endereço for o mesmo. Um endereço novo não recebe chave nenhuma se você não digitar uma."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Modelo"
             },
             "data_description": {
-              "url": "Limpe este campo para voltar à API do TypeSafe. A chave é enviada como cabeçalho bearer, então um endereço http a coloca em texto aberto na rede.",
-              "model": "O id do modelo enviado em cada requisição. Deixe vazio para usar o padrão."
+              "url": "Deixe vazio para usar o endereço do provedor. Um servidor local precisa de um endereço aqui. A chave é enviada em um cabeçalho bearer, então um endereço http a transmite sem criptografia.",
+              "model": "O id do modelo enviado em cada solicitação. Deixe vazio para usar o padrão do provedor."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "O servidor respondeu HTTP 404. O Jev acrescenta /v1/systemone ao endereço, então informe apenas a parte anterior. Para o OpenRouter isso é {openrouter_url}.",
       "invalid_url": "Esse não é um endereço de API utilizável. Ele precisa de um esquema e de um host, e não pode conter espaço, consulta, fragmento, nome de usuário ou senha.",
       "invalid_model": "Esse id de modelo não foi aceito. Verifique, ou deixe o campo vazio para usar o padrão.",
-      "key_required": "A API da TypeSafe precisa de uma chave. Uma chave vazia só funciona com um endereço seu que não precise de nenhuma."
+      "key_required": "Este provedor precisa de uma chave de API. Só um servidor local funciona sem ela.",
+      "url_required": "Um servidor local não tem endereço próprio. Informe o endereço em Avançado."
     },
     "abort": {
       "already_configured": "Esta chave de API já está configurada. Uma entrada é identificada pela sua chave, então um segundo endereço precisa da própria chave.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Pergunta atualizada"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Servidor local"
       }
     }
   }

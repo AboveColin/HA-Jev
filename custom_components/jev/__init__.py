@@ -34,7 +34,6 @@ from homeassistant.util import slugify
 from jevclient import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
-    USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevClient,
     JevError,
@@ -53,6 +52,7 @@ from .const import (
     CONF_INSTRUCTIONS,
     CONF_MODEL,
     CONF_PRICE_PER_MILLION,
+    CONF_PROVIDER,
     CONF_QUESTIONS,
     CONF_STATE_TEMPLATE,
     CONF_THRESHOLD,
@@ -63,10 +63,12 @@ from .const import (
     HOUSE_CHECK_HOUR,
     ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
+    PROVIDERS,
     STORAGE_VERSION,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
+    provider_for_url,
 )
 from .coordinator import JevCoordinator, JevRuntimeData, UsageAccount
 from .house_check import HouseCheck
@@ -348,6 +350,19 @@ async def async_migrate_entry(hass: HomeAssistant, entry: JevConfigEntry) -> boo
             ),
             minor_version=2,
         )
+    if entry.minor_version < 3:
+        # Until 1.21.0 the address was the only record of who the entry talks to.
+        # Each hosted provider has one published address, so the address names it.
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_PROVIDER: provider_for_url(
+                    entry.data.get(CONF_URL, DEFAULT_BASE_URL)
+                ),
+            },
+            minor_version=3,
+        )
     return True
 
 
@@ -373,7 +388,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         day=dt_util.now().date(),
         budget=entry.options.get(CONF_DAILY_TOKEN_BUDGET, 0),
         price_per_million=entry.options.get(
-            CONF_PRICE_PER_MILLION, USD_PER_MILLION_INPUT_TOKENS
+            CONF_PRICE_PER_MILLION,
+            PROVIDERS[
+                entry.data.get(CONF_PROVIDER) or provider_for_url(base_url)
+            ].usd_per_million_input_tokens,
         ),
         store=store,
         hass=hass,

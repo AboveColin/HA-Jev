@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Mit TypeSafe verbinden",
-        "description": "Füge einen API-Schlüssel aus deinem TypeSafe-Konto ein. Home Assistant stellt eine kurze Frage, um zu prüfen, ob der Schlüssel funktioniert.",
+        "title": "Ein Entscheidungsmodell verbinden",
+        "description": "Wähle, wer antwortet, und füge einen API-Schlüssel dieses Anbieters ein. Home Assistant stellt eine kurze Frage, um zu prüfen, ob der Schlüssel funktioniert.",
         "data": {
+          "provider": "Anbieter",
           "api_key": "API-Schlüssel"
         },
         "data_description": {
-          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden. Nur bei einem eigenen Endpunkt, der keinen Schlüssel braucht, bleibt das Feld leer."
+          "provider": "Jev (TypeSafe), SubQ Snap und OpenRouter werden gehostet. Einen lokalen Server betreibst du selbst und gibst ihn unter Erweitert an.",
+          "api_key": "Der Schlüssel, mit dem die Anfragen gesendet werden. Lass ihn nur bei einem lokalen Server leer, der keinen Schlüssel braucht."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Modell"
             },
             "data_description": {
-              "url": "Lass das so, außer du betreibst etwas Eigenes, das dieselbe API spricht, etwa einen Proxy, der den Schlüssel hält oder Antworten zwischenspeichert. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung.",
-              "model": "Die Modell-ID, die mit jeder Anfrage mitgeht. Leer bedeutet die Standard-ID."
+              "url": "Leer lassen, um die Adresse des Anbieters zu verwenden. Ein lokaler Server braucht hier eine Adresse. Der Schlüssel wird als Bearer-Header gesendet, bei einer http-Adresse also unverschlüsselt übertragen.",
+              "model": "Die Modell-ID, die mit jeder Anfrage gesendet wird. Leer lassen für den Standard des Anbieters."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "API-Schlüssel oder Adresse ersetzen",
-        "description": "Füge einen anderen TypeSafe-API-Schlüssel ein und ändere die Adresse, wenn die API woanders als bei TypeSafe erreicht wird. Deine Fragen und Entitäten bleiben erhalten.",
+        "title": "Anbieter, Schlüssel oder Adresse ändern",
+        "description": "Wähle einen anderen Anbieter, füge einen anderen Schlüssel ein oder ändere die Adresse. Deine Fragen und Entitäten bleiben erhalten.",
         "data": {
+          "provider": "Anbieter",
           "api_key": "API-Schlüssel"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap und OpenRouter werden gehostet. Einen lokalen Server betreibst du selbst und gibst ihn unter Erweitert an.",
           "api_key": "Leer lassen, um den aktuellen Schlüssel zu behalten, solange die Adresse gleich bleibt. Eine neue Adresse bekommt keinen Schlüssel, wenn du keinen eingibst."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Modell"
             },
             "data_description": {
-              "url": "Leere dieses Feld, um zur TypeSafe-API zurückzukehren. Der Schlüssel wird als bearer header gesendet, bei einer http-Adresse geht er also im Klartext über die Leitung.",
-              "model": "Die Modell-ID, die mit jeder Anfrage mitgeht. Leer bedeutet die Standard-ID."
+              "url": "Leer lassen, um die Adresse des Anbieters zu verwenden. Ein lokaler Server braucht hier eine Adresse. Der Schlüssel wird als Bearer-Header gesendet, bei einer http-Adresse also unverschlüsselt übertragen.",
+              "model": "Die Modell-ID, die mit jeder Anfrage gesendet wird. Leer lassen für den Standard des Anbieters."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "Der Server hat mit HTTP 404 geantwortet. Jev hängt /v1/systemone an die Adresse an, gib also nur den Teil davor ein. Für OpenRouter ist das {openrouter_url}.",
       "invalid_url": "Das ist keine brauchbare API-Adresse. Sie braucht ein Schema und einen Host und darf kein Leerzeichen, keine Query, kein Fragment, keinen Benutzernamen und kein Passwort enthalten.",
       "invalid_model": "Diese Modell-ID wurde nicht akzeptiert. Prüfe sie, oder lass das Feld leer für die Standard-ID.",
-      "key_required": "Die TypeSafe-API braucht einen Schlüssel. Ein leerer Schlüssel funktioniert nur bei einer eigenen Adresse, die keinen braucht."
+      "key_required": "Dieser Anbieter braucht einen API-Schlüssel. Nur ein lokaler Server kann ohne auskommen.",
+      "url_required": "Ein lokaler Server hat keine eigene Adresse. Gib seine Adresse unter Erweitert an."
     },
     "abort": {
       "already_configured": "Dieser API-Schlüssel ist bereits eingerichtet. Ein Eintrag wird über seinen Schlüssel erkannt, eine zweite Adresse braucht also einen eigenen Schlüssel.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Frage aktualisiert"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Lokaler Server"
       }
     }
   }
