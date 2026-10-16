@@ -648,14 +648,15 @@ async def test_a_weekly_run_that_fails_opens_a_card_and_retries_next_morning(
     weekly_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(weekly_entry.entry_id)
     await hass.async_block_till_done()
-    mock_client.ask.side_effect = JevError("the service is down")
+    mock_client.ask.side_effect = JevError("the service is down.")
 
     await next_morning(hass, freezer)
 
     [failed] = issues(hass).values()
     assert failed.translation_key == "house_check_failed"
     assert failed.is_fixable is False
-    assert "the service is down" in failed.translation_placeholders["reason"]
+    # The card adds its own full stop after the reason.
+    assert failed.translation_placeholders["reason"].endswith("the service is down")
 
     wrong_are(mock_client)
     await next_morning(hass, freezer)
