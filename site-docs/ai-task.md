@@ -136,8 +136,34 @@ what remains.
 ## What it does not read
 
 The AI Task belongs to the integration, not to a context, so your configured questions
-and their targets play no part. Whatever you put in `instructions` is the whole state
-Jev judges. Build it with templates, the same way you would build the `state` of an
-[action](actions.md).
+and their targets play no part. Jev judges `instructions` and the images you attach,
+nothing else. Build the text with templates, the same way you would build the `state`
+of an [action](actions.md).
+
+## Attachments
+
+Attach a camera, an image entity or an image file, and Jev looks at it:
+
+```yaml
+- action: ai_task.generate_data
+  response_variable: back
+  data:
+    task_name: window check
+    entity_id: ai_task.jev
+    instructions: The back of the house.
+    attachments:
+      - media_content_id: media-source://camera/camera.back_garden
+        media_content_type: image/jpeg
+    structure:
+      window_open:
+        description: Is a window open?
+        selector:
+          boolean:
+```
+
+The instructions then go under `note` and the pictures under `images`, each named by
+the last part of its media id. A video or any other file that is not an image is
+refused before the request. [Cameras and images](images.md) has the sizes and the
+cost.
 
 Its calls, tokens and cost count against the same daily totals as everything else.

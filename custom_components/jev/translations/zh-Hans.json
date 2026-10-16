@@ -203,6 +203,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "措辞上要让高数值代表“是”。陈述句和疑问句同样适用。"
@@ -241,6 +245,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "用一句话说明模型在哪些内容之间做选择。"
@@ -275,6 +283,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "每个问题只衡量一个维度。同时衡量三件事的问题会得到很低的置信度和一个无意义的中间值。"
@@ -304,6 +316,10 @@
         "state": {
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
+        },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
         },
         "questions": {
           "name": "问题",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} 不是已打开的灯、开关或风扇，因此房屋检查无法将其关闭。"
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} 没有可发送的画面。图像来自摄像头实体和图像实体。"
+    },
+    "image_unavailable": {
+      "message": "无法从 {entity_id} 获取画面：{reason}"
+    },
+    "image_unreadable": {
+      "message": "来自 {source} 的画面不是 Jev 能读取的图像：{reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} 的类型是 {mime_type}。Jev 读取文本和图像，请附加摄像头快照或 PNG、JPEG 文件。"
     }
   },
   "common": {

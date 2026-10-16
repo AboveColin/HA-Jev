@@ -203,6 +203,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Sformułuj je tak, żeby wysoka liczba oznaczała tak. Stwierdzenie działa równie dobrze jak pytanie."
@@ -241,6 +245,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Między czym model wybiera, w jednym zdaniu."
@@ -275,6 +283,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Jeden wymiar na pytanie. Pytanie mierzące trzy rzeczy naraz daje niską pewność i nic nieznaczący środek."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
+        },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
         },
         "questions": {
           "name": "Pytania",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} nie jest włączonym światłem, przełącznikiem ani wentylatorem, więc sprawdzanie domu nie może go wyłączyć."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} nie ma obrazu do wysłania. Obrazy pochodzą z encji kamer i obrazów."
+    },
+    "image_unavailable": {
+      "message": "Nie udało się pobrać obrazu z {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Obraz z {source} nie jest obrazem, który Jev potrafi odczytać: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} to {mime_type}. Jev czyta tekst i obrazy, więc załącz zrzut z kamery albo plik PNG lub JPEG."
     }
   },
   "common": {

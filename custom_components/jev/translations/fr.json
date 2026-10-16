@@ -203,6 +203,10 @@
           "name": "État",
           "description": "Le texte à évaluer. Écrivez un modèle et il est rendu avant l'envoi."
         },
+        "images": {
+          "name": "Images",
+          "description": "Facultatif. Entités caméra ou image dont l'image actuelle est envoyée avec l'état. Chaque image est réduite pour tenir dans 1568 pixels et facturée selon sa taille : une image de caméra envoyée en 1568 x 882 coûte 3 584 jetons d'entrée."
+        },
         "instructions": {
           "name": "Question",
           "description": "Formulez-la de sorte qu'un nombre élevé signifie oui. Une affirmation fonctionne aussi bien qu'une question."
@@ -241,6 +245,10 @@
           "name": "État",
           "description": "Le texte à évaluer. Écrivez un modèle et il est rendu avant l'envoi."
         },
+        "images": {
+          "name": "Images",
+          "description": "Facultatif. Entités caméra ou image dont l'image actuelle est envoyée avec l'état. Chaque image est réduite pour tenir dans 1568 pixels et facturée selon sa taille : une image de caméra envoyée en 1568 x 882 coûte 3 584 jetons d'entrée."
+        },
         "instructions": {
           "name": "Question",
           "description": "Entre quoi le modèle choisit, en une phrase."
@@ -275,6 +283,10 @@
           "name": "État",
           "description": "Le texte à évaluer. Écrivez un modèle et il est rendu avant l'envoi."
         },
+        "images": {
+          "name": "Images",
+          "description": "Facultatif. Entités caméra ou image dont l'image actuelle est envoyée avec l'état. Chaque image est réduite pour tenir dans 1568 pixels et facturée selon sa taille : une image de caméra envoyée en 1568 x 882 coûte 3 584 jetons d'entrée."
+        },
         "instructions": {
           "name": "Question",
           "description": "Une seule dimension par question. Une question qui mesure trois choses à la fois produit une faible confiance et un milieu qui ne veut rien dire."
@@ -304,6 +316,10 @@
         "state": {
           "name": "État",
           "description": "Le texte à évaluer. Écrivez un modèle et il est rendu avant l'envoi."
+        },
+        "images": {
+          "name": "Images",
+          "description": "Facultatif. Entités caméra ou image dont l'image actuelle est envoyée avec l'état. Chaque image est réduite pour tenir dans 1568 pixels et facturée selon sa taille : une image de caméra envoyée en 1568 x 882 coûte 3 584 jetons d'entrée."
         },
         "questions": {
           "name": "Questions",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} n'est pas une lumière, un interrupteur ou un ventilateur allumé, la vérification de la maison ne peut donc pas l'éteindre."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} n'a aucune image à envoyer. Les images proviennent des entités caméra et image."
+    },
+    "image_unavailable": {
+      "message": "Impossible d'obtenir une image de {entity_id} : {reason}"
+    },
+    "image_unreadable": {
+      "message": "L'image de {source} n'est pas une image que Jev sait lire : {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} est de type {mime_type}. Jev lit du texte et des images, joignez donc un instantané de caméra ou un fichier PNG ou JPEG."
     }
   },
   "common": {

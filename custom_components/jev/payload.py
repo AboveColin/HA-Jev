@@ -7,6 +7,10 @@ post. This builds the same dict and measures it.
 jevclient owns the real one. tests/test_payload.py posts through a real JevClient
 against a fake session and asserts the two byte counts match, so a shape change in
 the library fails a test instead of quietly biasing every estimate.
+
+Images are left out. The API bills them by their pixels (images.image_tokens), not
+by their bytes, and base64 read through the text ratio would count each KB of JPEG
+as about 490 tokens.
 """
 
 from __future__ import annotations

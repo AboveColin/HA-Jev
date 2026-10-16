@@ -203,6 +203,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "Formulera den så att ett högt tal betyder ja. Ett påstående fungerar lika bra som en fråga."
@@ -241,6 +245,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "Vad modellen väljer mellan, i en mening."
@@ -275,6 +283,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "En dimension per fråga. En fråga som mäter tre saker samtidigt ger låg säkerhet och en meningslös mitt."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
+        },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
         },
         "questions": {
           "name": "Frågor",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} är inte en påslagen lampa, strömbrytare eller fläkt, så huskontrollen kan inte stänga av den."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} har ingen bild att skicka. Bilder kommer från kamera- och bildentiteter."
+    },
+    "image_unavailable": {
+      "message": "Kunde inte hämta en bild från {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Bilden från {source} är inte en bild som Jev kan läsa: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} är {mime_type}. Jev läser text och bilder, så bifoga en ögonblicksbild från en kamera eller en PNG- eller JPEG-fil."
     }
   },
   "common": {

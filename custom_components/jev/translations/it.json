@@ -203,6 +203,10 @@
           "name": "Stato",
           "description": "Il testo da valutare. Scrivi un template e viene elaborato prima di essere inviato."
         },
+        "images": {
+          "name": "Immagini",
+          "description": "Facoltativo. Entità videocamera o immagine la cui immagine attuale viene inviata con lo stato. Ogni immagine viene ridotta per stare entro 1568 pixel e fatturata in base alla dimensione: un fotogramma di videocamera inviato a 1568 x 882 costa 3.584 token di input."
+        },
         "instructions": {
           "name": "Domanda",
           "description": "Formulala in modo che un numero alto significhi sì. Un'affermazione funziona quanto una domanda."
@@ -241,6 +245,10 @@
           "name": "Stato",
           "description": "Il testo da valutare. Scrivi un template e viene elaborato prima di essere inviato."
         },
+        "images": {
+          "name": "Immagini",
+          "description": "Facoltativo. Entità videocamera o immagine la cui immagine attuale viene inviata con lo stato. Ogni immagine viene ridotta per stare entro 1568 pixel e fatturata in base alla dimensione: un fotogramma di videocamera inviato a 1568 x 882 costa 3.584 token di input."
+        },
         "instructions": {
           "name": "Domanda",
           "description": "Tra che cosa sceglie il modello, in una frase."
@@ -275,6 +283,10 @@
           "name": "Stato",
           "description": "Il testo da valutare. Scrivi un template e viene elaborato prima di essere inviato."
         },
+        "images": {
+          "name": "Immagini",
+          "description": "Facoltativo. Entità videocamera o immagine la cui immagine attuale viene inviata con lo stato. Ogni immagine viene ridotta per stare entro 1568 pixel e fatturata in base alla dimensione: un fotogramma di videocamera inviato a 1568 x 882 costa 3.584 token di input."
+        },
         "instructions": {
           "name": "Domanda",
           "description": "Una dimensione per domanda. Una domanda che misura tre cose insieme produce una confidenza bassa e un valore medio privo di significato."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Stato",
           "description": "Il testo da valutare. Scrivi un template e viene elaborato prima di essere inviato."
+        },
+        "images": {
+          "name": "Immagini",
+          "description": "Facoltativo. Entità videocamera o immagine la cui immagine attuale viene inviata con lo stato. Ogni immagine viene ridotta per stare entro 1568 pixel e fatturata in base alla dimensione: un fotogramma di videocamera inviato a 1568 x 882 costa 3.584 token di input."
         },
         "questions": {
           "name": "Domande",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} non è una luce, un interruttore o un ventilatore acceso, quindi il controllo della casa non può spegnerlo."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} non ha nessuna immagine da inviare. Le immagini provengono da entità videocamera e immagine."
+    },
+    "image_unavailable": {
+      "message": "Impossibile ottenere un'immagine da {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "L'immagine da {source} non è un'immagine che Jev sa leggere: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} è {mime_type}. Jev legge testo e immagini, quindi allega un'istantanea della videocamera o un file PNG o JPEG."
     }
   },
   "common": {

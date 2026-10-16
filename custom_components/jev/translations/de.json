@@ -203,6 +203,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Formuliere so, dass eine hohe Zahl ja bedeutet. Eine Aussage funktioniert genauso gut wie eine Frage."
@@ -241,6 +245,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Wovon das Modell auswählt, in einem Satz."
@@ -275,6 +283,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Eine Dimension pro Frage. Eine Frage, die drei Dinge gleichzeitig misst, ergibt eine niedrige Konfidenz und eine nichtssagende Mitte."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
+        },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
         },
         "questions": {
           "name": "Fragen",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} ist kein eingeschaltetes Licht, kein Schalter und kein Ventilator, daher kann die Hausprüfung es nicht ausschalten."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} hat kein Bild zum Senden. Bilder kommen von Kamera- und Bildentitäten."
+    },
+    "image_unavailable": {
+      "message": "Von {entity_id} konnte kein Bild abgerufen werden: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Das Bild von {source} ist kein Bild, das Jev lesen kann: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} ist {mime_type}. Jev liest Text und Bilder, also hänge einen Kamera-Schnappschuss oder eine PNG- oder JPEG-Datei an."
     }
   },
   "common": {

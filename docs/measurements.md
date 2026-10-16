@@ -198,6 +198,35 @@ The estimate carries a 1.2 margin. Input tokens across those sixteen commands va
 3.2%, 1,329 to 1,371 for the same seven questions, so 20% sits well past anything
 measured. A budget you can trip by 4% of drift is a budget that goes off for no reason.
 
+## What a picture costs
+
+Six requests on 2026-10-16, against `jev-1.14.0` and `jev-1.13.0`, each with one
+picture and one short question. A request with no picture was billed 287 input
+tokens. The table gives what each picture added:
+
+| Picture as sent | 28 px squares | Input tokens for the picture |
+|---|---|---|
+| 280 x 280 | 10 x 10 | 200 |
+| 300 x 301 | 11 x 11 | 242 |
+| 784 x 588 | 28 x 21 | 1,176 |
+| 1000 x 750 | 36 x 27 | 1,944 |
+| 1568 x 1176 | 56 x 42 | 4,704 |
+| 1568 x 1568 | 56 x 56 | 6,272 |
+
+Every row is 2 tokens for each 28 x 28 pixel square, with a part square counted
+whole. 300 x 301 is the row that shows the rounding: 11 squares a side, not 10.7. The
+budget uses that formula on the size after scaling.
+
+The billed tokens followed the size by that formula, not the bytes. The base64 in the
+body is 4 bytes for every 3 of JPEG. Read through the 2.8 bytes-per-token ratio, each KB of JPEG would
+count as about 490 tokens. So the picture is left out of the body bytes, its tokens
+are added to the estimate on their own, and they are taken out of the billed count
+before the ratio learns from a reply.
+
+A 1920 x 1080 frame sent as it came was refused, 400 "Invalid image dimensions". The
+same frame scaled to 1568 x 882 was estimated at 3,584 tokens for the picture and
+billed 3,928 for the whole request, which asked one yes/no and one box question.
+
 ## A command that is already done reads as a low-confidence one
 
 Three runs per starting state, one sentence, one entity, nothing else changed:

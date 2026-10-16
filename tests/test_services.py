@@ -534,7 +534,7 @@ async def test_an_action_holds_its_estimate_while_it_runs(
     usage = loaded_entry.runtime_data.usage
     held = []
 
-    async def watch(state, questions):
+    async def watch(state, questions, **kwargs):
         held.append(usage.reserved)
         return build_response(answer=NoulAnswer(noul=0.5))
 

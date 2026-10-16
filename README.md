@@ -31,6 +31,9 @@ Not affiliated with TypeSafe. The API client is
 - An [AI Task](https://jev.cdevries.dev/ai-task/) entity answers
   `ai_task.generate_data` when it is called. A boolean, select or number field
   becomes the matching question.
+- Actions and the AI Task can [look at cameras](https://jev.cdevries.dev/images/):
+  list camera or image entities, or attach a snapshot, and the picture goes in beside
+  the state, scaled to what the API takes.
 - A [conversation agent](https://jev.cdevries.dev/conversation/) for Assist routes
   spoken commands through the same model.
 - A [house check](https://jev.cdevries.dev/house-check/) opens a Repairs card for

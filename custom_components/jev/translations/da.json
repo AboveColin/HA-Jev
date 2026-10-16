@@ -203,6 +203,10 @@
           "name": "Tilstand",
           "description": "Teksten, der bedømmes. Skriver du en skabelon, gengives den, før den sendes."
         },
+        "images": {
+          "name": "Billeder",
+          "description": "Valgfri. Kamera- eller billedentiteter, hvis aktuelle billede sendes med tilstanden. Hvert billede skaleres til at passe inden for 1568 pixel og afregnes efter størrelse: et kamerabillede sendt i 1568 x 882 koster 3.584 input-tokens."
+        },
         "instructions": {
           "name": "Spørgsmål",
           "description": "Formulér det, så et højt tal betyder ja. En påstand virker lige så godt som et spørgsmål."
@@ -241,6 +245,10 @@
           "name": "Tilstand",
           "description": "Teksten, der bedømmes. Skriver du en skabelon, gengives den, før den sendes."
         },
+        "images": {
+          "name": "Billeder",
+          "description": "Valgfri. Kamera- eller billedentiteter, hvis aktuelle billede sendes med tilstanden. Hvert billede skaleres til at passe inden for 1568 pixel og afregnes efter størrelse: et kamerabillede sendt i 1568 x 882 koster 3.584 input-tokens."
+        },
         "instructions": {
           "name": "Spørgsmål",
           "description": "Hvad modellen vælger imellem, i én sætning."
@@ -275,6 +283,10 @@
           "name": "Tilstand",
           "description": "Teksten, der bedømmes. Skriver du en skabelon, gengives den, før den sendes."
         },
+        "images": {
+          "name": "Billeder",
+          "description": "Valgfri. Kamera- eller billedentiteter, hvis aktuelle billede sendes med tilstanden. Hvert billede skaleres til at passe inden for 1568 pixel og afregnes efter størrelse: et kamerabillede sendt i 1568 x 882 koster 3.584 input-tokens."
+        },
         "instructions": {
           "name": "Spørgsmål",
           "description": "Én dimension pr. spørgsmål. Et spørgsmål, der måler tre ting på én gang, giver lav konfidens og en intetsigende midte."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Tilstand",
           "description": "Teksten, der bedømmes. Skriver du en skabelon, gengives den, før den sendes."
+        },
+        "images": {
+          "name": "Billeder",
+          "description": "Valgfri. Kamera- eller billedentiteter, hvis aktuelle billede sendes med tilstanden. Hvert billede skaleres til at passe inden for 1568 pixel og afregnes efter størrelse: et kamerabillede sendt i 1568 x 882 koster 3.584 input-tokens."
         },
         "questions": {
           "name": "Spørgsmål",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} er ikke et tændt lys, en kontakt eller en ventilator, så hustjekket kan ikke slukke den."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} har intet billede at sende. Billeder kommer fra kamera- og billedentiteter."
+    },
+    "image_unavailable": {
+      "message": "Kunne ikke hente et billede fra {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Billedet fra {source} er ikke et billede, Jev kan læse: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} er {mime_type}. Jev læser tekst og billeder, så vedhæft et kamerabillede eller en PNG- eller JPEG-fil."
     }
   },
   "common": {

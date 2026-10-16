@@ -203,6 +203,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Formuleer zo dat een hoog getal ja betekent. Een stelling werkt net zo goed als een vraag."
@@ -241,6 +245,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Waartussen het model kiest, in een zin."
@@ -275,6 +283,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Een dimensie per vraag. Een vraag die drie dingen tegelijk meet geeft lage betrouwbaarheid en een nietszeggend midden."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
+        },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
         },
         "questions": {
           "name": "Vragen",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} is geen lamp, schakelaar of ventilator die aan staat, dus de huiscontrole kan het niet uitzetten."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} heeft geen beeld om te versturen. Beelden komen van camera- en afbeeldingsentiteiten."
+    },
+    "image_unavailable": {
+      "message": "Kon geen beeld ophalen van {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Het beeld van {source} is geen afbeelding die Jev kan lezen: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} is {mime_type}. Jev leest tekst en afbeeldingen, voeg dus een camerasnapshot of een PNG- of JPEG-bestand toe."
     }
   },
   "common": {
