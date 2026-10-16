@@ -82,14 +82,14 @@ installed this way.
 
 ## Setup
 
-Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. Enter your
-API key. The address field already holds the TypeSafe API.
+Settings, Devices and services, Add integration, then **Jev (TypeSafe)**. Pick a
+provider (Jev (TypeSafe), SubQ Snap, OpenRouter or a local server) and enter its API
+key. The address and the model come with the provider.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
-To use an OpenRouter key, set the address to `https://openrouter.ai/api` and the model
-to `~typesafe/jev-latest`. The [install page](https://jev.cdevries.dev/install/) has
-every option, and how to point the integration at a proxy.
+The [install page](https://jev.cdevries.dev/install/) has every option, and how to
+point the integration at a proxy.
 
 Then [ask your first question](https://jev.cdevries.dev/first-question/).
 

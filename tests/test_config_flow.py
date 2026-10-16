@@ -11,6 +11,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from jevclient import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
+    USD_PER_MILLION_INPUT_TOKENS,
     JevAuthError,
     JevConnectionError,
     JevValidationError,
@@ -22,19 +23,40 @@ from custom_components.jev.const import (
     CONF_DAILY_TOKEN_BUDGET,
     CONF_MODEL,
     CONF_PRICE_PER_MILLION,
+    CONF_PROVIDER,
     DOMAIN,
 )
 
 from .conftest import API_KEY
 
 
-def _form(key: str = API_KEY, url: str = DEFAULT_BASE_URL, model: str = DEFAULT_MODEL):
+def _suggested(result):
+    """The provider and the advanced values a form offers back."""
+    schema = result["data_schema"].schema
+    provider = next(key for key in schema if key.schema == CONF_PROVIDER)
+    advanced = schema[CONF_ADVANCED].schema.schema
+    return (
+        provider.description["suggested_value"],
+        {key.schema: key.description["suggested_value"] for key in advanced},
+    )
+
+
+def _form(
+    key: str = API_KEY,
+    url: str = DEFAULT_BASE_URL,
+    model: str = DEFAULT_MODEL,
+    provider: str = "typesafe",
+):
     """What the user step and the reconfigure step submit.
 
     The advanced section arrives as its own dict, so a flat one is not the shape
     Home Assistant hands the flow.
     """
-    return {CONF_API_KEY: key, CONF_ADVANCED: {CONF_URL: url, CONF_MODEL: model}}
+    return {
+        CONF_PROVIDER: provider,
+        CONF_API_KEY: key,
+        CONF_ADVANCED: {CONF_URL: url, CONF_MODEL: model},
+    }
 
 
 async def test_user_flow_creates_entry(hass, mock_client):
@@ -46,9 +68,10 @@ async def test_user_flow_creates_entry(hass, mock_client):
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], _form())
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Jev"
+    assert result["title"] == "Jev (TypeSafe)"
     # Nobody who leaves the address alone gets anything other than TypeSafe.
     assert result["data"] == {
+        CONF_PROVIDER: "typesafe",
         CONF_API_KEY: API_KEY,
         CONF_URL: DEFAULT_BASE_URL,
         CONF_MODEL: DEFAULT_MODEL,
@@ -400,6 +423,7 @@ async def test_a_custom_endpoint_is_stored_and_asked(hass, mock_client):
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == {
+        CONF_PROVIDER: "typesafe",
         CONF_API_KEY: API_KEY,
         CONF_URL: GATEWAY,
         CONF_MODEL: DEFAULT_MODEL,
@@ -564,11 +588,10 @@ async def test_an_entry_from_before_this_option_still_means_typesafe(hass, mock_
     # And the address the reconfigure form offers is the one it has been using.
     assert mock_client.built_by_setup.call_args.kwargs["model"] == DEFAULT_MODEL
 
-    # And the values the reconfigure form offers are the ones it has been using.
+    # And the reconfigure form offers TypeSafe, with nothing overridden: the
+    # section shows only what differs from the provider's own values.
     result = await entry.start_reconfigure_flow(hass)
-    advanced = result["data_schema"].schema[CONF_ADVANCED].schema.schema
-    suggested = {key.schema: key.description["suggested_value"] for key in advanced}
-    assert suggested == {CONF_URL: DEFAULT_BASE_URL, CONF_MODEL: DEFAULT_MODEL}
+    assert _suggested(result) == ("typesafe", {CONF_URL: "", CONF_MODEL: ""})
 
 
 MODEL = "systemone-small"
@@ -702,7 +725,7 @@ async def test_an_endpoint_of_your_own_needs_no_key(hass, mock_client):
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], _form(key="", url=GATEWAY)
+        result["flow_id"], _form(key="", url=GATEWAY, provider="local")
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_API_KEY] == ""
@@ -729,7 +752,7 @@ async def test_two_keyless_endpoints_are_two_entries(hass, mock_client):
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], _form(key="", url=url)
+            result["flow_id"], _form(key="", url=url, provider="local")
         )
         assert result["type"] is FlowResultType.CREATE_ENTRY
     assert len(hass.config_entries.async_entries(DOMAIN)) == 2
@@ -792,9 +815,142 @@ async def test_reconfigure_sends_no_stored_key_to_a_new_address(
     """A gateway that needs no key gets none, rather than the key for TypeSafe."""
     result = await loaded_entry.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], _form(key="", url=GATEWAY)
+        result["flow_id"], _form(key="", url=GATEWAY, provider="local")
     )
     assert result["reason"] == "reconfigure_successful"
     assert mock_client.built_by_flow.call_args.args[0] == ""
     assert loaded_entry.data[CONF_API_KEY] == ""
     assert loaded_entry.data[CONF_URL] == GATEWAY
+
+
+# --- Providers ---
+
+
+async def _create(hass, form):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    # The frontend sends the section even when nobody opened it.
+    form = {CONF_ADVANCED: {}, **form}
+    return await hass.config_entries.flow.async_configure(result["flow_id"], form)
+
+
+async def test_a_hosted_provider_needs_only_its_key(hass, mock_client):
+    """Picking SubQ is the whole setup: its address and model come with it."""
+    result = await _create(hass, {CONF_PROVIDER: "subq", CONF_API_KEY: API_KEY})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "SubQ Snap"
+    assert result["data"] == {
+        CONF_PROVIDER: "subq",
+        CONF_API_KEY: API_KEY,
+        CONF_URL: "https://api.subq.ai",
+        CONF_MODEL: "subq-snap-preview",
+    }
+    assert mock_client.built_by_flow.call_args.kwargs["base_url"] == "https://api.subq.ai"
+    assert mock_client.built_by_flow.call_args.kwargs["model"] == "subq-snap-preview"
+
+
+async def test_openrouter_gets_its_address_and_model(hass, mock_client):
+    """The address and the ~ model id site-docs/install.md had people type."""
+    result = await _create(hass, {CONF_PROVIDER: "openrouter", CONF_API_KEY: API_KEY})
+    assert result["data"][CONF_URL] == "https://openrouter.ai/api"
+    assert result["data"][CONF_MODEL] == "~typesafe/jev-latest"
+
+
+async def test_a_hosted_provider_refuses_an_empty_key(hass, mock_client):
+    result = await _create(hass, {CONF_PROVIDER: "subq", CONF_API_KEY: ""})
+    assert result["errors"] == {CONF_API_KEY: "key_required"}
+    mock_client.ask.assert_not_called()
+
+
+async def test_a_local_server_needs_an_address(hass, mock_client):
+    """It has no address of its own to fall back on, so none is sent anywhere."""
+    result = await _create(hass, {CONF_PROVIDER: "local", CONF_API_KEY: ""})
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_URL: "url_required"}
+    mock_client.ask.assert_not_called()
+
+
+async def test_a_local_server_keeps_a_bad_address_error(hass, mock_client):
+    """A typo is named as a typo, not as a missing address."""
+    result = await _create(
+        hass,
+        {
+            CONF_PROVIDER: "local",
+            CONF_API_KEY: "",
+            CONF_ADVANCED: {CONF_URL: "gateway.local"},
+        },
+    )
+    assert result["errors"] == {CONF_URL: "invalid_url"}
+
+
+async def test_an_empty_model_is_the_providers_model(hass, mock_client):
+    result = await _create(
+        hass,
+        {
+            CONF_PROVIDER: "subq",
+            CONF_API_KEY: API_KEY,
+            CONF_ADVANCED: {CONF_URL: "", CONF_MODEL: "  "},
+        },
+    )
+    assert result["data"][CONF_MODEL] == "subq-snap-preview"
+
+
+async def test_reconfigure_to_another_provider_moves_address_and_model(
+    hass, mock_client, loaded_entry
+):
+    """The section shows no TypeSafe values, so a switch cannot carry them along.
+
+    The key does not travel either: the address changes, so it needs a new one.
+    """
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    assert _suggested(result) == ("typesafe", {CONF_URL: "", CONF_MODEL: ""})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PROVIDER: "subq", CONF_API_KEY: "", CONF_ADVANCED: {}}
+    )
+    assert result["errors"] == {CONF_API_KEY: "key_required"}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PROVIDER: "subq", CONF_API_KEY: "a-subq-key", CONF_ADVANCED: {}},
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_PROVIDER] == "subq"
+    assert loaded_entry.data[CONF_URL] == "https://api.subq.ai"
+    assert loaded_entry.data[CONF_MODEL] == "subq-snap-preview"
+
+
+async def test_reconfigure_offers_back_an_override(hass, mock_client):
+    """A gateway in front of TypeSafe is shown again, so it is not lost on save."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={
+            CONF_PROVIDER: "typesafe",
+            CONF_API_KEY: API_KEY,
+            CONF_URL: GATEWAY,
+            CONF_MODEL: MODEL,
+        },
+        unique_id=_entry_id(API_KEY),
+        minor_version=3,
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    assert _suggested(result) == ("typesafe", {CONF_URL: GATEWAY, CONF_MODEL: MODEL})
+
+
+@pytest.mark.parametrize(
+    ("provider", "price"), [("typesafe", USD_PER_MILLION_INPUT_TOKENS), ("subq", 0.09)]
+)
+async def test_the_price_option_starts_at_the_providers_price(
+    hass, mock_client, provider, price
+):
+    """A SubQ entry costed at TypeSafe's price would report half its spend."""
+    result = await _create(hass, {CONF_PROVIDER: provider, CONF_API_KEY: API_KEY})
+    entry = result["result"]
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    price_key = next(
+        k for k in result["data_schema"].schema if k == CONF_PRICE_PER_MILLION
+    )
+    assert price_key.default() == price
+    assert entry.runtime_data.usage.price_per_million == price

@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Verbinden met TypeSafe",
-        "description": "Plak een API-sleutel uit je TypeSafe-account. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
+        "title": "Verbind een beslismodel",
+        "description": "Kies wie antwoordt en plak een API-sleutel van die aanbieder. Home Assistant stelt één korte vraag om te controleren of de sleutel werkt.",
         "data": {
+          "provider": "Aanbieder",
           "api_key": "API-sleutel"
         },
         "data_description": {
-          "api_key": "De sleutel waarmee de verzoeken worden verstuurd. Laat dit alleen leeg bij een eigen endpoint dat geen sleutel nodig heeft."
+          "provider": "Jev (TypeSafe), SubQ Snap en OpenRouter worden gehost. Een lokale server draai je zelf en geef je op onder Geavanceerd.",
+          "api_key": "De sleutel waarmee de verzoeken worden verstuurd. Laat dit alleen leeg bij een lokale server die geen sleutel nodig heeft."
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Laat dit staan, tenzij je zelf iets draait dat dezelfde API spreekt, zoals een proxy die de sleutel bewaart of antwoorden cachet. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
-              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard."
+              "url": "Laat dit leeg voor het eigen adres van de aanbieder. Een lokale server heeft hier een adres nodig. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
+              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard van de aanbieder."
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "Vervang je API-sleutel of adres",
-        "description": "Plak een andere TypeSafe API-sleutel, en wijzig het adres als de API elders dan bij TypeSafe wordt bereikt. Je vragen en entiteiten blijven staan.",
+        "title": "Wijzig de aanbieder, sleutel of het adres",
+        "description": "Kies een andere aanbieder, plak een andere sleutel of wijzig het adres. Je vragen en entiteiten blijven behouden.",
         "data": {
+          "provider": "Aanbieder",
           "api_key": "API-sleutel"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe), SubQ Snap en OpenRouter worden gehost. Een lokale server draai je zelf en geef je op onder Geavanceerd.",
           "api_key": "Laat leeg om de huidige sleutel te houden zolang het adres gelijk blijft. Een nieuw adres krijgt geen sleutel, tenzij je er een invult."
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "Model"
             },
             "data_description": {
-              "url": "Maak dit veld leeg om terug te gaan naar de TypeSafe-API. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
-              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard."
+              "url": "Laat dit leeg voor het eigen adres van de aanbieder. Een lokale server heeft hier een adres nodig. De sleutel gaat mee als bearer-header, dus bij een http-adres staat hij onversleuteld op de lijn.",
+              "model": "Het model-id dat met elk verzoek meegaat. Leeg laten gebruikt de standaard van de aanbieder."
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "De server antwoordde met HTTP 404. Jev plakt /v1/systemone achter het adres, dus vul alleen het deel daarvoor in. Voor OpenRouter is dat {openrouter_url}.",
       "invalid_url": "Dat is geen bruikbaar API-adres. Het heeft een schema en een host nodig, en het kan geen spatie, query, fragment, gebruikersnaam of wachtwoord bevatten.",
       "invalid_model": "Dat model-id is niet geaccepteerd. Controleer het, of laat het veld leeg voor de standaard.",
-      "key_required": "De TypeSafe-API heeft een sleutel nodig. Een lege sleutel werkt alleen bij een eigen adres dat er geen nodig heeft."
+      "key_required": "Deze aanbieder heeft een API-sleutel nodig. Alleen een lokale server kan zonder.",
+      "url_required": "Een lokale server heeft geen eigen adres. Geef het adres op onder Geavanceerd."
     },
     "abort": {
       "already_configured": "Deze API-sleutel is al ingesteld. Een invoer wordt herkend aan zijn sleutel, dus een tweede adres heeft een eigen sleutel nodig.",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "Vraag bijgewerkt"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "Lokale server"
       }
     }
   }

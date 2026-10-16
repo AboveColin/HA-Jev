@@ -29,15 +29,32 @@ Copy `custom_components/jev` from the
 
 **Settings**, **Devices and services**, **Add integration**, then **Jev (TypeSafe)**.
 
-It asks for an API key. **Advanced** is collapsed and holds the address to send it
-to and the model to ask for; leave it closed to use TypeSafe. All three are checked
-against a live request before the entry is created, so a wrong one fails here rather
-than silently later.
+It asks for a provider and an API key.
 
-The key may be left empty, for an endpoint of your own that asks for none. No
-`Authorization` header is then sent at all. Empty against `https://api.typesafe.ai`
-is refused without spending a request, because that API answers 401 to every
-request without a key.
+| Provider | Address | Model | Price per million input tokens |
+|---|---|---|---|
+| Jev (TypeSafe) | `https://api.typesafe.ai` | `jev-latest` | $0.042 |
+| SubQ Snap | `https://api.subq.ai` | `subq-snap-preview` | $0.09 |
+| OpenRouter | `https://openrouter.ai/api` | `~typesafe/jev-latest` | TypeSafe's, until you set OpenRouter's |
+| Local server | the one you give | `jev-latest` | $0 |
+
+**Advanced** is collapsed and holds the address and the model. Leave both empty to
+use the provider's own; a local server needs its address there. All of them are
+checked against a live request before the entry is created, so a wrong one fails
+here rather than silently later.
+
+The key may be left empty only for a local server that asks for none. No
+`Authorization` header is then sent at all. An empty key for a hosted provider is
+refused without spending a request, because those APIs answer 401 to every request
+without a key.
+
+The price in the table is where the cost sensor starts. Change it in the options if
+your provider bills you something else.
+
+!!! note "SubQ keeps request data"
+    SubQ's default data retention is to keep requests indefinitely. The Decisions API
+    has no per-request opt-out. Ask SubQ for zero data retention before you send it
+    the state of your home.
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=jev)
 
@@ -47,7 +64,7 @@ allowed, and is two entries with two daily budgets, so that key can spend twice
 what one budget allows. Two keyless endpoints are two entries as long as the
 addresses differ.
 
-Use **Reconfigure** to replace the key, the address or the model later. That keeps
+Use **Reconfigure** to change the provider, the key, the address or the model later. That keeps
 your entities and their history.
 
 ## A different API address
@@ -74,21 +91,8 @@ TypeSafe.
 
 ### Through OpenRouter
 
-[OpenRouter](https://openrouter.ai) resells the model, so an OpenRouter key works
-here too.
-
-| Field | Value |
-|---|---|
-| API address | `https://openrouter.ai/api` |
-| API key | your OpenRouter key |
-| Model | `~typesafe/jev-latest` |
-
-The leading `~` is part of the model id. OpenRouter uses it for an id that always
-points at the newest model in a family, the same way `jev-latest` does at TypeSafe.
-
-Give the address exactly as it is in the table. Not `https://openrouter.ai/api/v1`,
-and not a path out of an API reference: the integration appends `/v1/systemone`
-itself.
+[OpenRouter](https://openrouter.ai) resells the model. Pick **OpenRouter** as the
+provider and paste an OpenRouter key; the address and the model id come with it.
 
 Your OpenRouter spend is not visible from here. The cost sensor multiplies the tokens
 the endpoint reports by the price you set in the options, so put OpenRouter's price

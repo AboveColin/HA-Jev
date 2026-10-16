@@ -21,6 +21,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.jev.const import (
     CONF_DAILY_TOKEN_BUDGET,
+    CONF_PROVIDER,
     DOMAIN,
     ISSUE_BUDGET_EXCEEDED,
     STORAGE_VERSION,
@@ -913,7 +914,36 @@ async def test_an_old_unique_id_is_migrated_to_the_endpoint_and_key(hass, mock_c
     await hass.async_block_till_done()
 
     assert entry.unique_id == entry_unique_id("http://gateway.local:8080", "a-key")
-    assert entry.minor_version == 2
+    assert entry.minor_version == 3
+    assert entry.data[CONF_PROVIDER] == "local"
+
+
+@pytest.mark.parametrize(
+    ("data", "provider"),
+    [
+        ({}, "typesafe"),
+        ({CONF_URL: "https://api.typesafe.ai"}, "typesafe"),
+        ({CONF_URL: "https://openrouter.ai/api"}, "openrouter"),
+        ({CONF_URL: "http://192.0.2.5:8080"}, "local"),
+    ],
+)
+async def test_an_entry_from_before_providers_is_given_one(
+    hass, mock_client, data, provider
+):
+    """Until 1.21.0 the address was the only record of who an entry talks to."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Jev",
+        data={CONF_API_KEY: "a-key", **data},
+        unique_id=entry_unique_id(data.get(CONF_URL, "https://api.typesafe.ai"), "a-key"),
+        minor_version=2,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.minor_version == 3
+    assert entry.data[CONF_PROVIDER] == provider
+    assert entry.data[CONF_API_KEY] == "a-key"
 
 
 async def test_an_entry_already_migrated_is_left_where_it_is(hass, mock_client):

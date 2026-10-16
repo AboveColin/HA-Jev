@@ -1,6 +1,9 @@
 """Constants for the Jev integration."""
 
+from dataclasses import dataclass
 from typing import Final
+
+from jevclient import DEFAULT_BASE_URL, DEFAULT_MODEL, USD_PER_MILLION_INPUT_TOKENS
 
 DOMAIN: Final = "jev"
 
@@ -159,6 +162,65 @@ CONF_OPTIONS_TEXT: Final = "options"
 # path left on comes back as. hassfest refuses a URL written into strings.json, so
 # the address travels as a placeholder.
 OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+
+# --- Providers ---
+
+CONF_PROVIDER: Final = "provider"
+
+PROVIDER_TYPESAFE: Final = "typesafe"
+PROVIDER_SUBQ: Final = "subq"
+PROVIDER_OPENROUTER: Final = "openrouter"
+PROVIDER_LOCAL: Final = "local"
+
+
+@dataclass(frozen=True, slots=True)
+class Provider:
+    """An endpoint that speaks the /v1/systemone API, and what it is billed at.
+
+    A base_url of None means the user names the address: a server of their own.
+    """
+
+    title: str
+    base_url: str | None
+    model: str
+    key_required: bool
+    usd_per_million_input_tokens: float
+
+
+# Each of these answered the setup probe live. SubQ on 2026-10-11 with
+# subq-snap-preview: 86 input tokens, 493 ms. Its price is from
+# docs.subq.ai/using-the-api/models, read the same day: $0.09 per million input
+# tokens, output free. OpenRouter resells TypeSafe's model under the id below
+# (site-docs/install.md), so its price is TypeSafe's until measured otherwise.
+PROVIDERS: Final[dict[str, Provider]] = {
+    PROVIDER_TYPESAFE: Provider(
+        "Jev (TypeSafe)",
+        DEFAULT_BASE_URL,
+        DEFAULT_MODEL,
+        True,
+        USD_PER_MILLION_INPUT_TOKENS,
+    ),
+    PROVIDER_SUBQ: Provider(
+        "SubQ Snap", "https://api.subq.ai", "subq-snap-preview", True, 0.09
+    ),
+    PROVIDER_OPENROUTER: Provider(
+        "OpenRouter",
+        OPENROUTER_BASE_URL,
+        "~typesafe/jev-latest",
+        True,
+        USD_PER_MILLION_INPUT_TOKENS,
+    ),
+    PROVIDER_LOCAL: Provider("Local server", None, DEFAULT_MODEL, False, 0.0),
+}
+
+
+def provider_for_url(base_url: str) -> str:
+    """The provider an address belongs to. Entries made before 1.21.0 stored only this."""
+    for name, provider in PROVIDERS.items():
+        if provider.base_url == base_url:
+            return name
+    return PROVIDER_LOCAL
+
 
 # --- House check ---
 

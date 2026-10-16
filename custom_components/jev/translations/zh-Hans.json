@@ -2,13 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "连接到 TypeSafe",
-        "description": "粘贴你的 TypeSafe 账户中的 API 密钥。Home Assistant 会提一个简短的问题，确认该密钥可用。",
+        "title": "连接决策模型",
+        "description": "选择由谁回答，并粘贴该提供商的 API 密钥。Home Assistant 会问一个简短的问题来检查密钥是否可用。",
         "data": {
+          "provider": "提供商",
           "api_key": "API 密钥"
         },
         "data_description": {
-          "api_key": "发送请求时所用的密钥。仅当使用自己的、无需密钥的端点时才留空。"
+          "provider": "Jev (TypeSafe)、SubQ Snap 和 OpenRouter 为托管服务。本地服务器由你自己运行，请在“高级”中填写其地址。",
+          "api_key": "发送请求时使用的密钥。仅当本地服务器不需要密钥时才留空。"
         },
         "sections": {
           "advanced": {
@@ -18,8 +20,8 @@
               "model": "模型"
             },
             "data_description": {
-              "url": "保持原样，除非你自己运行了使用同一套 API 的服务，例如保管密钥或缓存回答的代理。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。",
-              "model": "每次请求都会带上的模型 id。留空表示使用默认模型。"
+              "url": "留空则使用提供商自己的地址。本地服务器需要在此填写地址。密钥以 bearer 标头发送，因此 http 地址会以明文传输密钥。",
+              "model": "每个请求附带的模型 ID。留空则使用提供商的默认模型。"
             }
           }
         }
@@ -35,12 +37,14 @@
         }
       },
       "reconfigure": {
-        "title": "更换你的 API 密钥或地址",
-        "description": "粘贴另一个 TypeSafe API 密钥；如果访问的 API 不在 TypeSafe 而在别处，请同时更改地址。你的问题和实体会保留。",
+        "title": "更改提供商、密钥或地址",
+        "description": "选择其他提供商、粘贴其他密钥或更改地址。你的问题和实体会保留。",
         "data": {
+          "provider": "提供商",
           "api_key": "API 密钥"
         },
         "data_description": {
+          "provider": "Jev (TypeSafe)、SubQ Snap 和 OpenRouter 为托管服务。本地服务器由你自己运行，请在“高级”中填写其地址。",
           "api_key": "留空即可在地址不变时保留当前密钥。新地址不会获得任何密钥，除非你输入一个。"
         },
         "sections": {
@@ -51,8 +55,8 @@
               "model": "模型"
             },
             "data_description": {
-              "url": "清空此字段即可回到 TypeSafe API。密钥以 bearer header 发送，因此 http 地址会让它明文出现在链路上。",
-              "model": "每次请求都会带上的模型 id。留空表示使用默认模型。"
+              "url": "留空则使用提供商自己的地址。本地服务器需要在此填写地址。密钥以 bearer 标头发送，因此 http 地址会以明文传输密钥。",
+              "model": "每个请求附带的模型 ID。留空则使用提供商的默认模型。"
             }
           }
         }
@@ -66,7 +70,8 @@
       "not_found": "服务器返回 HTTP 404。Jev 会在地址后面加上 /v1/systemone，因此只填写它前面的部分。OpenRouter 的地址是 {openrouter_url}。",
       "invalid_url": "这不是可用的 API 地址。它需要有协议和主机，并且不能包含空格、查询串、片段、用户名或密码。",
       "invalid_model": "该模型 id 未被接受。请检查，或清空该字段以使用默认模型。",
-      "key_required": "TypeSafe API 需要密钥。仅当地址指向自己的、无需密钥的端点时，才能留空。"
+      "key_required": "此提供商需要 API 密钥。只有本地服务器可以不用密钥。",
+      "url_required": "本地服务器没有默认地址。请在“高级”中填写其地址。"
     },
     "abort": {
       "already_configured": "此 API 密钥已配置。配置条目以密钥来标识，因此第二个地址需要自己的密钥。",
@@ -715,6 +720,16 @@
       },
       "abort": {
         "reconfigure_successful": "问题已更新"
+      }
+    }
+  },
+  "selector": {
+    "provider": {
+      "options": {
+        "typesafe": "Jev (TypeSafe)",
+        "subq": "SubQ Snap",
+        "openrouter": "OpenRouter",
+        "local": "本地服务器"
       }
     }
   }
