@@ -30,6 +30,13 @@ logger:
 | Home Assistant asks for a new API key | TypeSafe rejected the key. Setup, the questions, an action, an AI Task or a voice command can all start this |
 | An action is refused and lists your entries | More than one Jev entry is loaded. Name one under API key |
 | Reauthentication says a key is required | The hosted API needs a key. A key of only spaces counts as none |
+| "has no picture to send" | An entity under `images:` is not a camera or an image entity |
+| "Could not get a picture from" | The camera did not answer within 10 seconds, or is unavailable. The text after the colon is Home Assistant's reason |
+| "is not an image Jev can read" | The camera sent something that is not a picture, often an error page |
+| An AI Task says "Jev reads text and images" | An attachment is a video or another file type |
+| "refused a request with a box question" | The model is not Jev 1.14. Add `model: jev-1.14.0` to the call |
+| "a box needs a picture" | A `jev.ask` box question was sent with nothing under `images:` |
+| A box covers the whole picture | The thing is probably not there. Read `confidence`, or ask a noul beside it |
 
 ## The answer does not track the world
 

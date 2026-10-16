@@ -1,6 +1,6 @@
 # Actions
 
-Four actions answer inside an automation and return a response variable.
+Five actions answer inside an automation and return a response variable.
 
 ```yaml
 - action: jev.noul
@@ -24,6 +24,7 @@ Four actions answer inside an automation and return a response variable.
 | `jev.choice` | `options:`, 2 to 255 | `choice`, `probabilities`, `confidence` |
 | `jev.score` | `levels:`, 2 to 10, lowest first | `score`, `normalized`, `nearest_level`, `legend`, `probabilities`, `confidence` |
 | `jev.ask` | any mix, under your own keys | the same, under `answers` |
+| `jev.box` | one camera or image entity, and what to find in it | `left`, `top`, `right`, `bottom`, `confidence`, `width`, `height` |
 
 Every response also carries `usage` and `latency_ms`, so an automation can watch what
 it spends.
@@ -54,6 +55,30 @@ automation names its entities on purpose, so the Assist exposure list is not
 consulted here; it is consulted for the [conversation agent](conversation.md).
 `include_attributes: true` never sends access tokens, entity pictures or coordinates,
 so a camera or a `device_tracker` is safe to target.
+
+## Show it a camera
+
+`images:` takes camera and image entities, and sends the current picture of each
+beside the state:
+
+```yaml
+- action: jev.noul
+  response_variable: parcel
+  data:
+    images: [camera.front_door]
+    instructions: Is there a parcel on the doorstep?
+```
+
+It works alone or with a target and a `state`. A picture costs hundreds to thousands
+of tokens, and the budget counts it. [Cameras and images](images.md) has the sizes,
+the cost, `jev.box` and what each error means.
+
+## Ask another model for one call
+
+Every action takes `model:`, which asks that model instead of the entry's for this
+call only. The entry's model, its version sensor and its options stay as they are.
+Box questions need it today: a new entry asks `jev-latest`, which answered as Jev
+1.13 on 2026-10-16, and Box needs `jev-1.14.0` or `jev-preview`.
 
 ## More than one entry
 

@@ -203,6 +203,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "Formulera den så att ett högt tal betyder ja. Ett påstående fungerar lika bra som en fråga."
@@ -223,6 +227,10 @@
           "name": "API-nyckel",
           "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Valfritt. Frågar den här modellen i stället för postens, bara för det här anropet. En box-fråga kräver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Ta med alla attribut",
           "description": "Av som standard. Skickar alla attribut för de valda entiteterna, inte bara värde, måttenhet, enhetsklass och område. En väderprognos eller en mediaspelares lista med omslagsbilder blir tusentals token, och du betalar för dem vid varje utvärdering."
@@ -241,6 +249,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "Vad modellen väljer mellan, i en mening."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "API-nyckel",
           "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Valfritt. Frågar den här modellen i stället för postens, bara för det här anropet. En box-fråga kräver Jev 1.14: jev-1.14.0 eller jev-preview."
         },
         "include_attributes": {
           "name": "Ta med alla attribut",
@@ -275,6 +291,10 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "instructions": {
           "name": "Fråga",
           "description": "En dimension per fråga. En fråga som mäter tre saker samtidigt ger låg säkerhet och en meningslös mitt."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "API-nyckel",
           "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Valfritt. Frågar den här modellen i stället för postens, bara för det här anropet. En box-fråga kräver Jev 1.14: jev-1.14.0 eller jev-preview."
         },
         "include_attributes": {
           "name": "Ta med alla attribut",
@@ -305,17 +329,51 @@
           "name": "Tillstånd",
           "description": "Texten som ska bedömas. Skriv en mall så renderas den innan den skickas."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Valfritt. Kamera- eller bildentiteter vars aktuella bild skickas med tillståndet. Varje bild skalas ned för att rymmas inom 1568 pixlar och debiteras efter storlek: en kamerabild som skickas i 1568 x 882 kostar 3 584 indatatoken."
+        },
         "questions": {
           "name": "Frågor",
-          "description": "Din egen nyckel för varje fråga, sedan dess typ noul, choice eller score, dess instruktioner, och kriterier för choice och score. Nycklarna är dina: de kommer tillbaka som nycklarna i svaren och modellen ser dem aldrig."
+          "description": "Din egen nyckel för varje fråga, sedan dess typ noul, choice eller score, dess instruktioner, och kriterier för choice och score. Nycklarna är dina: de kommer tillbaka som nycklarna i svaren och modellen ser dem aldrig. En box-fråga hittar var något är på bilderna under images, och kräver Jev 1.14."
         },
         "config_entry": {
           "name": "API-nyckel",
           "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Valfritt. Frågar den här modellen i stället för postens, bara för det här anropet. En box-fråga kräver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Ta med alla attribut",
           "description": "Av som standard. Skickar alla attribut för de valda entiteterna, inte bara värde, måttenhet, enhetsklass och område. En väderprognos eller en mediaspelares lista med omslagsbilder blir tusentals token, och du betalar för dem vid varje utvärdering."
+        }
+      }
+    },
+    "box": {
+      "name": "Hitta var något är",
+      "description": "Frågar var något är på den aktuella bilden från en kamera eller en bildentitet. Svaret är en box: dess vänstra, övre, högra och nedre kant som andelar av bildens bredd och höjd från övre vänstra hörnet, med en säkerhet. Kräver Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Bild",
+          "description": "Kameran eller bildentiteten vars aktuella bild genomsöks."
+        },
+        "instructions": {
+          "name": "Vad som ska hittas",
+          "description": "Beskriv det som ska hittas, till exempel paketet vid dörren. En box kommer alltid tillbaka, även när saken inte finns där, så läs säkerheten."
+        },
+        "background": {
+          "name": "Bakgrund",
+          "description": "Valfritt. Fasta fakta om hur det här ska läsas, till exempel vad ett mätvärde betyder för just din enhet. Det följer med frågan i stället för med mätvärdena, vilket mätbart fungerar bättre än att lägga det i tillståndet. Ett objekt i stället för en mening behåller dina egna nyckelnamn, och modellen läser de nycklarna."
+        },
+        "config_entry": {
+          "name": "API-nyckel",
+          "description": "Vilken konfigurerad nyckel som frågan ska ställas med. Behövs bara när fler än en är konfigurerad."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Valfritt. Frågar den här modellen i stället för postens, bara för det här anropet. En box-fråga kräver Jev 1.14: jev-1.14.0 eller jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} är inte en påslagen lampa, strömbrytare eller fläkt, så huskontrollen kan inte stänga av den."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} har ingen bild att skicka. Bilder kommer från kamera- och bildentiteter."
+    },
+    "image_unavailable": {
+      "message": "Kunde inte hämta en bild från {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Bilden från {source} är inte en bild som Jev kan läsa: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} är {mime_type}. Jev läser text och bilder, så bifoga en ögonblicksbild från en kamera eller en PNG- eller JPEG-fil."
+    },
+    "box_refused": {
+      "message": "{model} avvisade en begäran med en box-fråga: {reason}. En box kräver Jev 1.14, så sätt model till jev-1.14.0 eller jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Frågan {key} är en box, och en box behöver en bild. Lägg till en kamera eller en bildentitet under images."
     }
   },
   "common": {

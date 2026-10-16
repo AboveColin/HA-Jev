@@ -509,7 +509,7 @@ def _slow_jev(hass: HomeAssistant) -> None:
     """
     client = hass.config_entries.async_loaded_entries("jev")[0].runtime_data.client
 
-    async def answer(*_args: Any) -> Any:
+    async def answer(*_args: Any, **_kwargs: Any) -> Any:
         await asyncio.sleep(0)
         return client.ask.return_value
 

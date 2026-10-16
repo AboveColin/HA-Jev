@@ -203,6 +203,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "措辞上要让高数值代表“是”。陈述句和疑问句同样适用。"
@@ -223,6 +227,10 @@
           "name": "API 密钥",
           "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
         },
+        "model": {
+          "name": "模型",
+          "description": "可选。本次调用改为询问此模型，而不是条目的模型。box 问题需要 Jev 1.14：jev-1.14.0 或 jev-preview。"
+        },
         "include_attributes": {
           "name": "包含全部属性",
           "description": "默认关闭。会发送所选实体的每一个属性，而不只是值、单位、设备类别和区域。一份天气预报或一个媒体播放器的封面列表可达数千个令牌，而且每次评估都要为此付费。"
@@ -241,6 +249,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "用一句话说明模型在哪些内容之间做选择。"
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "API 密钥",
           "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
+        },
+        "model": {
+          "name": "模型",
+          "description": "可选。本次调用改为询问此模型，而不是条目的模型。box 问题需要 Jev 1.14：jev-1.14.0 或 jev-preview。"
         },
         "include_attributes": {
           "name": "包含全部属性",
@@ -275,6 +291,10 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "instructions": {
           "name": "问题",
           "description": "每个问题只衡量一个维度。同时衡量三件事的问题会得到很低的置信度和一个无意义的中间值。"
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "API 密钥",
           "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
+        },
+        "model": {
+          "name": "模型",
+          "description": "可选。本次调用改为询问此模型，而不是条目的模型。box 问题需要 Jev 1.14：jev-1.14.0 或 jev-preview。"
         },
         "include_attributes": {
           "name": "包含全部属性",
@@ -305,17 +329,51 @@
           "name": "状态",
           "description": "要判断的文本。写成模板时，会先渲染再发送。"
         },
+        "images": {
+          "name": "图像",
+          "description": "可选。摄像头或图像实体，其当前画面会随状态一起发送。每张画面都会缩小到 1568 像素以内，并按尺寸计费：以 1568 x 882 发送的一帧摄像头画面消耗 3,584 个输入令牌。"
+        },
         "questions": {
           "name": "问题",
-          "description": "每个问题先写你自己的键，然后是它的类型 noul、choice 或 score，它的 instructions，以及 choice 和 score 所需的 criteria。这些键属于你：它们会作为回答的键返回，模型永远看不到它们。"
+          "description": "每个问题先写你自己的键，然后是它的类型 noul、choice 或 score，它的 instructions，以及 choice 和 score 所需的 criteria。这些键属于你：它们会作为回答的键返回，模型永远看不到它们。 box 问题会在 images 中的画面里查找某物的位置，需要 Jev 1.14。"
         },
         "config_entry": {
           "name": "API 密钥",
           "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
         },
+        "model": {
+          "name": "模型",
+          "description": "可选。本次调用改为询问此模型，而不是条目的模型。box 问题需要 Jev 1.14：jev-1.14.0 或 jev-preview。"
+        },
         "include_attributes": {
           "name": "包含全部属性",
           "description": "默认关闭。会发送所选实体的每一个属性，而不只是值、单位、设备类别和区域。一份天气预报或一个媒体播放器的封面列表可达数千个令牌，而且每次评估都要为此付费。"
+        }
+      }
+    },
+    "box": {
+      "name": "查找某物的位置",
+      "description": "询问某物在摄像头或图像实体当前画面中的位置。答案是一个 box：它的左、上、右、下边缘，以画面宽度和高度的比例表示，从左上角算起，并附带置信度。需要 Jev 1.14。",
+      "fields": {
+        "image": {
+          "name": "图像",
+          "description": "要在其当前画面中查找的摄像头或图像实体。"
+        },
+        "instructions": {
+          "name": "要查找什么",
+          "description": "描述要查找的东西，例如门口的包裹。无论东西在不在，都会返回一个 box，所以请看置信度。"
+        },
+        "background": {
+          "name": "背景信息",
+          "description": "可选。关于如何解读该内容的长期事实，例如某个读数对你这台设备意味着什么。它随问题一起发送，而不是随读数发送，实测效果优于把它写进状态。用对象而不是句子可以保留你自己的键名，模型会读取这些键。"
+        },
+        "config_entry": {
+          "name": "API 密钥",
+          "description": "使用已配置的哪个密钥提问。仅在配置了多个密钥时才需要。"
+        },
+        "model": {
+          "name": "模型",
+          "description": "可选。本次调用改为询问此模型，而不是条目的模型。box 问题需要 Jev 1.14：jev-1.14.0 或 jev-preview。"
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} 不是已打开的灯、开关或风扇，因此房屋检查无法将其关闭。"
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} 没有可发送的画面。图像来自摄像头实体和图像实体。"
+    },
+    "image_unavailable": {
+      "message": "无法从 {entity_id} 获取画面：{reason}"
+    },
+    "image_unreadable": {
+      "message": "来自 {source} 的画面不是 Jev 能读取的图像：{reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} 的类型是 {mime_type}。Jev 读取文本和图像，请附加摄像头快照或 PNG、JPEG 文件。"
+    },
+    "box_refused": {
+      "message": "{model} 拒绝了包含 box 问题的请求：{reason}。box 需要 Jev 1.14，请将 model 设为 jev-1.14.0 或 jev-preview。"
+    },
+    "box_needs_image": {
+      "message": "问题 {key} 是 box，而 box 需要画面。请在 images 中添加摄像头或图像实体。"
     }
   },
   "common": {

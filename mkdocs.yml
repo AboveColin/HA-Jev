@@ -123,6 +123,7 @@ nav:
   - In automations:
       - Actions: actions.md
       - AI Task: ai-task.md
+      - Cameras and images: images.md
       - Blueprints: blueprints.md
       - Examples: examples.md
       - Tuning a threshold: calibrate.md

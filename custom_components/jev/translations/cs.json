@@ -203,6 +203,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Formulujte ji tak, aby vysoké číslo znamenalo ano. Tvrzení funguje stejně dobře jako otázka."
@@ -223,6 +227,10 @@
           "name": "Klíč API",
           "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
         },
+        "model": {
+          "name": "Model",
+          "description": "Volitelné. Zeptá se tohoto modelu místo modelu položky, jen pro toto volání. Otázka typu box potřebuje Jev 1.14: jev-1.14.0 nebo jev-preview."
+        },
         "include_attributes": {
           "name": "Zahrnout všechny atributy",
           "description": "Ve výchozím stavu vypnuto. Posílá každý atribut vybraných entit, nejen hodnotu, jednotku, třídu zařízení a oblast. Předpověď počasí nebo seznam obalů alb v přehrávači médií vydá na tisíce tokenů a ty zaplatíte při každém vyhodnocení."
@@ -241,6 +249,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Mezi čím model vybírá, v jedné větě."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "Klíč API",
           "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Volitelné. Zeptá se tohoto modelu místo modelu položky, jen pro toto volání. Otázka typu box potřebuje Jev 1.14: jev-1.14.0 nebo jev-preview."
         },
         "include_attributes": {
           "name": "Zahrnout všechny atributy",
@@ -275,6 +291,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Jeden rozměr na otázku. Otázka, která měří tři věci naráz, dává nízkou jistotu a bezvýznamný střed."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "Klíč API",
           "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Volitelné. Zeptá se tohoto modelu místo modelu položky, jen pro toto volání. Otázka typu box potřebuje Jev 1.14: jev-1.14.0 nebo jev-preview."
         },
         "include_attributes": {
           "name": "Zahrnout všechny atributy",
@@ -305,17 +329,51 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "questions": {
           "name": "Otázky",
-          "description": "Váš vlastní klíč pro každou otázku, pak její typ noul, choice nebo score, její instructions a kritéria u choice a score. Klíče jsou vaše: vrátí se jako klíče odpovědí a model je nikdy nevidí."
+          "description": "Váš vlastní klíč pro každou otázku, pak její typ noul, choice nebo score, její instructions a kritéria u choice a score. Klíče jsou vaše: vrátí se jako klíče odpovědí a model je nikdy nevidí. Otázka typu box najde, kde něco je na obrázcích v images, a potřebuje Jev 1.14."
         },
         "config_entry": {
           "name": "Klíč API",
           "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
         },
+        "model": {
+          "name": "Model",
+          "description": "Volitelné. Zeptá se tohoto modelu místo modelu položky, jen pro toto volání. Otázka typu box potřebuje Jev 1.14: jev-1.14.0 nebo jev-preview."
+        },
         "include_attributes": {
           "name": "Zahrnout všechny atributy",
           "description": "Ve výchozím stavu vypnuto. Posílá každý atribut vybraných entit, nejen hodnotu, jednotku, třídu zařízení a oblast. Předpověď počasí nebo seznam obalů alb v přehrávači médií vydá na tisíce tokenů a ty zaplatíte při každém vyhodnocení."
+        }
+      }
+    },
+    "box": {
+      "name": "Najít, kde něco je",
+      "description": "Zeptá se, kde něco je na aktuálním snímku kamery nebo entity obrázku. Odpověď je box: jeho levý, horní, pravý a dolní okraj jako zlomky šířky a výšky snímku od levého horního rohu, s jistotou. Potřebuje Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Obrázek",
+          "description": "Kamera nebo entita obrázku, na jejímž aktuálním snímku se hledá."
+        },
+        "instructions": {
+          "name": "Co najít",
+          "description": "Popište, co se má najít, například balík na prahu. Box přijde vždy, i když tam věc není, proto čtěte jistotu."
+        },
+        "background": {
+          "name": "Pozadí",
+          "description": "Volitelné. Trvale platná fakta o tom, jak to číst, například co znamená naměřená hodnota u vašeho konkrétního zařízení. Putuje s otázkou, a ne s naměřenými hodnotami, což měřitelně funguje lépe než vložení do stavu. Objekt místo věty zachová vaše vlastní názvy klíčů a model tyto klíče čte."
+        },
+        "config_entry": {
+          "name": "Klíč API",
+          "description": "Kterým nastaveným klíčem se má ptát. Potřeba jen tehdy, když je nastavený více než jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Volitelné. Zeptá se tohoto modelu místo modelu položky, jen pro toto volání. Otázka typu box potřebuje Jev 1.14: jev-1.14.0 nebo jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} není zapnuté světlo, vypínač ani ventilátor, takže ho kontrola domu nemůže vypnout."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} nemá žádný obrázek k odeslání. Obrázky pocházejí z entit kamer a obrázků."
+    },
+    "image_unavailable": {
+      "message": "Z {entity_id} se nepodařilo získat obrázek: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Obrázek z {source} není obrázek, který Jev umí přečíst: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} je {mime_type}. Jev čte text a obrázky, proto přiložte snímek z kamery nebo soubor PNG či JPEG."
+    },
+    "box_refused": {
+      "message": "{model} odmítl požadavek s otázkou typu box: {reason}. Box potřebuje Jev 1.14, nastavte proto model na jev-1.14.0 nebo jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Otázka {key} je box a box potřebuje obrázek. Přidejte do images kameru nebo entitu obrázku."
     }
   },
   "common": {

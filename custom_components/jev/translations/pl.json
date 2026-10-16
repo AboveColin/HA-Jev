@@ -203,6 +203,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Sformułuj je tak, żeby wysoka liczba oznaczała tak. Stwierdzenie działa równie dobrze jak pytanie."
@@ -223,6 +227,10 @@
           "name": "Klucz API",
           "description": "Którym skonfigurowanym kluczem zapytać. Potrzebne tylko wtedy, gdy skonfigurowano więcej niż jeden."
         },
+        "model": {
+          "name": "Model",
+          "description": "Opcjonalne. Pyta ten model zamiast modelu wpisu, tylko w tym wywołaniu. Pytanie typu box wymaga Jev 1.14: jev-1.14.0 lub jev-preview."
+        },
         "include_attributes": {
           "name": "Dołącz wszystkie atrybuty",
           "description": "Domyślnie wyłączone. Wysyła każdy atrybut wybranych encji, nie tylko wartość, jednostkę, klasę urządzenia i obszar. Prognoza pogody albo lista okładek odtwarzacza multimediów to tysiące tokenów, za które płacisz przy każdej ocenie."
@@ -241,6 +249,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Między czym model wybiera, w jednym zdaniu."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "Klucz API",
           "description": "Którym skonfigurowanym kluczem zapytać. Potrzebne tylko wtedy, gdy skonfigurowano więcej niż jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Opcjonalne. Pyta ten model zamiast modelu wpisu, tylko w tym wywołaniu. Pytanie typu box wymaga Jev 1.14: jev-1.14.0 lub jev-preview."
         },
         "include_attributes": {
           "name": "Dołącz wszystkie atrybuty",
@@ -275,6 +291,10 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "instructions": {
           "name": "Pytanie",
           "description": "Jeden wymiar na pytanie. Pytanie mierzące trzy rzeczy naraz daje niską pewność i nic nieznaczący środek."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "Klucz API",
           "description": "Którym skonfigurowanym kluczem zapytać. Potrzebne tylko wtedy, gdy skonfigurowano więcej niż jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Opcjonalne. Pyta ten model zamiast modelu wpisu, tylko w tym wywołaniu. Pytanie typu box wymaga Jev 1.14: jev-1.14.0 lub jev-preview."
         },
         "include_attributes": {
           "name": "Dołącz wszystkie atrybuty",
@@ -305,17 +329,51 @@
           "name": "Stan",
           "description": "Tekst do oceny. Napisz szablon, a zostanie wyrenderowany przed wysłaniem."
         },
+        "images": {
+          "name": "Obrazy",
+          "description": "Opcjonalne. Encje kamer lub obrazów, których bieżący obraz jest wysyłany razem ze stanem. Każdy obraz jest zmniejszany, by zmieścić się w 1568 pikselach, i rozliczany według rozmiaru: klatka z kamery wysłana w rozmiarze 1568 x 882 kosztuje 3584 tokeny wejściowe."
+        },
         "questions": {
           "name": "Pytania",
-          "description": "Twój własny klucz dla każdego pytania, potem jego typ noul, choice lub score, jego instrukcje oraz kryteria dla choice i score. Klucze należą do Ciebie: wracają jako klucze odpowiedzi, a model nigdy ich nie widzi."
+          "description": "Twój własny klucz dla każdego pytania, potem jego typ noul, choice lub score, jego instrukcje oraz kryteria dla choice i score. Klucze należą do Ciebie: wracają jako klucze odpowiedzi, a model nigdy ich nie widzi. Pytanie typu box znajduje, gdzie coś jest na obrazach w images, i wymaga Jev 1.14."
         },
         "config_entry": {
           "name": "Klucz API",
           "description": "Którym skonfigurowanym kluczem zapytać. Potrzebne tylko wtedy, gdy skonfigurowano więcej niż jeden."
         },
+        "model": {
+          "name": "Model",
+          "description": "Opcjonalne. Pyta ten model zamiast modelu wpisu, tylko w tym wywołaniu. Pytanie typu box wymaga Jev 1.14: jev-1.14.0 lub jev-preview."
+        },
         "include_attributes": {
           "name": "Dołącz wszystkie atrybuty",
           "description": "Domyślnie wyłączone. Wysyła każdy atrybut wybranych encji, nie tylko wartość, jednostkę, klasę urządzenia i obszar. Prognoza pogody albo lista okładek odtwarzacza multimediów to tysiące tokenów, za które płacisz przy każdej ocenie."
+        }
+      }
+    },
+    "box": {
+      "name": "Znajdź, gdzie coś jest",
+      "description": "Pyta, gdzie coś jest na bieżącym obrazie kamery lub encji obrazu. Odpowiedź to box: jego lewa, górna, prawa i dolna krawędź jako ułamki szerokości i wysokości obrazu, licząc od lewego górnego rogu, z pewnością. Wymaga Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Obraz",
+          "description": "Kamera lub encja obrazu, której bieżący obraz jest przeszukiwany."
+        },
+        "instructions": {
+          "name": "Co znaleźć",
+          "description": "Opisz, co trzeba znaleźć, na przykład paczkę pod drzwiami. Box wraca zawsze, także gdy rzeczy tam nie ma, więc czytaj pewność."
+        },
+        "background": {
+          "name": "Kontekst",
+          "description": "Opcjonalne. Stałe fakty o tym, jak to czytać, na przykład co dany odczyt oznacza dla Twojego urządzenia. Jest wysyłany z pytaniem, a nie z odczytami, co wymiernie działa lepiej niż umieszczenie go w stanie. Obiekt zamiast zdania zachowuje Twoje własne nazwy kluczy, a model te klucze czyta."
+        },
+        "config_entry": {
+          "name": "Klucz API",
+          "description": "Którym skonfigurowanym kluczem zapytać. Potrzebne tylko wtedy, gdy skonfigurowano więcej niż jeden."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Opcjonalne. Pyta ten model zamiast modelu wpisu, tylko w tym wywołaniu. Pytanie typu box wymaga Jev 1.14: jev-1.14.0 lub jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} nie jest włączonym światłem, przełącznikiem ani wentylatorem, więc sprawdzanie domu nie może go wyłączyć."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} nie ma obrazu do wysłania. Obrazy pochodzą z encji kamer i obrazów."
+    },
+    "image_unavailable": {
+      "message": "Nie udało się pobrać obrazu z {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Obraz z {source} nie jest obrazem, który Jev potrafi odczytać: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} to {mime_type}. Jev czyta tekst i obrazy, więc załącz zrzut z kamery albo plik PNG lub JPEG."
+    },
+    "box_refused": {
+      "message": "{model} odrzucił żądanie z pytaniem typu box: {reason}. Box wymaga Jev 1.14, więc ustaw model na jev-1.14.0 lub jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Pytanie {key} jest typu box, a box potrzebuje obrazu. Dodaj kamerę lub encję obrazu w images."
     }
   },
   "common": {

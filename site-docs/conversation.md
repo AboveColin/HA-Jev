@@ -101,7 +101,7 @@ says "Done."
 !!! info "It only sees what Assist sees"
     The agent describes only entities you exposed to Assist. You already decided
     which entities a voice assistant may touch, and a question is not a reason to
-    widen that. This is the voice path only. The [four actions](actions.md) send
+    widen that. This is the voice path only. The [actions](actions.md) send
     whatever an automation targets, exposed or not.
 
 ## A house with more than 150 exposed entities

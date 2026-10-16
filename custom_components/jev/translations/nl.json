@@ -203,6 +203,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Formuleer zo dat een hoog getal ja betekent. Een stelling werkt net zo goed als een vraag."
@@ -223,6 +227,10 @@
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optioneel. Vraagt dit model in plaats van dat van de integratie, alleen voor deze aanroep. Een box-vraag heeft Jev 1.14 nodig: jev-1.14.0 of jev-preview."
+        },
         "include_attributes": {
           "name": "Alle attributen meesturen",
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
@@ -241,6 +249,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Waartussen het model kiest, in een zin."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Optioneel. Vraagt dit model in plaats van dat van de integratie, alleen voor deze aanroep. Een box-vraag heeft Jev 1.14 nodig: jev-1.14.0 of jev-preview."
         },
         "include_attributes": {
           "name": "Alle attributen meesturen",
@@ -275,6 +291,10 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "instructions": {
           "name": "Vraag",
           "description": "Een dimensie per vraag. Een vraag die drie dingen tegelijk meet geeft lage betrouwbaarheid en een nietszeggend midden."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Optioneel. Vraagt dit model in plaats van dat van de integratie, alleen voor deze aanroep. Een box-vraag heeft Jev 1.14 nodig: jev-1.14.0 of jev-preview."
         },
         "include_attributes": {
           "name": "Alle attributen meesturen",
@@ -305,17 +329,51 @@
           "name": "Toestand",
           "description": "De tekst die beoordeeld wordt. Schrijf een template en die wordt gerenderd voordat hij verstuurd wordt."
         },
+        "images": {
+          "name": "Afbeeldingen",
+          "description": "Optioneel. Camera- of afbeeldingsentiteiten waarvan het huidige beeld met de toestand wordt meegestuurd. Elk beeld wordt verkleind tot het binnen 1568 pixels past en wordt naar grootte afgerekend: een camerabeeld dat op 1568 x 882 wordt verstuurd, kost 3.584 invoertokens."
+        },
         "questions": {
           "name": "Vragen",
-          "description": "Je eigen sleutel per vraag, dan het type noul, choice of score, de instructies, en criteria bij choice en score. De sleutels zijn van jou: je krijgt ze terug als sleutels van de antwoorden en het model ziet ze nooit."
+          "description": "Je eigen sleutel per vraag, dan het type noul, choice of score, de instructies, en criteria bij choice en score. De sleutels zijn van jou: je krijgt ze terug als sleutels van de antwoorden en het model ziet ze nooit. Een box-vraag vindt waar iets is op de beelden onder images, en heeft Jev 1.14 nodig."
         },
         "config_entry": {
           "name": "API-sleutel",
           "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optioneel. Vraagt dit model in plaats van dat van de integratie, alleen voor deze aanroep. Een box-vraag heeft Jev 1.14 nodig: jev-1.14.0 of jev-preview."
+        },
         "include_attributes": {
           "name": "Alle attributen meesturen",
           "description": "Staat uit. Stuurt alle attributen van de gekozen entiteiten mee, niet alleen de waarde, eenheid, device class en ruimte. Een weersverwachting of een lijst met albumhoezen loopt in de duizenden tokens, en die betaal je bij elke evaluatie."
+        }
+      }
+    },
+    "box": {
+      "name": "Vinden waar iets is",
+      "description": "Vraag waar iets is op het huidige beeld van een camera of afbeeldingsentiteit. Het antwoord is een box: de linker-, boven-, rechter- en onderrand als fracties van de breedte en hoogte van het beeld, vanaf de linkerbovenhoek, met een betrouwbaarheid. Heeft Jev 1.14 nodig.",
+      "fields": {
+        "image": {
+          "name": "Afbeelding",
+          "description": "De camera of afbeeldingsentiteit waarvan het huidige beeld wordt doorzocht."
+        },
+        "instructions": {
+          "name": "Wat zoeken",
+          "description": "Beschrijf wat gevonden moet worden, zoals het pakket op de stoep. Er komt altijd een box terug, ook als het ding er niet is, dus lees de betrouwbaarheid."
+        },
+        "background": {
+          "name": "Achtergrond",
+          "description": "Optioneel. Vaste feiten over hoe je dit moet lezen, bijvoorbeeld wat een meetwaarde betekent voor jouw apparaat. Dit reist mee met de vraag in plaats van met de meetwaarden, en dat werkt aantoonbaar beter. Geef je een object in plaats van een zin, dan blijven je eigen sleutelnamen staan, en het model leest die sleutels."
+        },
+        "config_entry": {
+          "name": "API-sleutel",
+          "description": "Met welke ingestelde sleutel gevraagd wordt. Alleen nodig als er meer dan een is."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Optioneel. Vraagt dit model in plaats van dat van de integratie, alleen voor deze aanroep. Een box-vraag heeft Jev 1.14 nodig: jev-1.14.0 of jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} is geen lamp, schakelaar of ventilator die aan staat, dus de huiscontrole kan het niet uitzetten."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} heeft geen beeld om te versturen. Beelden komen van camera- en afbeeldingsentiteiten."
+    },
+    "image_unavailable": {
+      "message": "Kon geen beeld ophalen van {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Het beeld van {source} is geen afbeelding die Jev kan lezen: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} is {mime_type}. Jev leest tekst en afbeeldingen, voeg dus een camerasnapshot of een PNG- of JPEG-bestand toe."
+    },
+    "box_refused": {
+      "message": "{model} weigerde een verzoek met een box-vraag: {reason}. Een box heeft Jev 1.14 nodig, dus zet model op jev-1.14.0 of jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Vraag {key} is een box, en een box heeft een beeld nodig. Voeg onder images een camera of afbeeldingsentiteit toe."
     }
   },
   "common": {

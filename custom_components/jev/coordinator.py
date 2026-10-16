@@ -173,10 +173,18 @@ class UsageAccount:
             self.set_budget_exceeded(False)
             self._save()
 
-    def record(self, input_tokens: int, payload_bytes: int | None = None) -> None:
+    def record(
+        self,
+        input_tokens: int,
+        payload_bytes: int | None = None,
+        image_tokens: int = 0,
+    ) -> None:
         self.calls += 1
         self.input_tokens += input_tokens
-        body_tokens = input_tokens - REQUEST_OVERHEAD_TOKENS
+        # Images are billed by pixels and payload_bytes leaves them out, so their
+        # tokens come off before the ratio is learned. Left in, one 1568 x 1176
+        # frame (4,704 tokens) would teach a ratio several times too low.
+        body_tokens = input_tokens - REQUEST_OVERHEAD_TOKENS - image_tokens
         if payload_bytes and body_tokens >= MIN_MEASURED_BODY_TOKENS:
             self.bytes_per_token = payload_bytes / body_tokens
         self._save()
@@ -204,10 +212,17 @@ class UsageAccount:
         """Whether the budget is already spent. Reads the day, not a request."""
         return self.budget > 0 and self.input_tokens >= self.budget
 
-    def estimate_tokens(self, request_bytes: int) -> int:
-        """What a request of this size will be billed, over-estimated on purpose."""
+    def estimate_tokens(self, request_bytes: int, image_tokens: int = 0) -> int:
+        """What a request of this size will be billed, over-estimated on purpose.
+
+        `request_bytes` is the body without its images, which are counted by their
+        pixels in `image_tokens` instead.
+        """
         body_tokens = request_bytes / self.bytes_per_token
-        return ceil((REQUEST_OVERHEAD_TOKENS + body_tokens) * BUDGET_ESTIMATE_MARGIN)
+        return ceil(
+            (REQUEST_OVERHEAD_TOKENS + body_tokens + image_tokens)
+            * BUDGET_ESTIMATE_MARGIN
+        )
 
     def would_exceed_with(self, estimate: int) -> bool:
         """Whether a request costing `estimate` would end the day over budget.

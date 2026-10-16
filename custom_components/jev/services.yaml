@@ -10,6 +10,17 @@ noul:
         Finished: {{ relative_time(states.sensor.washing_machine_finished.last_changed) }} ago
       selector:
         template:
+    images:
+      required: false
+      example:
+        - camera.front_door
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain:
+                - camera
+                - image
     instructions:
       required: true
       default: Is the laundry finished but still sitting in the machine?
@@ -54,6 +65,11 @@ noul:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 choice:
   target:
@@ -65,6 +81,17 @@ choice:
         {{ trigger.payload | default('Package for number 31, nobody answering') }}
       selector:
         template:
+    images:
+      required: false
+      example:
+        - camera.front_door
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain:
+                - camera
+                - image
     instructions:
       required: true
       default: What kind of caller is at the door?
@@ -105,6 +132,11 @@ choice:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 score:
   target:
@@ -116,6 +148,17 @@ score:
         {{ trigger.payload | default('backup.nightly failed at 03:12, second failure this week') }}
       selector:
         template:
+    images:
+      required: false
+      example:
+        - camera.front_door
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain:
+                - camera
+                - image
     instructions:
       required: true
       default: How urgently must someone act on this?
@@ -149,6 +192,11 @@ score:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 ask:
   target:
@@ -162,6 +210,17 @@ ask:
         Outside: {{ states('sensor.outside_temperature') }} degrees
       selector:
         template:
+    images:
+      required: false
+      example:
+        - camera.front_door
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain:
+                - camera
+                - image
     questions:
       required: true
       default:
@@ -196,6 +255,46 @@ ask:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
+
+box:
+  fields:
+    image:
+      required: true
+      example: camera.front_door
+      selector:
+        entity:
+          filter:
+            - domain:
+                - camera
+                - image
+    instructions:
+      required: true
+      default: the parcel on the doorstep
+      selector:
+        text:
+          multiline: true
+    background:
+      required: false
+      example: >-
+        Parcels are left on the mat to the left of the door.
+      selector:
+        text:
+          multiline: true
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 calibrate:
   fields:

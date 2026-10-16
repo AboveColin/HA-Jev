@@ -203,6 +203,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Formule de modo que um número alto signifique sim. Uma afirmação funciona tão bem quanto uma pergunta."
@@ -223,6 +227,10 @@
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
@@ -241,6 +249,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Entre o que o modelo está escolhendo, em uma frase."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
         },
         "include_attributes": {
           "name": "Incluir todos os atributos",
@@ -275,6 +291,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Uma dimensão por pergunta. Uma pergunta que mede três coisas ao mesmo tempo produz uma confiança baixa e um meio sem significado."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
         },
         "include_attributes": {
           "name": "Incluir todos os atributos",
@@ -305,17 +329,51 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "questions": {
           "name": "Perguntas",
-          "description": "Sua própria chave para cada pergunta, depois o tipo dela, noul, choice ou score, suas instruções e os critérios para choice e score. As chaves são suas: elas voltam como as chaves das respostas e o modelo nunca as vê."
+          "description": "Sua própria chave para cada pergunta, depois o tipo dela, noul, choice ou score, suas instruções e os critérios para choice e score. As chaves são suas: elas voltam como as chaves das respostas e o modelo nunca as vê. Uma pergunta box encontra onde algo está nas imagens em images, e precisa do Jev 1.14."
         },
         "config_entry": {
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
+        }
+      }
+    },
+    "box": {
+      "name": "Encontrar onde algo está",
+      "description": "Pergunta onde algo está na imagem atual de uma câmera ou entidade de imagem. A resposta é uma box: suas bordas esquerda, superior, direita e inferior como frações da largura e da altura da imagem, a partir do canto superior esquerdo, com uma confiança. Precisa do Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Imagem",
+          "description": "A câmera ou entidade de imagem cuja imagem atual é examinada."
+        },
+        "instructions": {
+          "name": "O que encontrar",
+          "description": "Descreva o que deve ser encontrado, como o pacote na porta. Uma box sempre volta, também quando a coisa não está lá, então leia a confiança."
+        },
+        "background": {
+          "name": "Informações de base",
+          "description": "Opcional. Fatos permanentes sobre como ler isto, como o que uma leitura significa para o seu dispositivo específico. Isso viaja junto com a pergunta e não com as leituras, o que funciona mensuravelmente melhor do que colocar no estado. Um objeto em vez de uma frase preserva os seus próprios nomes de chave, e o modelo lê essas chaves."
+        },
+        "config_entry": {
+          "name": "Chave de API",
+          "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} não é uma luz, um interruptor ou um ventilador ligado, então a verificação da casa não pode desligá-lo."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} não tem nenhuma imagem para enviar. As imagens vêm de entidades de câmera e de imagem."
+    },
+    "image_unavailable": {
+      "message": "Não foi possível obter uma imagem de {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "A imagem de {source} não é uma imagem que o Jev consiga ler: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} é {mime_type}. O Jev lê texto e imagens, então anexe uma captura de câmera ou um arquivo PNG ou JPEG."
+    },
+    "box_refused": {
+      "message": "{model} recusou uma solicitação com uma pergunta box: {reason}. Uma box precisa do Jev 1.14, então defina model como jev-1.14.0 ou jev-preview."
+    },
+    "box_needs_image": {
+      "message": "A pergunta {key} é uma box, e uma box precisa de uma imagem. Adicione uma câmera ou entidade de imagem em images."
     }
   },
   "common": {

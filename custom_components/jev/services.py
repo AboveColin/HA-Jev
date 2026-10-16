@@ -32,6 +32,8 @@ from jevclient import (
     MAX_SCORE_LEVELS,
     MIN_CHOICE_OPTIONS,
     MIN_SCORE_LEVELS,
+    Box,
+    BoxAnswer,
     Choice,
     ChoiceAnswer,
     JevAuthError,
@@ -57,9 +59,12 @@ from .const import (
     ATTR_USE_JEV,
     CONF_BACKGROUND,
     CONF_FALSE_MEANS,
+    CONF_IMAGE,
+    CONF_IMAGES,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
     CONF_LEVELS,
+    CONF_MODEL,
     CONF_OPTION_DESCRIPTIONS,
     CONF_OPTIONS,
     CONF_STATE_TEMPLATE,
@@ -67,15 +72,25 @@ from .const import (
     CONF_TRUE_MEANS,
     DOMAIN,
     SERVICE_ASK,
+    SERVICE_BOX,
     SERVICE_CALIBRATE,
     SERVICE_CHOICE,
     SERVICE_HOUSE_CHECK,
     SERVICE_NOUL,
     SERVICE_SCORE,
     SERVICE_UNDO_HOUSE_CHECK,
+    TYPE_BOX,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
+)
+from .images import (
+    RequestImages,
+    async_entity_image,
+    async_entity_images,
+    entity_label,
+    no_images,
+    with_images,
 )
 from .models import ENTRY, build_question, compose_instructions
 from .payload import payload_bytes
@@ -88,8 +103,10 @@ TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
 
 _BASE = {
     vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+    vol.Optional(CONF_IMAGES, default=list): cv.entity_ids,
     vol.Optional(CONF_BACKGROUND): ENTRY,
     vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    vol.Optional(CONF_MODEL): cv.string,
     vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
     vol.Required(CONF_INSTRUCTIONS): ENTRY,
     **cv.TARGET_SERVICE_FIELDS,
@@ -124,13 +141,26 @@ SCORE_SCHEMA = vol.Schema(
 ASK_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+        vol.Optional(CONF_IMAGES, default=list): cv.entity_ids,
         # An empty mapping is still a billed request, answered with nothing.
         vol.Required(ATTR_QUESTIONS): vol.All(
             vol.Schema({cv.string: dict}), vol.Length(min=1)
         ),
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        vol.Optional(CONF_MODEL): cv.string,
         vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
         **cv.TARGET_SERVICE_FIELDS,
+    }
+)
+
+# One picture, so the box is unambiguous: its fractions are of that picture.
+BOX_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_IMAGE): cv.entity_id,
+        vol.Required(CONF_INSTRUCTIONS): ENTRY,
+        vol.Optional(CONF_BACKGROUND): ENTRY,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        vol.Optional(CONF_MODEL): cv.string,
     }
 )
 
@@ -221,23 +251,31 @@ async def _ask(
     selector = {
         key: value for key, value in call.data.items() if key in TARGET_KEYS and value
     }
-    if not selector and not call.data.get(CONF_STATE_TEMPLATE):
+    image_ids = call.data[CONF_IMAGES]
+    if not selector and not call.data.get(CONF_STATE_TEMPLATE) and not image_ids:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="nothing_to_judge"
         )
-    state = async_build_state(
-        hass,
-        _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
-        selector,
-        call.data[CONF_INCLUDE_ATTRIBUTES],
+    images = await async_entity_images(hass, image_ids)
+    state = with_images(
+        async_build_state(
+            hass,
+            _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
+            selector,
+            call.data[CONF_INCLUDE_ATTRIBUTES],
+        ),
+        images,
     )
     _LOGGER.debug(
-        "asking %s question(s) about a %s state: %s",
+        "asking %s question(s) about a %s state with %s image(s): %s",
         len(questions),
         type(state).__name__,
+        len(images.assets),
         state,
     )
-    return await async_ask(hass, entry, state, questions)
+    return await async_ask(
+        hass, entry, state, questions, images, call.data.get(CONF_MODEL)
+    )
 
 
 async def async_ask(
@@ -245,14 +283,21 @@ async def async_ask(
     entry: JevConfigEntry,
     state: Any,
     questions: dict[str, Question],
+    images: RequestImages | None = None,
+    model: str | None = None,
 ) -> JevResponse:
-    """Send one request inside the daily budget, and account for what it cost."""
+    """Send one request inside the daily budget, and account for what it cost.
+
+    `model` overrides the entry's model for this request only. A Box question needs
+    Jev 1.14, and the entry usually asks jev-latest.
+    """
+    images = images or no_images()
     usage = entry.runtime_data.usage
     usage.roll_over(dt_util.now().date())
-    request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
+    request_bytes = payload_bytes(state, questions, model or entry.runtime_data.model)
     # The same check a context and the voice agent make: a script that loops on an
     # action is the runaway the budget exists for.
-    estimate = usage.estimate_tokens(request_bytes)
+    estimate = usage.estimate_tokens(request_bytes, images.tokens)
     if usage.would_exceed_with(estimate):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -265,7 +310,9 @@ async def async_ask(
         )
     try:
         with usage.reservation(estimate):
-            response = await entry.runtime_data.client.ask(state, questions)
+            response = await entry.runtime_data.client.ask(
+                state, questions, model=model, assets=images.assets or None
+            )
     except JevAuthError as err:
         entry.async_start_reauth(hass)
         raise HomeAssistantError(
@@ -274,13 +321,28 @@ async def async_ask(
             translation_placeholders={"reason": str(err)},
         ) from err
     except JevError as err:
+        # jev-1.13.0 answers a Box with a bare 400 "Invalid request.", which says
+        # nothing about why (measured 2026-10-16).
+        if err.status == 400 and any(isinstance(q, Box) for q in questions.values()):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="box_refused",
+                translation_placeholders={
+                    "model": model or entry.runtime_data.model,
+                    "reason": str(err),
+                },
+            ) from err
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="ask_failed",
             translation_placeholders={"reason": str(err)},
         ) from err
-    usage.record(response.usage.input_tokens, request_bytes)
-    entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
+    usage.record(response.usage.input_tokens, request_bytes, images.tokens)
+    # The version sensor reports the entry's model, not a one-off override.
+    if model is None:
+        entry.runtime_data.model_version = (
+            response.model or entry.runtime_data.model_version
+        )
     usage.notify()
     return response
 
@@ -293,6 +355,17 @@ def _envelope(response: JevResponse) -> dict[str, Any]:
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
         },
+    }
+
+
+def _edges(answer: BoxAnswer) -> dict[str, Any]:
+    """Fractions of the picture's width and height, measured from its top left."""
+    return {
+        "left": answer.left,
+        "top": answer.top,
+        "right": answer.right,
+        "bottom": answer.bottom,
+        "confidence": answer.confidence,
     }
 
 
@@ -317,7 +390,9 @@ def answer_as_dict(answer: Any) -> dict[str, Any]:
             "probabilities": answer.probabilities,
             "confidence": answer.confidence,
         }
-    # Reached only if the client grows a fourth answer type, which a user meets as
+    if isinstance(answer, BoxAnswer):
+        return {"type": TYPE_BOX, **_edges(answer)}
+    # Reached only if the client grows a fifth answer type, which a user meets as
     # a library upgrade rather than as a bug in their configuration.
     raise HomeAssistantError(
         translation_domain=DOMAIN,
@@ -422,9 +497,40 @@ def async_register_services(hass: HomeAssistant) -> None:
                     translation_key="question_invalid",
                     translation_placeholders={"key": key, "reason": str(err)},
                 ) from err
+        boxes = [k for k, q in questions.items() if isinstance(q, Box)]
+        if boxes and not call.data[CONF_IMAGES]:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="box_needs_image",
+                translation_placeholders={"key": boxes[0]},
+            )
         response = await _ask(hass, call, questions)
         return {
             ATTR_ANSWERS: {k: answer_as_dict(v) for k, v in response.answers.items()},
+            **_envelope(response),
+        }
+
+    async def _box(call: ServiceCall) -> ServiceResponse:
+        entry = _entry(hass, call)
+        entity_id = call.data[CONF_IMAGE]
+        prepared = await async_entity_image(hass, entity_id)
+        images = no_images()
+        images.add(entity_label(hass, entity_id), prepared)
+        response = await async_ask(
+            hass,
+            entry,
+            with_images(None, images),
+            {"answer": Box(_instructions(call))},
+            images,
+            call.data.get(CONF_MODEL),
+        )
+        answer = _typed(response.answers["answer"], BoxAnswer, TYPE_BOX)
+        return {
+            **_edges(answer),
+            # Upright, as the camera sent it. The edges are fractions of this, so
+            # an edge in pixels is the fraction times the side.
+            "width": prepared.source_width,
+            "height": prepared.source_height,
             **_envelope(response),
         }
 
@@ -448,6 +554,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         (SERVICE_CHOICE, _choice, CHOICE_SCHEMA),
         (SERVICE_SCORE, _score, SCORE_SCHEMA),
         (SERVICE_ASK, _ask_many, ASK_SCHEMA),
+        (SERVICE_BOX, _box, BOX_SCHEMA),
         (SERVICE_CALIBRATE, _calibrate, CALIBRATE_SCHEMA),
     ):
         hass.services.async_register(

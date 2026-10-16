@@ -203,6 +203,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Formuliere so, dass eine hohe Zahl ja bedeutet. Eine Aussage funktioniert genauso gut wie eine Frage."
@@ -223,6 +227,10 @@
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
@@ -241,6 +249,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Wovon das Modell auswählt, in einem Satz."
@@ -256,6 +268,10 @@
         "config_entry": {
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
         },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
@@ -275,6 +291,10 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "instructions": {
           "name": "Frage",
           "description": "Eine Dimension pro Frage. Eine Frage, die drei Dinge gleichzeitig misst, ergibt eine niedrige Konfidenz und eine nichtssagende Mitte."
@@ -286,6 +306,10 @@
         "config_entry": {
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
         },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
@@ -305,17 +329,51 @@
           "name": "Zustand",
           "description": "Der Text, der beurteilt wird. Schreibe eine Vorlage, und sie wird vor dem Senden gerendert."
         },
+        "images": {
+          "name": "Bilder",
+          "description": "Optional. Kamera- oder Bildentitäten, deren aktuelles Bild mit dem Zustand gesendet wird. Jedes Bild wird auf höchstens 1568 Pixel verkleinert und nach seiner Größe abgerechnet: ein Kamerabild, das mit 1568 x 882 gesendet wird, kostet 3.584 Eingabe-Tokens."
+        },
         "questions": {
           "name": "Fragen",
-          "description": "Dein eigener Schlüssel pro Frage, dann ihr Typ noul, choice oder score, ihre Anweisungen, und Kriterien bei choice und score. Die Schlüssel gehören dir: Sie kommen als Schlüssel der Antworten zurück, und das Modell sieht sie nie."
+          "description": "Dein eigener Schlüssel pro Frage, dann ihr Typ noul, choice oder score, ihre Anweisungen, und Kriterien bei choice und score. Die Schlüssel gehören dir: Sie kommen als Schlüssel der Antworten zurück, und das Modell sieht sie nie. Eine Box-Frage findet, wo etwas auf den Bildern unter images ist, und braucht Jev 1.14."
         },
         "config_entry": {
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
+        }
+      }
+    },
+    "box": {
+      "name": "Finden, wo etwas ist",
+      "description": "Fragt, wo etwas auf dem aktuellen Bild einer Kamera oder Bild-Entität ist. Die Antwort ist eine Box: ihre linke, obere, rechte und untere Kante als Anteile von Breite und Höhe des Bildes, von der oberen linken Ecke aus, mit einer Konfidenz. Braucht Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Bild",
+          "description": "Die Kamera oder Bild-Entität, deren aktuelles Bild durchsucht wird."
+        },
+        "instructions": {
+          "name": "Was finden",
+          "description": "Beschreibe, was gefunden werden soll, etwa das Paket vor der Tür. Eine Box kommt immer zurück, auch wenn das Gesuchte nicht da ist, also lies die Konfidenz."
+        },
+        "background": {
+          "name": "Hintergrund",
+          "description": "Optional. Feste Angaben dazu, wie das zu lesen ist, etwa was ein Messwert bei deinem Gerät bedeutet. Es reist mit der Frage mit statt mit den Messwerten, was messbar besser funktioniert, als es in den Zustand zu schreiben. Ein Objekt statt eines Satzes behält deine eigenen Schlüsselnamen, und das Modell liest diese Schlüssel."
+        },
+        "config_entry": {
+          "name": "API-Schlüssel",
+          "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
         }
       }
     },
@@ -499,6 +557,24 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} ist kein eingeschaltetes Licht, kein Schalter und kein Ventilator, daher kann die Hausprüfung es nicht ausschalten."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} hat kein Bild zum Senden. Bilder kommen von Kamera- und Bildentitäten."
+    },
+    "image_unavailable": {
+      "message": "Von {entity_id} konnte kein Bild abgerufen werden: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Das Bild von {source} ist kein Bild, das Jev lesen kann: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} ist {mime_type}. Jev liest Text und Bilder, also hänge einen Kamera-Schnappschuss oder eine PNG- oder JPEG-Datei an."
+    },
+    "box_refused": {
+      "message": "{model} hat eine Anfrage mit einer Box-Frage abgelehnt: {reason}. Eine Box braucht Jev 1.14, setze model also auf jev-1.14.0 oder jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Die Frage {key} ist eine Box, und eine Box braucht ein Bild. Füge unter images eine Kamera oder eine Bild-Entität hinzu."
     }
   },
   "common": {

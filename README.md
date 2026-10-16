@@ -25,12 +25,16 @@ Not affiliated with TypeSafe. The API client is
 - [Questions](https://jev.cdevries.dev/questions-ui/) become sensors: a probability,
   one of your options with its distribution, or a number on a scale. Add them in the
   UI, [in YAML](https://jev.cdevries.dev/questions-yaml/), or both.
-- Four [actions](https://jev.cdevries.dev/actions/), `jev.noul`, `jev.choice`,
-  `jev.score` and `jev.ask`, answer inside an automation and return a response
-  variable.
+- Five [actions](https://jev.cdevries.dev/actions/), `jev.noul`, `jev.choice`,
+  `jev.score`, `jev.ask` and `jev.box`, answer inside an automation and return a
+  response variable.
 - An [AI Task](https://jev.cdevries.dev/ai-task/) entity answers
   `ai_task.generate_data` when it is called. A boolean, select or number field
   becomes the matching question.
+- Actions and the AI Task can [look at cameras](https://jev.cdevries.dev/images/):
+  list camera or image entities, or attach a snapshot, and the picture goes in beside
+  the state, scaled to what the API takes. `jev.box` finds where something is in a
+  picture.
 - A [conversation agent](https://jev.cdevries.dev/conversation/) for Assist routes
   spoken commands through the same model.
 - A [house check](https://jev.cdevries.dev/house-check/) opens a Repairs card for

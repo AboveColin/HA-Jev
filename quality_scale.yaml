@@ -87,7 +87,7 @@ rules:
       agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 97% measured across 896 tests, enforced in CI.
+    comment: 98% measured across 933 tests, enforced in CI.
 
   # Gold
   devices: done
@@ -176,4 +176,4 @@ rules:
       Assistant ships aiohttp and httpx, not httpx2.
   strict-typing:
     status: done
-    comment: mypy --strict passes on all 22 modules, enforced in CI.
+    comment: mypy --strict passes on all 26 modules, enforced in CI.
