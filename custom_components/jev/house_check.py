@@ -246,7 +246,8 @@ class HouseCheck:
                 is_persistent=True,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key=ISSUE_HOUSE_CHECK_FAILED,
-                translation_placeholders={"reason": str(err)},
+                # The card puts a full stop after the reason.
+                translation_placeholders={"reason": str(err).rstrip(".")},
             )
 
     async def _free_findings(self, now: datetime) -> list[Finding]:

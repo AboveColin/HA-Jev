@@ -327,9 +327,11 @@ async def async_ask(
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="box_refused",
+                # The text puts a full stop after the reason, and the API's
+                # message has one of its own.
                 translation_placeholders={
                     "model": model or entry.runtime_data.model,
-                    "reason": str(err),
+                    "reason": str(err).rstrip("."),
                 },
             ) from err
         raise HomeAssistantError(

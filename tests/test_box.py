@@ -145,7 +145,7 @@ async def test_a_refused_box_names_the_model_and_the_version_it_needs(
     assert err.value.translation_key == "box_refused"
     assert err.value.translation_placeholders == {
         "model": loaded_entry.runtime_data.model,
-        "reason": "Invalid request.",
+        "reason": "Invalid request",
     }
 
 
