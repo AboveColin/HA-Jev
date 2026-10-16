@@ -203,6 +203,10 @@
           "name": "Estado",
           "description": "El texto que se evalúa. Escribe una plantilla y se procesa antes de enviarse."
         },
+        "images": {
+          "name": "Imágenes",
+          "description": "Opcional. Entidades de cámara o de imagen cuya imagen actual se envía con el estado. Cada imagen se reduce para caber en 1568 píxeles y se factura según su tamaño: un fotograma de cámara enviado a 1568 x 882 cuesta 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pregunta",
           "description": "Formúlala de modo que un número alto signifique sí. Una afirmación funciona igual de bien que una pregunta."
@@ -241,6 +245,10 @@
           "name": "Estado",
           "description": "El texto que se evalúa. Escribe una plantilla y se procesa antes de enviarse."
         },
+        "images": {
+          "name": "Imágenes",
+          "description": "Opcional. Entidades de cámara o de imagen cuya imagen actual se envía con el estado. Cada imagen se reduce para caber en 1568 píxeles y se factura según su tamaño: un fotograma de cámara enviado a 1568 x 882 cuesta 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pregunta",
           "description": "Entre qué elige el modelo, en una frase."
@@ -275,6 +283,10 @@
           "name": "Estado",
           "description": "El texto que se evalúa. Escribe una plantilla y se procesa antes de enviarse."
         },
+        "images": {
+          "name": "Imágenes",
+          "description": "Opcional. Entidades de cámara o de imagen cuya imagen actual se envía con el estado. Cada imagen se reduce para caber en 1568 píxeles y se factura según su tamaño: un fotograma de cámara enviado a 1568 x 882 cuesta 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pregunta",
           "description": "Una dimensión por pregunta. Una pregunta que mide tres cosas a la vez da poca confianza y un punto medio sin sentido."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Estado",
           "description": "El texto que se evalúa. Escribe una plantilla y se procesa antes de enviarse."
+        },
+        "images": {
+          "name": "Imágenes",
+          "description": "Opcional. Entidades de cámara o de imagen cuya imagen actual se envía con el estado. Cada imagen se reduce para caber en 1568 píxeles y se factura según su tamaño: un fotograma de cámara enviado a 1568 x 882 cuesta 3.584 tokens de entrada."
         },
         "questions": {
           "name": "Preguntas",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} no es una luz, un interruptor ni un ventilador encendido, así que la revisión de la casa no puede apagarlo."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} no tiene ninguna imagen que enviar. Las imágenes vienen de entidades de cámara y de imagen."
+    },
+    "image_unavailable": {
+      "message": "No se pudo obtener una imagen de {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "La imagen de {source} no es una imagen que Jev pueda leer: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} es {mime_type}. Jev lee texto e imágenes, así que adjunta una captura de cámara o un archivo PNG o JPEG."
     }
   },
   "common": {

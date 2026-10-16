@@ -13,6 +13,7 @@ All measured against the live API from a consumer connection in the Netherlands.
 | A spoken command, 5 entities exposed | 1,329 to 1,371 input tokens |
 | 30 spoken commands | $0.0017 in total, so $0.000057 each |
 | A question preview in the UI | 350 to 876 tokens depending on the target |
+| A 1920 x 1080 camera frame, sent at 1568 x 882 | 3,584 input tokens |
 
 At the published $0.042 per million input tokens, the 250 entity cap on a target
 works out at roughly 16,500 tokens or **$0.0007** per evaluation.
@@ -46,6 +47,10 @@ roughly 110 tokens per entity per call.
 `include_attributes` sends every attribute as well. A weather forecast runs to
 thousands of tokens on every evaluation, which is why it is off by default. Access
 tokens, entity pictures and coordinates are never sent, even with it on.
+
+A picture costs more than most targets. A camera frame is 3,584 tokens, as much as
+about 54 entity records, and it is only sent when you list the camera under
+`images:` or attach it to an AI Task. See [what a picture costs](images.md#what-a-picture-costs).
 
 ## A month, worked out
 

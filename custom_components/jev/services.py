@@ -57,6 +57,7 @@ from .const import (
     ATTR_USE_JEV,
     CONF_BACKGROUND,
     CONF_FALSE_MEANS,
+    CONF_IMAGES,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_INSTRUCTIONS,
     CONF_LEVELS,
@@ -77,6 +78,7 @@ from .const import (
     TYPE_NOUL,
     TYPE_SCORE,
 )
+from .images import RequestImages, async_entity_images, no_images, with_images
 from .models import ENTRY, build_question, compose_instructions
 from .payload import payload_bytes
 from .statebuilder import async_build_state
@@ -88,6 +90,7 @@ TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
 
 _BASE = {
     vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+    vol.Optional(CONF_IMAGES, default=list): cv.entity_ids,
     vol.Optional(CONF_BACKGROUND): ENTRY,
     vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     vol.Optional(CONF_INCLUDE_ATTRIBUTES, default=False): cv.boolean,
@@ -124,6 +127,7 @@ SCORE_SCHEMA = vol.Schema(
 ASK_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_STATE_TEMPLATE): vol.Any(cv.string, dict, list),
+        vol.Optional(CONF_IMAGES, default=list): cv.entity_ids,
         # An empty mapping is still a billed request, answered with nothing.
         vol.Required(ATTR_QUESTIONS): vol.All(
             vol.Schema({cv.string: dict}), vol.Length(min=1)
@@ -221,23 +225,29 @@ async def _ask(
     selector = {
         key: value for key, value in call.data.items() if key in TARGET_KEYS and value
     }
-    if not selector and not call.data.get(CONF_STATE_TEMPLATE):
+    image_ids = call.data[CONF_IMAGES]
+    if not selector and not call.data.get(CONF_STATE_TEMPLATE) and not image_ids:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="nothing_to_judge"
         )
-    state = async_build_state(
-        hass,
-        _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
-        selector,
-        call.data[CONF_INCLUDE_ATTRIBUTES],
+    images = await async_entity_images(hass, image_ids)
+    state = with_images(
+        async_build_state(
+            hass,
+            _render(hass, call.data.get(CONF_STATE_TEMPLATE)),
+            selector,
+            call.data[CONF_INCLUDE_ATTRIBUTES],
+        ),
+        images,
     )
     _LOGGER.debug(
-        "asking %s question(s) about a %s state: %s",
+        "asking %s question(s) about a %s state with %s image(s): %s",
         len(questions),
         type(state).__name__,
+        len(images.assets),
         state,
     )
-    return await async_ask(hass, entry, state, questions)
+    return await async_ask(hass, entry, state, questions, images)
 
 
 async def async_ask(
@@ -245,14 +255,16 @@ async def async_ask(
     entry: JevConfigEntry,
     state: Any,
     questions: dict[str, Question],
+    images: RequestImages | None = None,
 ) -> JevResponse:
     """Send one request inside the daily budget, and account for what it cost."""
+    images = images or no_images()
     usage = entry.runtime_data.usage
     usage.roll_over(dt_util.now().date())
     request_bytes = payload_bytes(state, questions, entry.runtime_data.model)
     # The same check a context and the voice agent make: a script that loops on an
     # action is the runaway the budget exists for.
-    estimate = usage.estimate_tokens(request_bytes)
+    estimate = usage.estimate_tokens(request_bytes, images.tokens)
     if usage.would_exceed_with(estimate):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -265,7 +277,9 @@ async def async_ask(
         )
     try:
         with usage.reservation(estimate):
-            response = await entry.runtime_data.client.ask(state, questions)
+            response = await entry.runtime_data.client.ask(
+                state, questions, assets=images.assets or None
+            )
     except JevAuthError as err:
         entry.async_start_reauth(hass)
         raise HomeAssistantError(
@@ -279,7 +293,7 @@ async def async_ask(
             translation_key="ask_failed",
             translation_placeholders={"reason": str(err)},
         ) from err
-    usage.record(response.usage.input_tokens, request_bytes)
+    usage.record(response.usage.input_tokens, request_bytes, images.tokens)
     entry.runtime_data.model_version = response.model or entry.runtime_data.model_version
     usage.notify()
     return response

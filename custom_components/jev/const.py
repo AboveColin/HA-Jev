@@ -222,6 +222,26 @@ def provider_for_url(base_url: str) -> str:
     return PROVIDER_LOCAL
 
 
+# --- Images ---
+
+CONF_IMAGES: Final = "images"
+
+# An image is billed 2 input tokens per 28 x 28 pixel patch, a part patch counted
+# whole. Measured on 2026-10-16 against jev-1.14.0: every request was 287 tokens plus
+# exactly this at 280 x 280 (200), 300 x 301 (242), 784 x 588 (1,176), 1000 x 750
+# (1,944), 1568 x 1176 (4,704) and 1568 x 1568 (6,272). jev-1.13.0 billed 784 x 588
+# the same. site-docs/measurements.md has the table.
+IMAGE_PATCH_PIXELS: Final = 28
+IMAGE_TOKENS_PER_PATCH: Final = 2
+
+# The quality TypeSafe's own preparation example uses (docs.typesafe.ai/images, read
+# 2026-10-16). Billing goes by pixels, not bytes, so a higher quality costs only
+# upload time: a 1568 x 1176 test frame was 35 KB at this setting.
+IMAGE_JPEG_QUALITY: Final = 90
+
+# Home Assistant's own default for camera.async_get_image and image.async_get_image.
+SNAPSHOT_TIMEOUT_SECONDS: Final = 10
+
 # --- House check ---
 
 SERVICE_HOUSE_CHECK: Final = "house_check"

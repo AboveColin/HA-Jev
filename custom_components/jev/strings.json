@@ -203,6 +203,10 @@
           "name": "State",
           "description": "The text to judge. Write a template and it is rendered before it is sent."
         },
+        "images": {
+          "name": "Images",
+          "description": "Optional. Camera or image entities whose current picture is sent with the state. Each picture is scaled to fit 1568 pixels and billed by its size: a camera frame sent at 1568 x 882 is 3,584 input tokens."
+        },
         "instructions": {
           "name": "Question",
           "description": "Phrase it so that a high number means yes. A statement works as well as a question."
@@ -241,6 +245,10 @@
           "name": "State",
           "description": "The text to judge. Write a template and it is rendered before it is sent."
         },
+        "images": {
+          "name": "Images",
+          "description": "Optional. Camera or image entities whose current picture is sent with the state. Each picture is scaled to fit 1568 pixels and billed by its size: a camera frame sent at 1568 x 882 is 3,584 input tokens."
+        },
         "instructions": {
           "name": "Question",
           "description": "What the model is choosing between, in one sentence."
@@ -275,6 +283,10 @@
           "name": "State",
           "description": "The text to judge. Write a template and it is rendered before it is sent."
         },
+        "images": {
+          "name": "Images",
+          "description": "Optional. Camera or image entities whose current picture is sent with the state. Each picture is scaled to fit 1568 pixels and billed by its size: a camera frame sent at 1568 x 882 is 3,584 input tokens."
+        },
         "instructions": {
           "name": "Question",
           "description": "One dimension per question. A question measuring three things at once produces a low confidence and a meaningless middle."
@@ -304,6 +316,10 @@
         "state": {
           "name": "State",
           "description": "The text to judge. Write a template and it is rendered before it is sent."
+        },
+        "images": {
+          "name": "Images",
+          "description": "Optional. Camera or image entities whose current picture is sent with the state. Each picture is scaled to fit 1568 pixels and billed by its size: a camera frame sent at 1568 x 882 is 3,584 input tokens."
         },
         "questions": {
           "name": "Questions",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} is not a light, switch or fan that is on, so the house check cannot turn it off."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} has no picture to send. Images come from camera and image entities."
+    },
+    "image_unavailable": {
+      "message": "Could not get a picture from {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "The picture from {source} is not an image Jev can read: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} is {mime_type}. Jev reads text and images, so attach a camera snapshot or a PNG or JPEG file."
     }
   },
   "common": {

@@ -203,6 +203,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Formule de modo que um número alto signifique sim. Uma afirmação funciona tão bem quanto uma pergunta."
@@ -241,6 +245,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Entre o que o modelo está escolhendo, em uma frase."
@@ -275,6 +283,10 @@
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
         },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
+        },
         "instructions": {
           "name": "Pergunta",
           "description": "Uma dimensão por pergunta. Uma pergunta que mede três coisas ao mesmo tempo produz uma confiança baixa e um meio sem significado."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Estado",
           "description": "O texto a ser julgado. Escreva um template e ele é renderizado antes de ser enviado."
+        },
+        "images": {
+          "name": "Imagens",
+          "description": "Opcional. Entidades de câmera ou de imagem cuja imagem atual é enviada com o estado. Cada imagem é reduzida para caber em 1568 pixels e cobrada pelo tamanho: um quadro de câmera enviado em 1568 x 882 custa 3.584 tokens de entrada."
         },
         "questions": {
           "name": "Perguntas",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} não é uma luz, um interruptor ou um ventilador ligado, então a verificação da casa não pode desligá-lo."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} não tem nenhuma imagem para enviar. As imagens vêm de entidades de câmera e de imagem."
+    },
+    "image_unavailable": {
+      "message": "Não foi possível obter uma imagem de {entity_id}: {reason}"
+    },
+    "image_unreadable": {
+      "message": "A imagem de {source} não é uma imagem que o Jev consiga ler: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} é {mime_type}. O Jev lê texto e imagens, então anexe uma captura de câmera ou um arquivo PNG ou JPEG."
     }
   },
   "common": {

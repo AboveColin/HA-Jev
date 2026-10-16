@@ -203,6 +203,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Formulujte ji tak, aby vysoké číslo znamenalo ano. Tvrzení funguje stejně dobře jako otázka."
@@ -241,6 +245,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Mezi čím model vybírá, v jedné větě."
@@ -275,6 +283,10 @@
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
         },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
+        },
         "instructions": {
           "name": "Otázka",
           "description": "Jeden rozměr na otázku. Otázka, která měří tři věci naráz, dává nízkou jistotu a bezvýznamný střed."
@@ -304,6 +316,10 @@
         "state": {
           "name": "Stav",
           "description": "Text k posouzení. Napište šablonu a vykreslí se před odesláním."
+        },
+        "images": {
+          "name": "Obrázky",
+          "description": "Volitelné. Entity kamer nebo obrázků, jejichž aktuální snímek se pošle se stavem. Každý snímek se zmenší, aby se vešel do 1568 pixelů, a účtuje se podle velikosti: snímek z kamery odeslaný v rozměru 1568 x 882 stojí 3 584 vstupních tokenů."
         },
         "questions": {
           "name": "Otázky",
@@ -499,6 +515,18 @@
     },
     "house_check_cannot_turn_off": {
       "message": "{entity_id} není zapnuté světlo, vypínač ani ventilátor, takže ho kontrola domu nemůže vypnout."
+    },
+    "not_an_image_entity": {
+      "message": "{entity_id} nemá žádný obrázek k odeslání. Obrázky pocházejí z entit kamer a obrázků."
+    },
+    "image_unavailable": {
+      "message": "Z {entity_id} se nepodařilo získat obrázek: {reason}"
+    },
+    "image_unreadable": {
+      "message": "Obrázek z {source} není obrázek, který Jev umí přečíst: {reason}"
+    },
+    "attachment_not_image": {
+      "message": "{attachment} je {mime_type}. Jev čte text a obrázky, proto přiložte snímek z kamery nebo soubor PNG či JPEG."
     }
   },
   "common": {

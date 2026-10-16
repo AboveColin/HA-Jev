@@ -65,7 +65,8 @@ async def generate(hass, structure, instructions="the hall window reads open"):
 async def test_the_entity_is_there_and_belongs_to_the_service_device(hass, task_entry):
     state = hass.states.get(ENTITY_ID)
     assert state is not None
-    assert state.attributes["supported_features"] == 1  # GENERATE_DATA, nothing else
+    # GENERATE_DATA and SUPPORT_ATTACHMENTS, for camera snapshots and other images
+    assert state.attributes["supported_features"] == 3
 
     entity_entry = er.async_get(hass).async_get(ENTITY_ID)
     assert entity_entry.unique_id == f"{task_entry.entry_id}_ai_task"

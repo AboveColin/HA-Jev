@@ -55,6 +55,23 @@ consulted here; it is consulted for the [conversation agent](conversation.md).
 `include_attributes: true` never sends access tokens, entity pictures or coordinates,
 so a camera or a `device_tracker` is safe to target.
 
+## Show it a camera
+
+`images:` takes camera and image entities, and sends the current picture of each
+beside the state:
+
+```yaml
+- action: jev.noul
+  response_variable: parcel
+  data:
+    images: [camera.front_door]
+    instructions: Is there a parcel on the doorstep?
+```
+
+It works alone or with a target and a `state`. A picture costs hundreds to thousands
+of tokens, and the budget counts it. [Cameras and images](images.md) has the sizes,
+the cost and what each error means.
+
 ## More than one entry
 
 Each Jev entry has its own key and budget. With more than one loaded, an action has

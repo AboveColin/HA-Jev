@@ -10,8 +10,9 @@ Home Assistant allows a task with no `structure`, which asks for free text. Jev
 returns typed answers and nothing else, so that call is refused here rather than
 answered with something invented.
 
-Attachments need no handling: ai_task refuses them before the task reaches an
-entity that does not declare SUPPORT_ATTACHMENTS.
+An image attachment, such as a camera snapshot, goes into the request beside the
+instructions. Any other attachment is refused, because Jev reads text and pictures
+and nothing else.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from jevclient import (
 from .const import DOMAIN
 from .coordinator import JevRuntimeData
 from .entity import build_device_info
+from .images import RequestImages, no_images, prepare_image, with_images
 from .payload import payload_bytes
 from .structure import RESERVED_KEY, questions_from_structure, values_from_answers
 
@@ -64,7 +66,10 @@ class JevAITaskEntity(ai_task.AITaskEntity):
 
     _attr_has_entity_name = True
     _attr_name = None
-    _attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
+    _attr_supported_features = (
+        ai_task.AITaskEntityFeature.GENERATE_DATA
+        | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
+    )
 
     def __init__(self, entry: JevConfigEntry) -> None:
         self._entry = entry
@@ -83,10 +88,12 @@ class JevAITaskEntity(ai_task.AITaskEntity):
                 translation_placeholders={"task": task.name},
             )
         questions = questions_from_structure(task.structure)
+        images = await self._async_images(task)
+        state = with_images(task.instructions, images)
         usage = self._runtime.usage
         usage.roll_over(dt_util.now().date())
-        request_bytes = payload_bytes(task.instructions, questions, self._runtime.model)
-        estimate = usage.estimate_tokens(request_bytes)
+        request_bytes = payload_bytes(state, questions, self._runtime.model)
+        estimate = usage.estimate_tokens(request_bytes, images.tokens)
         if usage.would_exceed_with(estimate):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
@@ -101,7 +108,9 @@ class JevAITaskEntity(ai_task.AITaskEntity):
 
         try:
             with usage.reservation(estimate):
-                response = await self._runtime.client.ask(task.instructions, questions)
+                response = await self._runtime.client.ask(
+                    state, questions, assets=images.assets or None
+                )
         except JevAuthError as err:
             self._entry.async_start_reauth(self.hass)
             raise HomeAssistantError(
@@ -116,7 +125,7 @@ class JevAITaskEntity(ai_task.AITaskEntity):
                 translation_placeholders={"reason": str(err)},
             ) from err
 
-        usage.record(response.usage.input_tokens, request_bytes)
+        usage.record(response.usage.input_tokens, request_bytes, images.tokens)
         self._runtime.model_version = response.model or self._runtime.model_version
         usage.notify()
 
@@ -125,6 +134,29 @@ class JevAITaskEntity(ai_task.AITaskEntity):
         return ai_task.GenDataTaskResult(
             conversation_id=chat_log.conversation_id, data=data
         )
+
+    async def _async_images(self, task: ai_task.GenDataTask) -> RequestImages:
+        """Every attachment, prepared. Home Assistant has already written each to disk."""
+        images = no_images()
+        for attachment in task.attachments or []:
+            if not attachment.mime_type.startswith("image/"):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="attachment_not_image",
+                    translation_placeholders={
+                        "attachment": attachment.media_content_id,
+                        "mime_type": attachment.mime_type,
+                    },
+                )
+            data = await self.hass.async_add_executor_job(attachment.path.read_bytes)
+            prepared = await self.hass.async_add_executor_job(
+                prepare_image, data, attachment.media_content_id
+            )
+            # media-source://camera/camera.front_door names the camera, which is
+            # the label an instruction would use for it.
+            name = attachment.media_content_id.rsplit("/", 1)[-1]
+            images.add({"name": name}, prepared)
+        return images
 
 
 def _certainty(response: JevResponse) -> dict[str, Any]:
