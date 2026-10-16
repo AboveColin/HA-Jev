@@ -74,13 +74,20 @@ def test_a_small_image_is_scaled_up_to_the_minimum() -> None:
     assert (prepared.width, prepared.height) == (560, 280)
 
 
-def test_a_panorama_is_fitted_on_its_long_side_and_padded_on_the_short() -> None:
-    prepared = prepare_image(picture(4000, 200), "camera.wide")
+def test_a_panorama_is_fitted_on_its_long_side_and_stretched_on_the_short() -> None:
+    """Stretched, not padded: a box is a fraction of the picture sent, and must be
+    the same fraction of the source."""
+    source = PILImage.new("RGB", (4000, 200), "white")
+    source.paste((255, 0, 0), (0, 0, 4000, 100))  # the top half red
+    buffer = io.BytesIO()
+    source.save(buffer, "PNG")
+    prepared = prepare_image(buffer.getvalue(), "camera.wide")
     assert (prepared.width, prepared.height) == (1568, 280)
-    # The padding is white, above and below a red band.
     out = opened(prepared).convert("RGB")
-    assert out.getpixel((784, 2)) == pytest.approx((255, 255, 255), abs=8)
-    assert out.getpixel((784, 140))[0] > 200
+    assert out.getpixel((784, 2))[1] < 60  # red reaches the top edge
+    assert out.getpixel((784, 135))[1] < 60  # and still fills the top half
+    assert out.getpixel((784, 145))[1] > 200  # white below the middle
+    assert out.getpixel((784, 277))[1] > 200
 
 
 def test_exif_orientation_is_applied_to_the_pixels() -> None:

@@ -65,6 +65,11 @@ noul:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 choice:
   target:
@@ -127,6 +132,11 @@ choice:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 score:
   target:
@@ -182,6 +192,11 @@ score:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 ask:
   target:
@@ -240,6 +255,46 @@ ask:
       selector:
         config_entry:
           integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
+
+box:
+  fields:
+    image:
+      required: true
+      example: camera.front_door
+      selector:
+        entity:
+          filter:
+            - domain:
+                - camera
+                - image
+    instructions:
+      required: true
+      default: the parcel on the doorstep
+      selector:
+        text:
+          multiline: true
+    background:
+      required: false
+      example: >-
+        Parcels are left on the mat to the left of the door.
+      selector:
+        text:
+          multiline: true
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: jev
+    model:
+      required: false
+      example: jev-1.14.0
+      selector:
+        text:
 
 calibrate:
   fields:

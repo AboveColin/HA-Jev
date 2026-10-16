@@ -227,6 +227,10 @@
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optional. Asks this model instead of the entry's, for this call only. A box question needs Jev 1.14: jev-1.14.0 or jev-preview."
+        },
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
@@ -265,6 +269,10 @@
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optional. Asks this model instead of the entry's, for this call only. A box question needs Jev 1.14: jev-1.14.0 or jev-preview."
+        },
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
@@ -299,6 +307,10 @@
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optional. Asks this model instead of the entry's, for this call only. A box question needs Jev 1.14: jev-1.14.0 or jev-preview."
+        },
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
@@ -323,15 +335,45 @@
         },
         "questions": {
           "name": "Questions",
-          "description": "Your own key for each question, then its type of noul, choice or score, its instructions, and criteria for choice and score. The keys are yours: they come back as the keys of the answers and the model never sees them."
+          "description": "Your own key for each question, then its type of noul, choice, score or box, its instructions, and criteria for choice and score. The keys are yours: they come back as the keys of the answers and the model never sees them. A box question finds where something is in the pictures under images, and needs Jev 1.14."
         },
         "config_entry": {
           "name": "API key",
           "description": "Which configured key to ask with. Only needed when more than one is set up."
         },
+        "model": {
+          "name": "Model",
+          "description": "Optional. Asks this model instead of the entry's, for this call only. A box question needs Jev 1.14: jev-1.14.0 or jev-preview."
+        },
         "include_attributes": {
           "name": "Include all attributes",
           "description": "Off by default. Sends every attribute of the picked entities, not just the value, unit, device class and area. A weather forecast or a media player artwork list runs to thousands of tokens, and you pay for them on every evaluation."
+        }
+      }
+    },
+    "box": {
+      "name": "Find where something is",
+      "description": "Ask where something is in the current picture of a camera or an image entity. The answer is a box: its left, top, right and bottom edges as fractions of the picture's width and height, from the top left corner, with a confidence. Needs Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Image",
+          "description": "The camera or image entity whose current picture to search."
+        },
+        "instructions": {
+          "name": "What to find",
+          "description": "Describe the thing to find, such as the parcel on the doorstep. A box always comes back, also when the thing is not there, so read the confidence."
+        },
+        "background": {
+          "name": "Background",
+          "description": "Optional. Standing facts about how to read this, such as what a reading means for your particular device. It travels with the question rather than the readings, which measurably works better than putting it in the state. An object rather than a sentence keeps your own key names, and the model reads those keys."
+        },
+        "config_entry": {
+          "name": "API key",
+          "description": "Which configured key to ask with. Only needed when more than one is set up."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Optional. Asks this model instead of the entry's, for this call only. A box question needs Jev 1.14: jev-1.14.0 or jev-preview."
         }
       }
     },
@@ -527,6 +569,12 @@
     },
     "attachment_not_image": {
       "message": "{attachment} is {mime_type}. Jev reads text and images, so attach a camera snapshot or a PNG or JPEG file."
+    },
+    "box_refused": {
+      "message": "{model} refused a request with a box question: {reason}. A box needs Jev 1.14, so set model to jev-1.14.0 or jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Question {key} is a box, and a box needs a picture. Add a camera or an image entity under images."
     }
   },
   "common": {

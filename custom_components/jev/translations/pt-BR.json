@@ -227,6 +227,10 @@
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
@@ -265,6 +269,10 @@
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
@@ -299,6 +307,10 @@
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
@@ -323,15 +335,45 @@
         },
         "questions": {
           "name": "Perguntas",
-          "description": "Sua própria chave para cada pergunta, depois o tipo dela, noul, choice ou score, suas instruções e os critérios para choice e score. As chaves são suas: elas voltam como as chaves das respostas e o modelo nunca as vê."
+          "description": "Sua própria chave para cada pergunta, depois o tipo dela, noul, choice ou score, suas instruções e os critérios para choice e score. As chaves são suas: elas voltam como as chaves das respostas e o modelo nunca as vê. Uma pergunta box encontra onde algo está nas imagens em images, e precisa do Jev 1.14."
         },
         "config_entry": {
           "name": "Chave de API",
           "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
         },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
+        },
         "include_attributes": {
           "name": "Incluir todos os atributos",
           "description": "Desligado por padrão. Envia todos os atributos das entidades escolhidas, não apenas o valor, a unidade, a classe de dispositivo e a área. Uma previsão do tempo ou a lista de capas de um reprodutor de mídia chega a milhares de tokens, e você paga por eles em cada avaliação."
+        }
+      }
+    },
+    "box": {
+      "name": "Encontrar onde algo está",
+      "description": "Pergunta onde algo está na imagem atual de uma câmera ou entidade de imagem. A resposta é uma box: suas bordas esquerda, superior, direita e inferior como frações da largura e da altura da imagem, a partir do canto superior esquerdo, com uma confiança. Precisa do Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Imagem",
+          "description": "A câmera ou entidade de imagem cuja imagem atual é examinada."
+        },
+        "instructions": {
+          "name": "O que encontrar",
+          "description": "Descreva o que deve ser encontrado, como o pacote na porta. Uma box sempre volta, também quando a coisa não está lá, então leia a confiança."
+        },
+        "background": {
+          "name": "Informações de base",
+          "description": "Opcional. Fatos permanentes sobre como ler isto, como o que uma leitura significa para o seu dispositivo específico. Isso viaja junto com a pergunta e não com as leituras, o que funciona mensuravelmente melhor do que colocar no estado. Um objeto em vez de uma frase preserva os seus próprios nomes de chave, e o modelo lê essas chaves."
+        },
+        "config_entry": {
+          "name": "Chave de API",
+          "description": "Com qual chave configurada perguntar. Só é necessário quando há mais de uma configurada."
+        },
+        "model": {
+          "name": "Modelo",
+          "description": "Opcional. Pergunta a este modelo em vez do modelo da entrada, só nesta chamada. Uma pergunta box precisa do Jev 1.14: jev-1.14.0 ou jev-preview."
         }
       }
     },
@@ -527,6 +569,12 @@
     },
     "attachment_not_image": {
       "message": "{attachment} é {mime_type}. O Jev lê texto e imagens, então anexe uma captura de câmera ou um arquivo PNG ou JPEG."
+    },
+    "box_refused": {
+      "message": "{model} recusou uma solicitação com uma pergunta box: {reason}. Uma box precisa do Jev 1.14, então defina model como jev-1.14.0 ou jev-preview."
+    },
+    "box_needs_image": {
+      "message": "A pergunta {key} é uma box, e uma box precisa de uma imagem. Adicione uma câmera ou entidade de imagem em images."
     }
   },
   "common": {

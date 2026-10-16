@@ -227,6 +227,10 @@
           "name": "API-nøgle",
           "description": "Hvilken opsat nøgle der spørges med. Kun nødvendigt, når der er mere end én."
         },
+        "model": {
+          "name": "Model",
+          "description": "Valgfri. Spørger denne model i stedet for postens, kun for dette kald. Et box-spørgsmål kræver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Medsend alle attributter",
           "description": "Slået fra som standard. Sender alle attributter for de valgte entiteter, ikke kun værdien, måleenheden, enhedsklassen og området. En vejrudsigt eller en medieafspillers liste med albumbilleder løber op i tusindvis af tokens, og dem betaler du for ved hver evaluering."
@@ -265,6 +269,10 @@
           "name": "API-nøgle",
           "description": "Hvilken opsat nøgle der spørges med. Kun nødvendigt, når der er mere end én."
         },
+        "model": {
+          "name": "Model",
+          "description": "Valgfri. Spørger denne model i stedet for postens, kun for dette kald. Et box-spørgsmål kræver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Medsend alle attributter",
           "description": "Slået fra som standard. Sender alle attributter for de valgte entiteter, ikke kun værdien, måleenheden, enhedsklassen og området. En vejrudsigt eller en medieafspillers liste med albumbilleder løber op i tusindvis af tokens, og dem betaler du for ved hver evaluering."
@@ -299,6 +307,10 @@
           "name": "API-nøgle",
           "description": "Hvilken opsat nøgle der spørges med. Kun nødvendigt, når der er mere end én."
         },
+        "model": {
+          "name": "Model",
+          "description": "Valgfri. Spørger denne model i stedet for postens, kun for dette kald. Et box-spørgsmål kræver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Medsend alle attributter",
           "description": "Slået fra som standard. Sender alle attributter for de valgte entiteter, ikke kun værdien, måleenheden, enhedsklassen og området. En vejrudsigt eller en medieafspillers liste med albumbilleder løber op i tusindvis af tokens, og dem betaler du for ved hver evaluering."
@@ -323,15 +335,45 @@
         },
         "questions": {
           "name": "Spørgsmål",
-          "description": "Din egen nøgle til hvert spørgsmål, så dets type noul, choice eller score, dets instruktioner og kriterier for choice og score. Nøglerne er dine: de kommer tilbage som nøglerne i svarene, og modellen ser dem aldrig."
+          "description": "Din egen nøgle til hvert spørgsmål, så dets type noul, choice eller score, dets instruktioner og kriterier for choice og score. Nøglerne er dine: de kommer tilbage som nøglerne i svarene, og modellen ser dem aldrig. Et box-spørgsmål finder, hvor noget er på billederne under images, og kræver Jev 1.14."
         },
         "config_entry": {
           "name": "API-nøgle",
           "description": "Hvilken opsat nøgle der spørges med. Kun nødvendigt, når der er mere end én."
         },
+        "model": {
+          "name": "Model",
+          "description": "Valgfri. Spørger denne model i stedet for postens, kun for dette kald. Et box-spørgsmål kræver Jev 1.14: jev-1.14.0 eller jev-preview."
+        },
         "include_attributes": {
           "name": "Medsend alle attributter",
           "description": "Slået fra som standard. Sender alle attributter for de valgte entiteter, ikke kun værdien, måleenheden, enhedsklassen og området. En vejrudsigt eller en medieafspillers liste med albumbilleder løber op i tusindvis af tokens, og dem betaler du for ved hver evaluering."
+        }
+      }
+    },
+    "box": {
+      "name": "Find hvor noget er",
+      "description": "Spørg, hvor noget er på det aktuelle billede fra et kamera eller en billedentitet. Svaret er en box: dens venstre, øverste, højre og nederste kant som brøkdele af billedets bredde og højde fra øverste venstre hjørne, med en sikkerhed. Kræver Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Billede",
+          "description": "Kameraet eller billedentiteten, hvis aktuelle billede skal gennemsøges."
+        },
+        "instructions": {
+          "name": "Hvad skal findes",
+          "description": "Beskriv det, der skal findes, for eksempel pakken på trappen. Der kommer altid en box, også når tingen ikke er der, så læs sikkerheden."
+        },
+        "background": {
+          "name": "Baggrund",
+          "description": "Valgfrit. Faste oplysninger om, hvordan det skal læses, for eksempel hvad en måling betyder for netop din enhed. Det følger med spørgsmålet i stedet for med målingerne, hvilket målbart virker bedre end at lægge det i tilstanden. Giver du et objekt i stedet for en sætning, beholder du dine egne nøglenavne, og modellen læser de nøgler."
+        },
+        "config_entry": {
+          "name": "API-nøgle",
+          "description": "Hvilken opsat nøgle der spørges med. Kun nødvendigt, når der er mere end én."
+        },
+        "model": {
+          "name": "Model",
+          "description": "Valgfri. Spørger denne model i stedet for postens, kun for dette kald. Et box-spørgsmål kræver Jev 1.14: jev-1.14.0 eller jev-preview."
         }
       }
     },
@@ -527,6 +569,12 @@
     },
     "attachment_not_image": {
       "message": "{attachment} er {mime_type}. Jev læser tekst og billeder, så vedhæft et kamerabillede eller en PNG- eller JPEG-fil."
+    },
+    "box_refused": {
+      "message": "{model} afviste en forespørgsel med et box-spørgsmål: {reason}. En box kræver Jev 1.14, så sæt model til jev-1.14.0 eller jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Spørgsmålet {key} er en box, og en box kræver et billede. Tilføj et kamera eller en billedentitet under images."
     }
   },
   "common": {

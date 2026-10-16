@@ -50,6 +50,60 @@ tokens](#what-a-picture-costs).
 Question sensors, the conversation agent, the question preview and the house check
 send text only.
 
+## Find where something is
+
+`jev.box` asks where something is in one camera or image entity, and answers with a
+box: its left, top, right and bottom edges as fractions of the picture, measured from
+the top left corner. Box needs Jev 1.14, and the integration asks `jev-latest` unless
+you set another model, so name the model on the call:
+
+```yaml
+- action: jev.box
+  response_variable: parcel
+  data:
+    image: camera.front_door
+    instructions: the parcel on the doorstep
+    model: jev-1.14.0
+```
+
+| Key | What it holds |
+|---|---|
+| `left`, `top`, `right`, `bottom` | Edges, 0 to 1, as fractions of the picture's width and height |
+| `confidence` | 0 to 1 |
+| `width`, `height` | The picture as the camera sent it, in pixels, upright |
+| `model`, `usage`, `latency_ms` | As on every action |
+
+An edge in pixels is the fraction times the side:
+`{{ (parcel.left * parcel.width) | round }}`. The edges are fractions of the camera's
+own picture, not of the smaller one that was sent, so this holds for any camera.
+
+A box always comes back, also when the thing is not in the picture. In one test on a
+blank frame, the box covered the whole picture at confidence 0.12. With the thing in
+the frame, the same question answered within 0.02 of each true edge at confidence
+0.92. That is one sample of each, so ask a yes/no question beside it when the thing
+may not be there:
+
+```yaml
+- action: jev.ask
+  response_variable: door
+  data:
+    images: [camera.front_door]
+    model: jev-1.14.0
+    questions:
+      parcel: { type: noul, instructions: Is there a parcel on the doorstep? }
+      where: { type: box, instructions: the parcel on the doorstep }
+- if: "{{ door.answers.parcel.noul > 0.8 }}"
+  then:
+    - action: notify.mobile_app
+      data:
+        message: >-
+          Parcel at {{ (door.answers.where.left * 100) | round }}% from the left.
+```
+
+In `jev.ask`, a box question needs at least one picture under `images:`, and the
+question has to say which picture when there is more than one. Question sensors take
+noul, choice and score only.
+
 ## Sizing
 
 The API takes PNG and JPEG with each side from 280 to 1568 pixels, and refuses
@@ -58,8 +112,9 @@ comes. So every picture is prepared before it is sent:
 
 - rotated upright from its EXIF orientation, which the API ignores;
 - scaled to fit 1568 pixels on its long side, or scaled up to 280 on its short side;
-- padded with white on its short side when it is more than 5.6 times as long as it
-  is wide, because both limits cannot be met by scaling alone;
+- stretched on its short side when it is more than 5.6 times as long as it is wide,
+  because both limits cannot be met by scaling alone. Stretching, unlike padding,
+  keeps a [box](#find-where-something-is) in the same fractions of your picture;
 - transparency filled with white, and sent as a JPEG.
 
 ## What a picture costs
