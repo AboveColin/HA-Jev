@@ -8,7 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.template import Template
-from jevclient import Choice, Noul, Question, Score
+from jevclient import Box, Choice, Noul, Question, Score
 
 from .const import (
     CONF_BACKGROUND,
@@ -17,6 +17,7 @@ from .const import (
     CONF_INSTRUCTIONS,
     CONF_THRESHOLD,
     CONF_TRUE,
+    TYPE_BOX,
     TYPE_CHOICE,
     TYPE_NOUL,
     TYPE_SCORE,
@@ -102,6 +103,8 @@ def build_question(raw: dict[str, Any]) -> Question:
         return Choice(instructions, raw[CONF_CRITERIA])
     if kind == TYPE_SCORE:
         return Score(instructions, raw[CONF_CRITERIA])
+    if kind == TYPE_BOX:
+        return Box(instructions)
     raise ValueError(f"unknown question type {kind!r}")
 
 

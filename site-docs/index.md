@@ -17,10 +17,10 @@ This integration puts that in three places in Home Assistant.
 
     [Your first question](first-question.md)
 
--   **Four actions for automations**
+-   **Five actions for automations**
 
-    `jev.noul`, `jev.choice`, `jev.score` and `jev.ask`, each returning the answer as
-    a response variable.
+    `jev.noul`, `jev.choice`, `jev.score`, `jev.ask` and `jev.box`, each returning
+    the answer as a response variable.
 
     [Actions](actions.md)
 

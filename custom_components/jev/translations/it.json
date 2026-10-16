@@ -227,6 +227,10 @@
           "name": "Chiave API",
           "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
         },
+        "model": {
+          "name": "Modello",
+          "description": "Facoltativo. Interroga questo modello invece di quello della voce, solo per questa chiamata. Una domanda box richiede Jev 1.14: jev-1.14.0 o jev-preview."
+        },
         "include_attributes": {
           "name": "Includi tutti gli attributi",
           "description": "Disattivo per impostazione predefinita. Invia ogni attributo delle entità scelte, non solo il valore, l'unità, la classe del dispositivo e l'area. Una previsione meteo o l'elenco delle copertine di un lettore multimediale arriva a migliaia di token, e li paghi a ogni valutazione."
@@ -265,6 +269,10 @@
           "name": "Chiave API",
           "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
         },
+        "model": {
+          "name": "Modello",
+          "description": "Facoltativo. Interroga questo modello invece di quello della voce, solo per questa chiamata. Una domanda box richiede Jev 1.14: jev-1.14.0 o jev-preview."
+        },
         "include_attributes": {
           "name": "Includi tutti gli attributi",
           "description": "Disattivo per impostazione predefinita. Invia ogni attributo delle entità scelte, non solo il valore, l'unità, la classe del dispositivo e l'area. Una previsione meteo o l'elenco delle copertine di un lettore multimediale arriva a migliaia di token, e li paghi a ogni valutazione."
@@ -299,6 +307,10 @@
           "name": "Chiave API",
           "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
         },
+        "model": {
+          "name": "Modello",
+          "description": "Facoltativo. Interroga questo modello invece di quello della voce, solo per questa chiamata. Una domanda box richiede Jev 1.14: jev-1.14.0 o jev-preview."
+        },
         "include_attributes": {
           "name": "Includi tutti gli attributi",
           "description": "Disattivo per impostazione predefinita. Invia ogni attributo delle entità scelte, non solo il valore, l'unità, la classe del dispositivo e l'area. Una previsione meteo o l'elenco delle copertine di un lettore multimediale arriva a migliaia di token, e li paghi a ogni valutazione."
@@ -323,15 +335,45 @@
         },
         "questions": {
           "name": "Domande",
-          "description": "Una tua chiave per ogni domanda, poi il suo tipo tra noul, choice e score, le sue istruzioni, e i criteri per choice e score. Le chiavi sono tue: tornano come chiavi delle risposte e il modello non le vede mai."
+          "description": "Una tua chiave per ogni domanda, poi il suo tipo tra noul, choice e score, le sue istruzioni, e i criteri per choice e score. Le chiavi sono tue: tornano come chiavi delle risposte e il modello non le vede mai. Una domanda box trova dove si trova qualcosa nelle immagini in images, e richiede Jev 1.14."
         },
         "config_entry": {
           "name": "Chiave API",
           "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
         },
+        "model": {
+          "name": "Modello",
+          "description": "Facoltativo. Interroga questo modello invece di quello della voce, solo per questa chiamata. Una domanda box richiede Jev 1.14: jev-1.14.0 o jev-preview."
+        },
         "include_attributes": {
           "name": "Includi tutti gli attributi",
           "description": "Disattivo per impostazione predefinita. Invia ogni attributo delle entità scelte, non solo il valore, l'unità, la classe del dispositivo e l'area. Una previsione meteo o l'elenco delle copertine di un lettore multimediale arriva a migliaia di token, e li paghi a ogni valutazione."
+        }
+      }
+    },
+    "box": {
+      "name": "Trova dove si trova qualcosa",
+      "description": "Chiede dove si trova qualcosa nell'immagine attuale di una telecamera o di un'entità immagine. La risposta è una box: i suoi bordi sinistro, superiore, destro e inferiore come frazioni della larghezza e dell'altezza dell'immagine, dall'angolo in alto a sinistra, con una confidenza. Richiede Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Immagine",
+          "description": "La telecamera o l'entità immagine di cui si esamina l'immagine attuale."
+        },
+        "instructions": {
+          "name": "Cosa trovare",
+          "description": "Descrivi cosa trovare, per esempio il pacco davanti alla porta. Una box arriva sempre, anche quando la cosa non c'è, quindi leggi la confidenza."
+        },
+        "background": {
+          "name": "Informazioni di base",
+          "description": "Facoltativo. Fatti fissi su come leggere questo dato, per esempio che cosa significa una lettura per il tuo dispositivo specifico. Viaggiano con la domanda invece che con le letture, e questo funziona misurabilmente meglio che metterle nello stato. Un oggetto invece di una frase mantiene i tuoi nomi di chiave, e il modello legge quelle chiavi."
+        },
+        "config_entry": {
+          "name": "Chiave API",
+          "description": "Con quale chiave configurata fare la domanda. Serve solo quando ne è configurata più di una."
+        },
+        "model": {
+          "name": "Modello",
+          "description": "Facoltativo. Interroga questo modello invece di quello della voce, solo per questa chiamata. Una domanda box richiede Jev 1.14: jev-1.14.0 o jev-preview."
         }
       }
     },
@@ -527,6 +569,12 @@
     },
     "attachment_not_image": {
       "message": "{attachment} è {mime_type}. Jev legge testo e immagini, quindi allega un'istantanea della videocamera o un file PNG o JPEG."
+    },
+    "box_refused": {
+      "message": "{model} ha rifiutato una richiesta con una domanda box: {reason}. Una box richiede Jev 1.14, quindi imposta model su jev-1.14.0 o jev-preview."
+    },
+    "box_needs_image": {
+      "message": "La domanda {key} è una box, e una box ha bisogno di un'immagine. Aggiungi una telecamera o un'entità immagine in images."
     }
   },
   "common": {

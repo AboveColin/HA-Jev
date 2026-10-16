@@ -4,6 +4,10 @@ The API takes one **state** and a set of **questions**, and answers each one
 independently. There are three kinds of question, and the integration uses the API's
 own names for them so what you pick in the UI is what goes over the wire.
 
+Jev 1.14 adds a fourth, Box, which finds where something is in a picture. It is
+asked through `jev.box` and `jev.ask` only, because it needs a picture. See
+[cameras and images](images.md#find-where-something-is).
+
 ## Noul
 
 A probability from 0 to 1. No confidence figure, because the number is the

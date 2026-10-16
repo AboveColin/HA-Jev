@@ -260,6 +260,23 @@ A 1920 x 1080 frame sent as it came was refused, 400 "Invalid image dimensions".
 same frame scaled to 1568 x 882 was estimated at 3,584 tokens for the picture and
 billed 3,928 for the whole request, which asked one yes/no and one box question.
 
+## Where a box lands
+
+On 2026-10-16, against `jev-1.14.0` and `jev-1.13.0`, with a red square on a white
+frame. The square's true edges were 0.6 left, 0.2 top, 0.8 right and 0.5 bottom.
+
+| Request | Box, left top right bottom | Confidence |
+|---|---|---|
+| `jev-1.14.0`, 784 x 588 under the key `photo`, the question naming `photo` | 0.59, 0.19, 0.79, 0.50 | 0.96 |
+| `jev-1.14.0`, 1920 x 1080 scaled to 1568 x 882, labelled like an entity under `images`, the question not naming it | 0.59, 0.18, 0.80, 0.50 | 0.92 |
+| the same frame with no square in it | 0.01, 0.01, 0.99, 0.99 | 0.12 |
+| `jev-1.13.0`, the first row's request | 400 "Invalid request." | |
+
+The second row is the shape `jev.box` sends, and it is why the question does not need
+to name the picture when there is only one. The third row is why the docs say to read
+the confidence: a box comes back whether or not the thing is there. Each row is one
+request.
+
 ## A command that is already done reads as a low-confidence one
 
 Three runs per starting state, one sentence, one entity, nothing else changed:

@@ -34,6 +34,9 @@ logger:
 | "Could not get a picture from" | The camera did not answer within 10 seconds, or is unavailable. The text after the colon is Home Assistant's reason |
 | "is not an image Jev can read" | The camera sent something that is not a picture, often an error page |
 | An AI Task says "Jev reads text and images" | An attachment is a video or another file type |
+| "refused a request with a box question" | The model is not Jev 1.14. Add `model: jev-1.14.0` to the call |
+| "a box needs a picture" | A `jev.ask` box question was sent with nothing under `images:` |
+| A box covers the whole picture | The thing is probably not there. Read `confidence`, or ask a noul beside it |
 
 ## The answer does not track the world
 

@@ -26,6 +26,8 @@ CONF_PRICE_PER_MILLION: Final = "price_per_million"
 TYPE_NOUL: Final = "noul"
 TYPE_CHOICE: Final = "choice"
 TYPE_SCORE: Final = "score"
+# Asked through jev.ask and jev.box only. A sensor has no picture to ask it about.
+TYPE_BOX: Final = "box"
 
 ATTR_CONFIDENCE: Final = "confidence"
 ATTR_PROBABILITIES: Final = "probabilities"
@@ -96,6 +98,7 @@ SERVICE_NOUL: Final = "noul"
 SERVICE_CHOICE: Final = "choice"
 SERVICE_SCORE: Final = "score"
 SERVICE_CALIBRATE: Final = "calibrate"
+SERVICE_BOX: Final = "box"
 
 CONF_TRUE_MEANS: Final = "true_means"
 CONF_FALSE_MEANS: Final = "false_means"
@@ -225,6 +228,7 @@ def provider_for_url(base_url: str) -> str:
 # --- Images ---
 
 CONF_IMAGES: Final = "images"
+CONF_IMAGE: Final = "image"
 
 # An image is billed 2 input tokens per 28 x 28 pixel patch, a part patch counted
 # whole. Measured on 2026-10-16 against jev-1.14.0: every request was 287 tokens plus

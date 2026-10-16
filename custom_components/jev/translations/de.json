@@ -227,6 +227,10 @@
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
@@ -265,6 +269,10 @@
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
@@ -299,6 +307,10 @@
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
@@ -323,15 +335,45 @@
         },
         "questions": {
           "name": "Fragen",
-          "description": "Dein eigener Schlüssel pro Frage, dann ihr Typ noul, choice oder score, ihre Anweisungen, und Kriterien bei choice und score. Die Schlüssel gehören dir: Sie kommen als Schlüssel der Antworten zurück, und das Modell sieht sie nie."
+          "description": "Dein eigener Schlüssel pro Frage, dann ihr Typ noul, choice oder score, ihre Anweisungen, und Kriterien bei choice und score. Die Schlüssel gehören dir: Sie kommen als Schlüssel der Antworten zurück, und das Modell sieht sie nie. Eine Box-Frage findet, wo etwas auf den Bildern unter images ist, und braucht Jev 1.14."
         },
         "config_entry": {
           "name": "API-Schlüssel",
           "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
         },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
+        },
         "include_attributes": {
           "name": "Alle Attribute mitsenden",
           "description": "Standardmäßig aus. Sendet jedes Attribut der gewählten Entitäten mit, nicht nur Wert, Einheit, Geräteklasse und Bereich. Eine Wettervorhersage oder die Coverliste eines Media Players geht in die Tausende von Tokens, und die bezahlst du bei jeder Auswertung."
+        }
+      }
+    },
+    "box": {
+      "name": "Finden, wo etwas ist",
+      "description": "Fragt, wo etwas auf dem aktuellen Bild einer Kamera oder Bild-Entität ist. Die Antwort ist eine Box: ihre linke, obere, rechte und untere Kante als Anteile von Breite und Höhe des Bildes, von der oberen linken Ecke aus, mit einer Konfidenz. Braucht Jev 1.14.",
+      "fields": {
+        "image": {
+          "name": "Bild",
+          "description": "Die Kamera oder Bild-Entität, deren aktuelles Bild durchsucht wird."
+        },
+        "instructions": {
+          "name": "Was finden",
+          "description": "Beschreibe, was gefunden werden soll, etwa das Paket vor der Tür. Eine Box kommt immer zurück, auch wenn das Gesuchte nicht da ist, also lies die Konfidenz."
+        },
+        "background": {
+          "name": "Hintergrund",
+          "description": "Optional. Feste Angaben dazu, wie das zu lesen ist, etwa was ein Messwert bei deinem Gerät bedeutet. Es reist mit der Frage mit statt mit den Messwerten, was messbar besser funktioniert, als es in den Zustand zu schreiben. Ein Objekt statt eines Satzes behält deine eigenen Schlüsselnamen, und das Modell liest diese Schlüssel."
+        },
+        "config_entry": {
+          "name": "API-Schlüssel",
+          "description": "Mit welchem eingerichteten Schlüssel gefragt wird. Nur nötig, wenn mehr als einer eingerichtet ist."
+        },
+        "model": {
+          "name": "Modell",
+          "description": "Optional. Fragt dieses Modell statt des Modells des Eintrags, nur für diesen Aufruf. Eine Box-Frage braucht Jev 1.14: jev-1.14.0 oder jev-preview."
         }
       }
     },
@@ -527,6 +569,12 @@
     },
     "attachment_not_image": {
       "message": "{attachment} ist {mime_type}. Jev liest Text und Bilder, also hänge einen Kamera-Schnappschuss oder eine PNG- oder JPEG-Datei an."
+    },
+    "box_refused": {
+      "message": "{model} hat eine Anfrage mit einer Box-Frage abgelehnt: {reason}. Eine Box braucht Jev 1.14, setze model also auf jev-1.14.0 oder jev-preview."
+    },
+    "box_needs_image": {
+      "message": "Die Frage {key} ist eine Box, und eine Box braucht ein Bild. Füge unter images eine Kamera oder eine Bild-Entität hinzu."
     }
   },
   "common": {

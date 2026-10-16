@@ -149,8 +149,9 @@ def _fit(picture: PILImage.Image) -> PILImage.Image:
 
     Both sides fit after one scale unless the image is more than 5.6 times as wide
     as it is tall, or the other way round. Then the long side is fitted and the
-    short side padded with white, because stretching it would change what the
-    model sees.
+    short side stretched to 280. A box comes back in fractions of the picture as
+    sent, and stretching keeps those the same fractions of the source, where
+    padding would shift them.
     """
     width, height = picture.size
     scale = min(1.0, MAX_IMAGE_SIDE / max(width, height))
@@ -158,21 +159,13 @@ def _fit(picture: PILImage.Image) -> PILImage.Image:
         scale = min(
             MIN_IMAGE_SIDE / min(width, height), MAX_IMAGE_SIDE / max(width, height)
         )
-    size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    size = (
+        max(MIN_IMAGE_SIDE, round(width * scale)),
+        max(MIN_IMAGE_SIDE, round(height * scale)),
+    )
     if size != picture.size:
         picture = picture.resize(size, PILImage.Resampling.LANCZOS)
-    if min(picture.size) >= MIN_IMAGE_SIDE:
-        return picture
-    padded = PILImage.new(
-        "RGB",
-        (max(picture.width, MIN_IMAGE_SIDE), max(picture.height, MIN_IMAGE_SIDE)),
-        "white",
-    )
-    padded.paste(
-        picture,
-        ((padded.width - picture.width) // 2, (padded.height - picture.height) // 2),
-    )
-    return padded
+    return picture
 
 
 async def async_entity_image(hass: HomeAssistant, entity_id: str) -> PreparedImage:
@@ -209,7 +202,14 @@ async def async_entity_images(
     images = no_images()
     for entity_id in entity_ids:
         prepared = await async_entity_image(hass, entity_id)
-        state = hass.states.get(entity_id)
-        name = state.name if state is not None else entity_id
-        images.add({"name": name, "entity_id": entity_id}, prepared)
+        images.add(entity_label(hass, entity_id), prepared)
     return images
+
+
+def entity_label(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
+    """What names a picture in the state, so a question can say "the front door"."""
+    state = hass.states.get(entity_id)
+    return {
+        "name": state.name if state is not None else entity_id,
+        "entity_id": entity_id,
+    }
