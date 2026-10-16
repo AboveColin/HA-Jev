@@ -140,20 +140,19 @@ class _AnsweringSession:
             404,
             '{"error": {"message": "No endpoint found matching /api/v1/systemone"}}',
             "not_found",
-            'HTTP 404: {"error": {"message": "No endpoint found matching '
-            '/api/v1/systemone"}}',
+            "HTTP 404: No endpoint found matching /api/v1/systemone",
         ),
         (
             500,
             '{"error": {"message": "internal error"}}',
             "api_error",
-            'HTTP 500: {"error": {"message": "internal error"}}',
+            "HTTP 500: internal error",
         ),
         (
             429,
             '{"error": {"message": "slow down"}}',
             "api_error",
-            'rate limited: {"error": {"message": "slow down"}}',
+            "rate limited: slow down",
         ),
         (200, "{}", "api_error", "the reply carries no answers object"),
         # OpenRouter's reply to a valid key on an account that never bought
@@ -163,15 +162,13 @@ class _AnsweringSession:
             '{"error":{"message":"Insufficient credits. This account never '
             'purchased credits.","code":402}}',
             "no_credit",
-            'HTTP 402: {"error":{"message":"Insufficient credits. This account '
-            'never purchased credits.","code":402}}',
+            "HTTP 402: Insufficient credits. This account never purchased credits.",
         ),
         (
             401,
             '{"error":{"message":"User not found.","code":401}}',
             "invalid_auth",
-            'the API key was rejected: {"error":{"message":"User not found.",'
-            '"code":401}}',
+            "the API key was rejected: User not found.",
         ),
     ],
 )
