@@ -1,0 +1,66 @@
+name: Bug report
+description: Jev crashes, refuses to set up, or gives an answer that is wrong for the state it read.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Questions about setup or about writing a question go to
+        [Discussions](https://github.com/AboveColin/HA-Jev/discussions/categories/q-a).
+        Before you open a bug, read
+        [Troubleshooting](https://jev.cdevries.dev/troubleshooting/) and search
+        the open issues.
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: Settings, About.
+      placeholder: "2026.10.1"
+    validations:
+      required: true
+  - type: input
+    id: jev_version
+    attributes:
+      label: Jev version
+      description: Settings, Devices and services, Jev. Or the version in HACS.
+      placeholder: "1.22.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      description: The provider the entry uses.
+      options:
+        - Jev (TypeSafe)
+        - SubQ Snap
+        - OpenRouter
+        - Local server
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: >-
+        What you did, what Jev did, and what you expected. For a wrong answer,
+        give the question and the state from the preview.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >-
+        Settings, Devices and services, Jev, three dot menu, Download diagnostics.
+        Drag the file here. The API key is redacted, but entity names and states
+        stay in, so read the file first.
+  - type: textarea
+    id: log
+    attributes:
+      label: Debug log
+      description: >-
+        Add `custom_components.jev: debug` under `logger: logs:` in
+        configuration.yaml, restart, and make the problem happen again. Paste the
+        lines from `custom_components.jev`.
+      render: text

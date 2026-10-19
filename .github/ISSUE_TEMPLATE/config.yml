@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or setup help
+    url: https://github.com/AboveColin/HA-Jev/discussions/categories/q-a
+    about: How to set up Jev, write a question, or read an answer.
+  - name: Documentation
+    url: https://jev.cdevries.dev/
+    about: Install, questions, actions, troubleshooting.
+  - name: Security problem
+    url: https://github.com/AboveColin/HA-Jev/security/advisories/new
+    about: Report it privately, not in a public issue.
