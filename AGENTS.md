@@ -127,6 +127,14 @@ limit in `const.py` carries a comment with the measurement that sized it.
 - The subject says what changed for the user, in plain language: "The key is
   optional, and the endpoint is half the unique id (#14)".
 - A release bumps `version` in `manifest.json` in a commit named `Release x.y.z`.
+- Jev is in the HACS default list, so every release is an update notice for every
+  user. Collect fixes into one release rather than one release per fix. A message
+  or docs fix waits for the next release unless it blocks setup.
+- A change that needs testing at home ships first as a beta: version `x.y.zbN`,
+  published as a GitHub prerelease. HACS offers it only to users who turn on the
+  Pre-release switch of the Jev repository.
+- The release notes are the text HACS shows in its update dialog. Write them for
+  the user: what changed for them, and what they must do, if anything.
 - Push, open a pull request or comment on an issue only when the maintainer asks.
 
 ## Where code lives

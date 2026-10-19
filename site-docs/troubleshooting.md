@@ -63,6 +63,12 @@ states stay in, so read the file before pasting it into a public issue.
 
 ## Reporting something
 
-[Open an issue](https://github.com/AboveColin/HA-Jev/issues) with the diagnostics
-file and, if the problem is an answer rather than a crash, the state from the
-preview. An answer without the state it read is not something anyone can debug.
+[Open a bug report](https://github.com/AboveColin/HA-Jev/issues/new?template=bug_report.yml)
+with the diagnostics file and, if the problem is an answer rather than a crash, the
+state from the preview. An answer without the state it read is not something anyone
+can debug.
+
+Questions about setup or about writing a question go to
+[Discussions](https://github.com/AboveColin/HA-Jev/discussions/categories/q-a).
+Report a security problem privately, as [SECURITY.md](https://github.com/AboveColin/HA-Jev/blob/main/SECURITY.md)
+describes.
