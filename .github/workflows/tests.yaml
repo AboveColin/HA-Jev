@@ -10,7 +10,7 @@ jobs:
     name: ruff
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # src, not paths in args: the action appends the workspace to args, so a
       # path there makes it lint the whole checkout including the README.
       # Pinned, so a new ruff release cannot fail a commit that passed locally.
@@ -30,8 +30,8 @@ jobs:
     name: pytest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - run: pip install -r requirements-test.txt
@@ -44,8 +44,8 @@ jobs:
     name: mypy --strict
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - run: pip install -r requirements-test.txt mypy==2.3.1
