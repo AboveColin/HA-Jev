@@ -1,7 +1,7 @@
 [![Tests](https://github.com/AboveColin/HA-Jev/actions/workflows/tests.yaml/badge.svg)](https://github.com/AboveColin/HA-Jev/actions/workflows/tests.yaml)
 [![hassfest](https://github.com/AboveColin/HA-Jev/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/AboveColin/HA-Jev/actions/workflows/hassfest.yaml)
 [![HACS Action](https://github.com/AboveColin/HA-Jev/actions/workflows/hacs.yaml/badge.svg)](https://github.com/AboveColin/HA-Jev/actions/workflows/hacs.yaml)
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
 [![Home Assistant](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FAboveColin%2FHA-Jev%2Fmain%2Fhacs.json&query=%24.homeassistant&label=Home%20Assistant&prefix=%E2%89%A5%20&color=41BDF5&logo=homeassistant)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/AboveColin/HA-Jev)](https://github.com/AboveColin/HA-Jev/releases)
 [![License](https://img.shields.io/github/license/AboveColin/HA-Jev)](LICENSE)
@@ -68,12 +68,11 @@ Requires Home Assistant 2026.9 or newer and an API key from
 
 ### HACS
 
-Jev is not in the HACS default list, so add it as a custom repository once.
+Jev is in the HACS default list, so there is no custom repository to add.
 
-1. HACS, then the three dot menu, then **Custom repositories**.
-2. Paste `https://github.com/AboveColin/HA-Jev`, set Type to **Integration**, **Add**.
-3. Search HACS for **Jev**, then **Download**.
-4. Restart Home Assistant.
+1. Open **HACS** in Home Assistant.
+2. Search for **Jev**, then **Download**.
+3. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=AboveColin&repository=HA-Jev&category=integration)
 
