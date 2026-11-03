@@ -1,5 +1,6 @@
 """Fixtures. Nothing here talks to TypeSafe: the client is replaced everywhere."""
 
+import re
 from unittest.mock import DEFAULT, AsyncMock, patch
 
 import pytest
@@ -17,6 +18,17 @@ API_KEY = "test-key-not-a-real-one"
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Without this the custom component is never loaded."""
     return
+
+
+@pytest.fixture(autouse=True)
+def not_ollama(aioclient_mock):
+    """Setup asks a local server whether it is Ollama. By default, it is not.
+
+    Without an answer the question goes out on the network, and an entry with an
+    address of its own fails to set up. A test about Ollama clears this and
+    registers its own reply.
+    """
+    aioclient_mock.get(re.compile(r"/api/version$"), status=404)
 
 
 @pytest.fixture(autouse=True)
