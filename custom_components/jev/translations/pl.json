@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Pytanie {key} jest typu box, a box potrzebuje obrazu. Dodaj kamerę lub encję obrazu w images."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev nie wysłał odpowiedzi typu {type} na pytanie {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Pytanie {question} ma {count} poziomów, a ocena przyjmuje od {min} do {max}."
     }
   },
   "common": {

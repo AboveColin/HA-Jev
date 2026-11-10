@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "问题 {key} 是 box，而 box 需要画面。请在 images 中添加摄像头或图像实体。"
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev 没有为问题 {question} 返回 {type} 答案。"
+    },
+    "question_levels_out_of_range": {
+      "message": "问题 {question} 有 {count} 个等级，而评分需要 {min} 到 {max} 个。"
     }
   },
   "common": {

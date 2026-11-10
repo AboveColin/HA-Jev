@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Question {key} is a box, and a box needs a picture. Add a camera or an image entity under images."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev sent no {type} answer for question {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Question {question} has {count} levels, and a score takes {min} to {max}."
     }
   },
   "common": {

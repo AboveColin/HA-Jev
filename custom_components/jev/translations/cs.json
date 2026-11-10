@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Otázka {key} je box a box potřebuje obrázek. Přidejte do images kameru nebo entitu obrázku."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev neposlal žádnou odpověď typu {type} na otázku {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Otázka {question} má {count} úrovní a hodnocení potřebuje {min} až {max}."
     }
   },
   "common": {

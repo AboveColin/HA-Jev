@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Вопрос {key} — это box, а для box нужен снимок. Добавьте камеру или объект изображения в images."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev не прислал ответ типа {type} на вопрос {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "У вопроса {question} {count} уровней, а оценка принимает от {min} до {max}."
     }
   },
   "common": {

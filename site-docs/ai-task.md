@@ -37,6 +37,53 @@ sensor to catch up.
 `triage.data.caller` is one of the three options you wrote. `triage.data.urgency` is
 a number between 0 and 10.
 
+## Decision tasks
+
+Home Assistant 2026.11 added `ai_task.evaluate`, a task that asks typed questions and
+returns probabilities instead of text. Its question types are Jev's own, so the
+questions go to Jev as you wrote them. The entity shows up as a choice for the
+Decision default under Settings > AI, which is how to point it at a local server such
+as Ollama with a Clef model.
+
+```yaml
+- action: ai_task.evaluate
+  response_variable: check
+  data:
+    task_name: window check
+    entity_id: ai_task.jev
+    state:
+      hall_window: "{{ states('binary_sensor.hall_window') }}"
+      outside_temperature: "{{ states('sensor.outside_temperature') }}"
+    questions:
+      window_open:
+        type: noul
+        instructions: Is a window open?
+      room:
+        type: choice
+        instructions: Which room should be checked first?
+        criteria:
+          hall: The hall
+          attic: The attic
+      urgency:
+        type: score
+        instructions: How urgent is closing it?
+        criteria: [Not urgent, Soon, Now]
+- if: "{{ check.answers.window_open.noul > 0.8 }}"
+  then:
+    - action: notify.mobile_app
+      data: { message: "Check the {{ check.answers.room.choice }}." }
+```
+
+Each answer carries its whole distribution. A choice has a probability for every
+option and a score has one for every level, in the order you wrote them, with `0.0`
+for any Jev gave no weight. `score` is the expected level, counted from 0, so `1.6`
+above sits between Soon and Now.
+
+`state` goes to Jev as written, text or JSON, and attached images go beside it the
+same way as for `generate_data`. The budget is checked before the request, and Jev
+takes at most 10 levels in a score, so an 11 level score is refused before it is
+sent.
+
 ## When to use it instead of a question
 
 A [question](questions-ui.md) is evaluated on a schedule or when its entities change,

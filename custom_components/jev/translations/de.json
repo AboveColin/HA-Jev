@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Die Frage {key} ist eine Box, und eine Box braucht ein Bild. Füge unter images eine Kamera oder eine Bild-Entität hinzu."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev hat keine {type}-Antwort auf die Frage {question} geschickt."
+    },
+    "question_levels_out_of_range": {
+      "message": "Die Frage {question} hat {count} Stufen, und eine Bewertung braucht {min} bis {max}."
     }
   },
   "common": {

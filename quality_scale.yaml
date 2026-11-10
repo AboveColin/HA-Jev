@@ -87,7 +87,9 @@ rules:
       agent all start it when TypeSafe rejects the key.
   test-coverage:
     status: done
-    comment: 98% measured across 933 tests, enforced in CI.
+    comment: >-
+      97% measured across 953 tests, enforced in CI at 96%. The 9 decision task
+      tests skip under the pinned harness, which predates Home Assistant 2026.11.
 
   # Gold
   devices: done

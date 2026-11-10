@@ -30,7 +30,9 @@ Not affiliated with TypeSafe. The API client is
   response variable.
 - An [AI Task](https://jev.cdevries.dev/ai-task/) entity answers
   `ai_task.generate_data` when it is called. A boolean, select or number field
-  becomes the matching question.
+  becomes the matching question. On Home Assistant 2026.11 and later it also answers
+  the decision task `ai_task.evaluate`, and can be the Decision default under
+  Settings > AI.
 - Actions and the AI Task can [look at cameras](https://jev.cdevries.dev/images/):
   list camera or image entities, or attach a snapshot, and the picture goes in beside
   the state, scaled to what the API takes. `jev.box` finds where something is in a
