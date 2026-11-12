@@ -346,8 +346,11 @@ async def _image_format(hass: HomeAssistant, provider: str, base_url: str) -> st
     with 217 input tokens through `assets`, and 0.92 with 418 through `images`.
 
     Only a local server can be Ollama, and Ollama answers GET /api/version with its
-    version, so that is asked once per setup. Anything that does not answer it keeps
-    the format the hosted providers take.
+    version, so that is asked once per setup. Anything that answers it with something
+    else keeps the format the hosted providers take. A server that cannot be reached
+    is not ready, so setup retries: taking it for "not Ollama" would leave a down
+    Ollama without its pictures until the next reload, and the probe question after
+    this does not catch that when the day's budget is spent.
     """
     if provider != PROVIDER_LOCAL:
         return IMAGE_FORMAT_ASSETS
@@ -359,7 +362,13 @@ async def _image_format(hass: HomeAssistant, provider: str, base_url: str) -> st
             if response.status != 200:
                 return IMAGE_FORMAT_ASSETS
             data = await response.json(content_type=None)
-    except (aiohttp.ClientError, TimeoutError, ValueError):
+    except (aiohttp.ClientConnectionError, TimeoutError) as err:
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="ask_failed",
+            translation_placeholders={"reason": f"{base_url} did not answer: {err!r}"},
+        ) from err
+    except (aiohttp.ClientError, ValueError):
         return IMAGE_FORMAT_ASSETS
     if isinstance(data, dict) and isinstance(data.get("version"), str):
         _LOGGER.debug(

@@ -1001,8 +1001,6 @@ def _local_entry(hass, url: str = OLLAMA, provider: str = "local") -> MockConfig
         ({"status": 404, "text": "404 page not found"}, "assets"),
         ({"json": {"detail": "Not Found"}}, "assets"),
         ({"text": "<html>a proxy</html>"}, "assets"),
-        ({"exc": aiohttp.ClientConnectionError()}, "assets"),
-        ({"exc": TimeoutError()}, "assets"),
     ],
 )
 async def test_a_local_server_that_is_ollama_is_sent_images_its_way(
@@ -1017,6 +1015,33 @@ async def test_a_local_server_that_is_ollama_is_sent_images_its_way(
 
     kwargs = mock_client.built_by_setup.call_args.kwargs
     assert kwargs["image_format"] == image_format
+
+
+@pytest.mark.parametrize(
+    "error", [aiohttp.ClientConnectionError(), TimeoutError()], ids=repr
+)
+async def test_a_local_server_that_does_not_answer_is_asked_again(
+    hass, mock_client, aioclient_mock, error
+):
+    """A down Ollama is not ready, not "not Ollama": its retry still gets images.
+
+    The probe question that follows would catch most of these, but not with the
+    day's budget spent, which skips it.
+    """
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{OLLAMA}/api/version", exc=error)
+    entry = _local_entry(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    mock_client.built_by_setup.assert_not_called()
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{OLLAMA}/api/version", json={"version": "0.40.13"})
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert mock_client.built_by_setup.call_args.kwargs["image_format"] == "ollama"
 
 
 async def test_a_hosted_provider_is_never_asked_if_it_is_ollama(
