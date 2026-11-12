@@ -7,6 +7,7 @@ script asks at the moment it runs and reads the answer in the next step.
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.components.ai_task import AITaskEntityFeature
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -65,8 +66,10 @@ async def generate(hass, structure, instructions="the hall window reads open"):
 async def test_the_entity_is_there_and_belongs_to_the_service_device(hass, task_entry):
     state = hass.states.get(ENTITY_ID)
     assert state is not None
-    # GENERATE_DATA and SUPPORT_ATTACHMENTS, for camera snapshots and other images
-    assert state.attributes["supported_features"] == 3
+    # GENERATE_DATA and SUPPORT_ATTACHMENTS, for camera snapshots and other images,
+    # and EVALUATE on a Home Assistant that has decision tasks (2026.11 and later)
+    evaluate = getattr(AITaskEntityFeature, "EVALUATE", 0)
+    assert state.attributes["supported_features"] == 3 | evaluate
 
     entity_entry = er.async_get(hass).async_get(ENTITY_ID)
     assert entity_entry.unique_id == f"{task_entry.entry_id}_ai_task"

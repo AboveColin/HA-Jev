@@ -353,7 +353,7 @@ async def test_an_ai_task_refuses_an_attachment_that_is_no_image(
     entity = JevAITaskEntity(task_entry)
     entity.hass = hass
     with pytest.raises(ServiceValidationError) as err:
-        await entity._async_images(task)
+        await entity._async_images(task.attachments)
     assert err.value.translation_key == "attachment_not_image"
     assert err.value.translation_placeholders["mime_type"] == "video/mp4"
     mock_client.ask.assert_not_awaited()

@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Vraag {key} is een box, en een box heeft een beeld nodig. Voeg onder images een camera of afbeeldingsentiteit toe."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev stuurde geen {type}-antwoord op vraag {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Vraag {question} heeft {count} niveaus, en een score neemt er {min} tot {max}."
     }
   },
   "common": {

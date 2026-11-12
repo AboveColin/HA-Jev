@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Spørgsmålet {key} er en box, og en box kræver et billede. Tilføj et kamera eller en billedentitet under images."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev sendte intet {type}-svar på spørgsmålet {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Spørgsmålet {question} har {count} niveauer, og en score tager {min} til {max}."
     }
   },
   "common": {

@@ -13,6 +13,11 @@ answered with something invented.
 An image attachment, such as a camera snapshot, goes into the request beside the
 instructions. Any other attachment is refused, because Jev reads text and pictures
 and nothing else.
+
+The same entity answers `ai_task.evaluate`, the decision task Home Assistant added in
+2026.11. Its question types are Jev's own, noul, choice and score, so the questions go
+out as written and the answers come back with their probabilities. That makes the
+entity one of the choices for the Decision default under Settings > AI.
 """
 
 from __future__ import annotations
@@ -25,12 +30,20 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 from jevclient import (
+    MAX_CHOICE_OPTIONS,
+    MAX_SCORE_LEVELS,
+    MIN_CHOICE_OPTIONS,
+    MIN_SCORE_LEVELS,
     Answer,
+    Choice,
     ChoiceAnswer,
     JevAuthError,
     JevError,
     JevResponse,
+    Noul,
     NoulAnswer,
+    Question,
+    Score,
     ScoreAnswer,
 )
 
@@ -45,7 +58,19 @@ from .structure import RESERVED_KEY, questions_from_structure, values_from_answe
 PARALLEL_UPDATES = 0
 
 if TYPE_CHECKING:
+    from homeassistant.components.ai_task.evaluation import (
+        EvaluationAnswer,
+        EvaluationQuestion,
+        EvaluationTask,
+        EvaluationTaskResult,
+    )
+    from homeassistant.components.conversation import Attachment
+
     from . import JevConfigEntry
+
+# Home Assistant 2026.11 added decision tasks. hacs.json still allows 2026.9, where
+# the flag does not exist, and there the entity offers what it offered before.
+_EVALUATE = getattr(ai_task.AITaskEntityFeature, "EVALUATE", 0)
 
 
 async def async_setup_entry(
@@ -69,6 +94,7 @@ class JevAITaskEntity(ai_task.AITaskEntity):
     _attr_supported_features = (
         ai_task.AITaskEntityFeature.GENERATE_DATA
         | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
+        | _EVALUATE
     )
 
     def __init__(self, entry: JevConfigEntry) -> None:
@@ -88,8 +114,46 @@ class JevAITaskEntity(ai_task.AITaskEntity):
                 translation_placeholders={"task": task.name},
             )
         questions = questions_from_structure(task.structure)
-        images = await self._async_images(task)
-        state = with_images(task.instructions, images)
+        images = await self._async_images(task.attachments)
+        response = await self._async_ask(
+            task.name, with_images(task.instructions, images), questions, images
+        )
+        data = values_from_answers(task.structure, response.answers)
+        data[RESERVED_KEY] = _certainty(response)
+        return ai_task.GenDataTaskResult(
+            conversation_id=chat_log.conversation_id, data=data
+        )
+
+    # No @override: Home Assistant before 2026.11 has no such method to override, and
+    # the type check runs against the oldest release hacs.json allows.
+    async def _async_evaluate(self, task: EvaluationTask) -> EvaluationTaskResult:
+        """Answer a decision task. Home Assistant has validated the questions."""
+        # Imported here because the module is new in 2026.11, and this method only
+        # runs on a release that has it.
+        from homeassistant.components.ai_task import evaluation
+
+        questions = {
+            key: _question(key, question) for key, question in task.questions.items()
+        }
+        images = await self._async_images(task.attachments)
+        response = await self._async_ask(
+            task.name, with_images(task.state, images), questions, images
+        )
+        return evaluation.EvaluationTaskResult(
+            answers={
+                key: _evaluation_answer(key, task.questions[key], response)
+                for key in task.questions
+            }
+        )
+
+    async def _async_ask(
+        self,
+        task_name: str,
+        state: Any,
+        questions: dict[str, Question],
+        images: RequestImages,
+    ) -> JevResponse:
+        """One request, refused before it is sent if it would not fit the budget."""
         usage = self._runtime.usage
         usage.roll_over(dt_util.now().date())
         request_bytes = payload_bytes(state, questions, self._runtime.model)
@@ -99,7 +163,7 @@ class JevAITaskEntity(ai_task.AITaskEntity):
                 translation_domain=DOMAIN,
                 translation_key="task_over_budget",
                 translation_placeholders={
-                    "task": task.name,
+                    "task": task_name,
                     "estimate": str(estimate),
                     "remaining": str(usage.remaining()),
                     "budget": str(usage.budget),
@@ -128,17 +192,12 @@ class JevAITaskEntity(ai_task.AITaskEntity):
         usage.record(response.usage.input_tokens, request_bytes, images.tokens)
         self._runtime.model_version = response.model or self._runtime.model_version
         usage.notify()
+        return response
 
-        data = values_from_answers(task.structure, response.answers)
-        data[RESERVED_KEY] = _certainty(response)
-        return ai_task.GenDataTaskResult(
-            conversation_id=chat_log.conversation_id, data=data
-        )
-
-    async def _async_images(self, task: ai_task.GenDataTask) -> RequestImages:
+    async def _async_images(self, attachments: list[Attachment] | None) -> RequestImages:
         """Every attachment, prepared. Home Assistant has already written each to disk."""
         images = no_images()
-        for attachment in task.attachments or []:
+        for attachment in attachments or []:
             if not attachment.mime_type.startswith("image/"):
                 raise ServiceValidationError(
                     translation_domain=DOMAIN,
@@ -194,3 +253,77 @@ def _answer_detail(answer: Answer) -> dict[str, Any]:
             "nearest_level": answer.nearest_level,
         }
     return {}
+
+
+def _question(key: str, question: EvaluationQuestion) -> Question:
+    """A decision question as Jev takes it.
+
+    Home Assistant took the three types from Jev, so only the limits differ: it asks
+    for at least two options or levels and sets no top, and Jev sets one.
+    """
+    if question["type"] == "noul":
+        return Noul(instructions=question["instructions"])
+    if question["type"] == "choice":
+        options = question["criteria"]
+        if len(options) > MAX_CHOICE_OPTIONS:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="field_options_out_of_range",
+                translation_placeholders={
+                    "field": key,
+                    "count": str(len(options)),
+                    "min": str(MIN_CHOICE_OPTIONS),
+                    "max": str(MAX_CHOICE_OPTIONS),
+                },
+            )
+        return Choice(instructions=question["instructions"], criteria=dict(options))
+    levels = question["criteria"]
+    if len(levels) > MAX_SCORE_LEVELS:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="question_levels_out_of_range",
+            translation_placeholders={
+                "question": key,
+                "count": str(len(levels)),
+                "min": str(MIN_SCORE_LEVELS),
+                "max": str(MAX_SCORE_LEVELS),
+            },
+        )
+    return Score(instructions=question["instructions"], criteria=list(levels))
+
+
+def _evaluation_answer(
+    key: str, question: EvaluationQuestion, response: JevResponse
+) -> EvaluationAnswer:
+    """Jev's answer in the shape Home Assistant returns.
+
+    Jev leaves out an option or level it gives no weight, and Home Assistant wants one
+    probability for each, so the gaps are zero. A score's levels come back keyed by
+    their index as text, and Home Assistant wants them as a list in level order.
+    """
+    from homeassistant.components.ai_task import evaluation
+
+    answer = response.answers.get(key)
+    if question["type"] == "noul" and isinstance(answer, NoulAnswer):
+        return evaluation.NoulAnswer(noul=answer.noul)
+    if question["type"] == "choice" and isinstance(answer, ChoiceAnswer):
+        return evaluation.ChoiceAnswer(
+            choice=answer.choice,
+            probabilities={
+                option: answer.probabilities.get(option, 0.0)
+                for option in question["criteria"]
+            },
+        )
+    if question["type"] == "score" and isinstance(answer, ScoreAnswer):
+        return evaluation.ScoreAnswer(
+            score=answer.score,
+            probabilities=[
+                answer.probabilities.get(str(index), 0.0)
+                for index in range(len(question["criteria"]))
+            ],
+        )
+    raise HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="evaluation_answer_missing",
+        translation_placeholders={"question": key, "type": question["type"]},
+    )

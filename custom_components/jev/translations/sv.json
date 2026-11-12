@@ -575,6 +575,12 @@
     },
     "box_needs_image": {
       "message": "Frågan {key} är en box, och en box behöver en bild. Lägg till en kamera eller en bildentitet under images."
+    },
+    "evaluation_answer_missing": {
+      "message": "Jev skickade inget {type}-svar på frågan {question}."
+    },
+    "question_levels_out_of_range": {
+      "message": "Frågan {question} har {count} nivåer, och en poäng tar {min} till {max}."
     }
   },
   "common": {
