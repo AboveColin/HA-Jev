@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -34,6 +35,8 @@ from homeassistant.util import slugify
 from jevclient import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
+    IMAGE_FORMAT_ASSETS,
+    IMAGE_FORMAT_OLLAMA,
     JevAuthError,
     JevClient,
     JevError,
@@ -63,6 +66,7 @@ from .const import (
     HOUSE_CHECK_HOUR,
     ISSUE_BUDGET_EXCEEDED,
     MIN_UPDATE_INTERVAL_SECONDS,
+    PROVIDER_LOCAL,
     PROVIDERS,
     STORAGE_VERSION,
     TYPE_CHOICE,
@@ -332,6 +336,48 @@ def _warn_if_key_travels_in_clear(base_url: str, api_key: str) -> None:
     )
 
 
+async def _image_format(hass: HomeAssistant, provider: str, base_url: str) -> str:
+    """How this endpoint takes images: in `assets`, or as Ollama's `images` list.
+
+    Ollama serves /v1/systemone as well, but takes images as a list of base64 strings
+    and answers a request that carries them in `assets` as if it had no image: no
+    error, and the image's tokens never counted. Measured 2026-11-03 against Ollama
+    0.40.13 on a back yard snapshot with the bucket in view: clef:27b answered 0.32
+    with 217 input tokens through `assets`, and 0.92 with 418 through `images`.
+
+    Only a local server can be Ollama, and Ollama answers GET /api/version with its
+    version, so that is asked once per setup. Anything that answers it with something
+    else keeps the format the hosted providers take. A server that cannot be reached
+    is not ready, so setup retries: taking it for "not Ollama" would leave a down
+    Ollama without its pictures until the next reload, and the probe question after
+    this does not catch that when the day's budget is spent.
+    """
+    if provider != PROVIDER_LOCAL:
+        return IMAGE_FORMAT_ASSETS
+    try:
+        async with async_get_clientsession(hass).get(
+            f"{base_url.rstrip('/')}/api/version",
+            timeout=aiohttp.ClientTimeout(total=5),
+        ) as response:
+            if response.status != 200:
+                return IMAGE_FORMAT_ASSETS
+            data = await response.json(content_type=None)
+    except (aiohttp.ClientConnectionError, TimeoutError) as err:
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="ask_failed",
+            translation_placeholders={"reason": f"{base_url} did not answer: {err!r}"},
+        ) from err
+    except (aiohttp.ClientError, ValueError):
+        return IMAGE_FORMAT_ASSETS
+    if isinstance(data, dict) and isinstance(data.get("version"), str):
+        _LOGGER.debug(
+            "%s is Ollama %s, so images go in its format", base_url, data["version"]
+        )
+        return IMAGE_FORMAT_OLLAMA
+    return IMAGE_FORMAT_ASSETS
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     """Move an entry's unique id to the endpoint-and-key hash.
 
@@ -375,11 +421,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
     api_key = entry.data.get(CONF_API_KEY, "")
     _warn_if_key_travels_in_clear(base_url, api_key)
     model = entry.data.get(CONF_MODEL, DEFAULT_MODEL)
+    provider = entry.data.get(CONF_PROVIDER) or provider_for_url(base_url)
     client = JevClient(
         api_key,
         session=async_get_clientsession(hass),
         base_url=base_url,
         model=model,
+        image_format=await _image_format(hass, provider, base_url),
     )
     store: Store[dict[str, Any]] = Store(
         hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.usage"
@@ -388,10 +436,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: JevConfigEntry) -> bool:
         day=dt_util.now().date(),
         budget=entry.options.get(CONF_DAILY_TOKEN_BUDGET, 0),
         price_per_million=entry.options.get(
-            CONF_PRICE_PER_MILLION,
-            PROVIDERS[
-                entry.data.get(CONF_PROVIDER) or provider_for_url(base_url)
-            ].usd_per_million_input_tokens,
+            CONF_PRICE_PER_MILLION, PROVIDERS[provider].usd_per_million_input_tokens
         ),
         store=store,
         hass=hass,

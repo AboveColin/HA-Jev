@@ -47,6 +47,13 @@ The key may be left empty only for a local server that asks for none. No
 refused without spending a request, because those APIs answer 401 to every request
 without a key.
 
+[Ollama](https://docs.ollama.com/api/systemone) is a local server: give it
+`http://<host>:11434` and a decision model such as `clef:27b` or `clef-flash:9b`, and
+leave the key empty. Ollama takes images in a format of its own, so at setup the
+integration asks a local server for `/api/version`, and one that answers is sent
+images that way. Without it, Ollama answers a camera question as if it had no
+picture, and says nothing about it.
+
 The price in the table is where the cost sensor starts. Change it in the options if
 your provider bills you something else.
 

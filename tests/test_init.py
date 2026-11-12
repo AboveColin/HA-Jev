@@ -7,6 +7,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import aiohttp
 import pytest
 from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY, ConfigEntryState
 from homeassistant.const import CONF_API_KEY, CONF_URL
@@ -975,6 +976,84 @@ async def test_an_endpoint_with_no_key_puts_nothing_in_clear(hass, mock_client, 
     await hass.async_block_till_done()
 
     assert not any("in clear" in record.message for record in caplog.records)
+
+
+OLLAMA = "http://192.0.2.5:11434"
+
+
+def _local_entry(hass, url: str = OLLAMA, provider: str = "local") -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Local server",
+        data={CONF_API_KEY: "", CONF_URL: url, CONF_PROVIDER: provider},
+        unique_id=entry_unique_id(url, ""),
+        minor_version=3,
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+@pytest.mark.parametrize(
+    ("reply", "image_format"),
+    [
+        # Ollama 0.40.13, measured 2026-11-03.
+        ({"json": {"version": "0.40.13"}}, "ollama"),
+        ({"status": 404, "text": "404 page not found"}, "assets"),
+        ({"json": {"detail": "Not Found"}}, "assets"),
+        ({"text": "<html>a proxy</html>"}, "assets"),
+    ],
+)
+async def test_a_local_server_that_is_ollama_is_sent_images_its_way(
+    hass, mock_client, aioclient_mock, reply, image_format
+):
+    """Ollama ignores `assets` without an error, so it must be told apart at setup."""
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{OLLAMA}/api/version", **reply)
+    entry = _local_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    kwargs = mock_client.built_by_setup.call_args.kwargs
+    assert kwargs["image_format"] == image_format
+
+
+@pytest.mark.parametrize(
+    "error", [aiohttp.ClientConnectionError(), TimeoutError()], ids=repr
+)
+async def test_a_local_server_that_does_not_answer_is_asked_again(
+    hass, mock_client, aioclient_mock, error
+):
+    """A down Ollama is not ready, not "not Ollama": its retry still gets images.
+
+    The probe question that follows would catch most of these, but not with the
+    day's budget spent, which skips it.
+    """
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{OLLAMA}/api/version", exc=error)
+    entry = _local_entry(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    mock_client.built_by_setup.assert_not_called()
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{OLLAMA}/api/version", json={"version": "0.40.13"})
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert mock_client.built_by_setup.call_args.kwargs["image_format"] == "ollama"
+
+
+async def test_a_hosted_provider_is_never_asked_if_it_is_ollama(
+    hass, mock_client, aioclient_mock, config_entry
+):
+    """TypeSafe, SubQ and OpenRouter take `assets`, and the question costs a request."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 0
+    assert mock_client.built_by_setup.call_args.kwargs["image_format"] == "assets"
 
 
 async def test_two_contexts_at_once_cannot_both_spend_the_last_of_the_budget(
